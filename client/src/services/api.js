@@ -131,6 +131,8 @@ export const issueAPI = {
     const queryString = searchParams.toString();
     return apiRequest(`/issues/my-reports${queryString ? `?${queryString}` : ''}`);
   },
+  provideInfo: (id, data) =>
+    apiRequest(`/issues/${id}/provide-info`, { method: 'POST', body: JSON.stringify(data) }),
 };
 
 /**
@@ -147,6 +149,12 @@ export const adminAPI = {
     const queryString = searchParams.toString();
     return apiRequest(`/admin/review-queue${queryString ? `?${queryString}` : ''}`);
   },
+  verifyIssue: (id, data) =>
+    apiRequest(`/admin/issues/${id}/verify`, { method: 'POST', body: JSON.stringify(data) }),
+  rejectIssue: (id, data) =>
+    apiRequest(`/admin/issues/${id}/reject`, { method: 'POST', body: JSON.stringify(data) }),
+  requestInfo: (id, data) =>
+    apiRequest(`/admin/issues/${id}/request-info`, { method: 'POST', body: JSON.stringify(data) }),
 };
 
 /**

@@ -141,3 +141,197 @@ export const getReviewQueue = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Verify and accept a submitted issue
+ * POST /api/admin/issues/:id/verify
+ */
+export const verifyIssue = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { note, visibility = 'public' } = req.body;
+
+    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Civic issue not found' });
+    }
+
+    if (['closed', 'rejected'].includes(issue.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot verify an issue that is already ${issue.status}`,
+      });
+    }
+
+    const previousStatus = issue.status;
+    issue.status = 'in_review';
+
+    issue.timeline.push({
+      status: 'in_review',
+      action: 'Issue Verified & Accepted',
+      performedBy: req.user._id,
+      note: note ? note.trim() : 'Issue details verified by administrator. Accepted for department routing.',
+      visibility: visibility === 'internal' ? 'internal' : 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: 'ISSUE_VERIFIED',
+      performedBy: req.user._id,
+      previousState: { status: previousStatus },
+      newState: { status: 'in_review', note },
+      ipAddress: req.ip || req.connection?.remoteAddress,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    const populated = await Issue.findById(issue._id)
+      .populate('category', 'name code icon defaultPriority estimatedSlaHours')
+      .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code defaultSlaHours')
+      .populate('reporter', 'name email phone')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('timeline.performedBy', 'name role');
+
+    return successResponse(res, 'Issue verified and accepted successfully', populated, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Reject an issue with a mandatory reason
+ * POST /api/admin/issues/:id/reject
+ */
+export const rejectIssue = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason, category = 'jurisdiction' } = req.body;
+
+    if (!reason || reason.trim().length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'A mandatory rejection reason of at least 10 characters is required',
+      });
+    }
+
+    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Civic issue not found' });
+    }
+
+    if (issue.status === 'closed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot reject a closed and verified issue',
+      });
+    }
+
+    const previousStatus = issue.status;
+    issue.status = 'rejected';
+
+    issue.timeline.push({
+      status: 'rejected',
+      action: 'Issue Rejected',
+      performedBy: req.user._id,
+      note: `Rejection (${category}): ${reason.trim()}`,
+      visibility: 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: 'ISSUE_REJECTED',
+      performedBy: req.user._id,
+      previousState: { status: previousStatus },
+      newState: { status: 'rejected', reason: reason.trim(), category },
+      ipAddress: req.ip || req.connection?.remoteAddress,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    const populated = await Issue.findById(issue._id)
+      .populate('category', 'name code icon defaultPriority estimatedSlaHours')
+      .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code defaultSlaHours')
+      .populate('reporter', 'name email phone')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('timeline.performedBy', 'name role');
+
+    return successResponse(res, 'Civic issue rejected', populated, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Request clarification / additional evidence from reporting citizen
+ * POST /api/admin/issues/:id/request-info
+ */
+export const requestInfo = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { message } = req.body;
+
+    if (!message || message.trim().length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'A clarification message of at least 10 characters is required',
+      });
+    }
+
+    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Civic issue not found' });
+    }
+
+    if (['closed', 'rejected'].includes(issue.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot request information on a ${issue.status} issue`,
+      });
+    }
+
+    const previousStatus = issue.status;
+    issue.status = 'info_requested';
+
+    issue.timeline.push({
+      status: 'info_requested',
+      action: 'Clarification Requested',
+      performedBy: req.user._id,
+      note: message.trim(),
+      visibility: 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: 'INFO_REQUESTED',
+      performedBy: req.user._id,
+      previousState: { status: previousStatus },
+      newState: { status: 'info_requested', message: message.trim() },
+      ipAddress: req.ip || req.connection?.remoteAddress,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    const populated = await Issue.findById(issue._id)
+      .populate('category', 'name code icon defaultPriority estimatedSlaHours')
+      .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code defaultSlaHours')
+      .populate('reporter', 'name email phone')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('timeline.performedBy', 'name role');
+
+    return successResponse(res, 'Information requested from citizen', populated, 200);
+  } catch (error) {
+    next(error);
+  }
+};

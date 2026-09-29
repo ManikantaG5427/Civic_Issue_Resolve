@@ -32,8 +32,8 @@ A feature can be marked Done only when:
 | **5** | **Map Location & GPS** | ✅ Done | `d721ed3` feat: add issue map location and GPS selection |
 | **6** | **Evidence Image Upload** | ✅ Done | `a5f2388` feat: add secure civic issue evidence uploads |
 | **7** | **My Reports & Detail** | ✅ Done | `9cdf182` feat: add citizen reports dashboard and issue timeline |
-| **8** | **Admin Review Queue** | ✅ Done | `feat: add administrator review queue and triage metrics` |
-| 9 | Verify, Reject, Request Info | ⏳ Pending | Admin status transitions with mandatory reasons |
+| **8** | **Admin Review Queue** | ✅ Done | `f0b3ced` feat: add administrator review queue and triage metrics |
+| **9** | **Verify, Reject, Request Info** | ✅ Done | `feat: add admin triage verify reject and request info workflow` |
 | 10 | Assignment Workflow | ⏳ Pending | Priority, department, and worker assignment |
 | 11 | Worker Dashboard | ⏳ Pending | Operational queue for assigned tasks |
 | 12 | Worker Progress Updates | ⏳ Pending | In-progress workflow & updates |

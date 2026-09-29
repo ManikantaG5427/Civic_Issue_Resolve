@@ -233,3 +233,74 @@ export const getIssueById = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Citizen provides requested clarification / info
+ * POST /api/issues/:id/provide-info
+ */
+export const provideRequestedInfo = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { responseNote } = req.body;
+
+    if (!responseNote || responseNote.trim().length < 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'A clarification note of at least 5 characters is required',
+      });
+    }
+
+    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Civic issue not found' });
+    }
+
+    // Only reporter or admin can provide info
+    if (
+      req.user.role === 'citizen' &&
+      issue.reporter.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to respond to this issue',
+      });
+    }
+
+    const previousStatus = issue.status;
+    issue.status = 'in_review';
+
+    issue.timeline.push({
+      status: 'in_review',
+      action: 'Citizen Provided Requested Information',
+      performedBy: req.user._id,
+      note: responseNote.trim(),
+      visibility: 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: 'INFO_PROVIDED',
+      performedBy: req.user._id,
+      previousState: { status: previousStatus },
+      newState: { status: 'in_review', responseNote: responseNote.trim() },
+      ipAddress: req.ip || req.connection?.remoteAddress,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    const populated = await Issue.findById(issue._id)
+      .populate('category', 'name code icon defaultPriority estimatedSlaHours')
+      .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code defaultSlaHours')
+      .populate('reporter', 'name email phone')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('timeline.performedBy', 'name role');
+
+    return successResponse(res, 'Clarification information submitted successfully', populated, 200);
+  } catch (error) {
+    next(error);
+  }
+};

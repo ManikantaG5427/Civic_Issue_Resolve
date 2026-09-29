@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -15,24 +15,40 @@ import {
   AlertCircle,
   ExternalLink,
   ChevronRight,
-  Sparkles,
+  ShieldAlert,
+  CheckCircle2,
+  XCircle,
+  HelpCircle,
+  Send,
+  MessageSquare,
+  AlertTriangle,
 } from 'lucide-react';
-import { issueAPI } from '../services/api';
+import { issueAPI, adminAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Timeline from '../components/Timeline';
 import MapPreview from '../components/MapPreview';
+
+const REJECTION_CATEGORIES = [
+  { value: 'jurisdiction', label: 'Out of Municipal Pilot Jurisdiction' },
+  { value: 'duplicate', label: 'Duplicate Civic Report' },
+  { value: 'insufficient_evidence', label: 'Insufficient Evidence / Unlocatable' },
+  { value: 'private_property', label: 'Private Property / Non-Civic Matter' },
+  { value: 'inappropriate', label: 'Inappropriate Content or Spam' },
+  { value: 'other', label: 'Other Operational Constraint' },
+];
 
 const getStatusDetails = (status) => {
   switch (status) {
     case 'submitted':
       return {
         label: 'Submitted',
-        desc: 'Your issue report has been recorded and is queued for administrative review.',
+        desc: 'Issue report has been recorded and is queued for administrative verification & triage.',
         color: 'bg-sky-500/10 text-sky-300 border-sky-500/30 ring-sky-500/20',
       };
     case 'in_review':
       return {
-        label: 'Under Review',
-        desc: 'An administrator is verifying details and assigning the responsible municipal department.',
+        label: 'Under Review & Verified',
+        desc: 'Administrator has verified the report. Ready for municipal department and worker dispatch.',
         color: 'bg-purple-500/10 text-purple-300 border-purple-500/30 ring-purple-500/20',
       };
     case 'assigned':
@@ -62,8 +78,14 @@ const getStatusDetails = (status) => {
     case 'rejected':
       return {
         label: 'Rejected',
-        desc: 'Issue could not be processed. Review administrative notes below for reason.',
+        desc: 'Issue could not be processed. Review administrative notes below for the verified reason.',
         color: 'bg-rose-500/10 text-rose-300 border-rose-500/30 ring-rose-500/20',
+      };
+    case 'info_requested':
+      return {
+        label: 'Clarification Requested',
+        desc: 'Administrator has requested additional details or photo proof from the reporting citizen.',
+        color: 'bg-yellow-500/10 text-yellow-300 border-yellow-500/30 ring-yellow-500/20',
       };
     default:
       return {
@@ -77,35 +99,154 @@ const getStatusDetails = (status) => {
 export default function IssueDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [issue, setIssue] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
 
-  useEffect(() => {
-    async function loadIssue() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await issueAPI.getIssueById(id);
-        if (res.data) {
-          setIssue(res.data);
-        }
-      } catch (err) {
-        setError(err.message || 'Failed to load civic issue details');
-      } finally {
-        setLoading(false);
+  // Admin Triage Modal States (Queue 9)
+  const [triageModal, setTriageModal] = useState(null); // 'verify' | 'reject' | 'request_info'
+  const [verifyNote, setVerifyNote] = useState('');
+  const [verifyVisibility, setVerifyVisibility] = useState('public');
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [rejectionCategory, setRejectionCategory] = useState('jurisdiction');
+  const [infoMessage, setInfoMessage] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState(null);
+  const [actionSuccess, setActionSuccess] = useState(null);
+
+  // Citizen Clarification Submission State
+  const [citizenResponseNote, setCitizenResponseNote] = useState('');
+  const [citizenSubmitting, setCitizenSubmitting] = useState(false);
+  const [citizenError, setCitizenError] = useState(null);
+
+  const loadIssue = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await issueAPI.getIssueById(id);
+      if (res.data) {
+        setIssue(res.data);
       }
+    } catch (err) {
+      setError(err.message || 'Failed to load civic issue details');
+    } finally {
+      setLoading(false);
     }
-    loadIssue();
   }, [id]);
+
+  useEffect(() => {
+    loadIssue();
+  }, [loadIssue]);
 
   const handleCopyTicket = () => {
     if (!issue?.issueNumber) return;
     navigator.clipboard.writeText(issue.issueNumber);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // 1. Admin: Verify Issue
+  const handleVerifySubmit = async (e) => {
+    e.preventDefault();
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await adminAPI.verifyIssue(issue.issueNumber || issue._id, {
+        note: verifyNote,
+        visibility: verifyVisibility,
+      });
+      if (res.data) {
+        setIssue(res.data);
+        setActionSuccess('Issue verified and accepted for municipal department assignment.');
+        setTriageModal(null);
+        setVerifyNote('');
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to verify issue');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 2. Admin: Reject Issue
+  const handleRejectSubmit = async (e) => {
+    e.preventDefault();
+    if (!rejectionReason || rejectionReason.trim().length < 10) {
+      setActionError('A mandatory rejection reason of at least 10 characters is required.');
+      return;
+    }
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await adminAPI.rejectIssue(issue.issueNumber || issue._id, {
+        reason: rejectionReason,
+        category: rejectionCategory,
+      });
+      if (res.data) {
+        setIssue(res.data);
+        setActionSuccess('Issue rejected with mandatory audit reason recorded.');
+        setTriageModal(null);
+        setRejectionReason('');
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to reject issue');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 3. Admin: Request Info
+  const handleRequestInfoSubmit = async (e) => {
+    e.preventDefault();
+    if (!infoMessage || infoMessage.trim().length < 10) {
+      setActionError('A clarification prompt of at least 10 characters is required.');
+      return;
+    }
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await adminAPI.requestInfo(issue.issueNumber || issue._id, {
+        message: infoMessage,
+      });
+      if (res.data) {
+        setIssue(res.data);
+        setActionSuccess('Clarification requested from citizen. Status transitioned to Info Requested.');
+        setTriageModal(null);
+        setInfoMessage('');
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to request information');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 4. Citizen: Provide Clarification
+  const handleCitizenResponseSubmit = async (e) => {
+    e.preventDefault();
+    if (!citizenResponseNote || citizenResponseNote.trim().length < 5) {
+      setCitizenError('Please enter a response of at least 5 characters.');
+      return;
+    }
+    setCitizenSubmitting(true);
+    setCitizenError(null);
+    try {
+      const res = await issueAPI.provideInfo(issue.issueNumber || issue._id, {
+        responseNote: citizenResponseNote,
+      });
+      if (res.data) {
+        setIssue(res.data);
+        setActionSuccess('Thank you! Your clarification has been recorded and submitted for review.');
+        setCitizenResponseNote('');
+      }
+    } catch (err) {
+      setCitizenError(err.message || 'Failed to submit clarification');
+    } finally {
+      setCitizenSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -156,17 +297,21 @@ export default function IssueDetailPage() {
 
   const statusInfo = getStatusDetails(issue.status);
   const [lng, lat] = issue.location?.coordinates || [78.3967, 17.4849];
+  const isAdmin = user?.role === 'administrator' || user?.role === 'super_admin';
+  const isReporter = user?.role === 'citizen' && (issue.reporter?._id === user?._id || issue.reporter === user?._id);
+  const canAdminTriage = isAdmin && !['closed', 'rejected'].includes(issue.status);
+  const canRespondInfo = (isReporter || isAdmin) && issue.status === 'info_requested';
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-fade-in">
       {/* Back Navigation Bar */}
       <div className="flex items-center justify-between gap-4">
         <Link
-          to="/my-reports"
+          to={isAdmin ? '/admin/review-queue' : '/my-reports'}
           className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-teal-400 transition group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span>Back to My Reports</span>
+          <span>Back to {isAdmin ? 'Review Queue' : 'My Reports'}</span>
         </Link>
 
         <div className="flex items-center gap-2">
@@ -189,6 +334,22 @@ export default function IssueDetailPage() {
           </button>
         </div>
       </div>
+
+      {/* Success Notification */}
+      {actionSuccess && (
+        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm flex items-center justify-between gap-3 shadow-lg shadow-emerald-500/5">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <span>{actionSuccess}</span>
+          </div>
+          <button
+            onClick={() => setActionSuccess(null)}
+            className="text-xs text-emerald-400 hover:text-white font-semibold"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Hero Header Card */}
       <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800 relative overflow-hidden shadow-2xl space-y-4">
@@ -229,6 +390,113 @@ export default function IssueDetailPage() {
           </p>
         </div>
       </div>
+
+      {/* Queue 9 Feature: Administrator Triage Control Center */}
+      {canAdminTriage && (
+        <div className="p-6 rounded-3xl bg-slate-900/90 border border-sky-500/30 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white">
+                  Administrator Triage & Intake Actions (Queue 9)
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Verify validity, reject with mandatory reason, or request citizen clarification.
+                </p>
+              </div>
+            </div>
+
+            <div className="text-xs text-sky-400 bg-sky-500/10 px-3 py-1 rounded-full border border-sky-500/20 font-medium">
+              Zone: {issue.serviceArea?.name || 'Kukatpally'}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              onClick={() => {
+                setTriageModal('verify');
+                setActionError(null);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/20 transition"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Verify & Accept Issue</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setTriageModal('request_info');
+                setActionError(null);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold shadow-lg shadow-amber-600/20 transition"
+            >
+              <HelpCircle className="w-4 h-4" />
+              <span>Request Information</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setTriageModal('reject');
+                setActionError(null);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600 hover:text-white text-rose-300 border border-rose-500/30 text-xs font-semibold transition"
+            >
+              <XCircle className="w-4 h-4" />
+              <span>Reject Issue</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Citizen Clarification Response Box (When info_requested) */}
+      {canRespondInfo && (
+        <div className="p-6 rounded-3xl bg-yellow-500/10 border border-yellow-500/30 shadow-xl space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-yellow-500/20 text-yellow-300">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-yellow-200">
+                Action Required: Municipal Team Requested Clarification
+              </h3>
+              <p className="text-xs text-yellow-300/80">
+                Please provide the requested details or photos below so our field team can proceed.
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={handleCitizenResponseSubmit} className="space-y-3">
+            <textarea
+              rows={3}
+              value={citizenResponseNote}
+              onChange={(e) => setCitizenResponseNote(e.target.value)}
+              placeholder="Type your clarification response (e.g. pole number, nearby shop name, or additional context)..."
+              className="w-full bg-slate-950 border border-yellow-500/40 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400"
+            />
+
+            {citizenError && (
+              <p className="text-xs text-rose-400 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" />
+                {citizenError}
+              </p>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={citizenSubmitting}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-semibold text-xs transition shadow-lg shadow-yellow-500/20 disabled:opacity-50"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>{citizenSubmitting ? 'Submitting...' : 'Submit Clarification'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Main Grid: Details + Resolution Timeline */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -357,6 +625,21 @@ export default function IssueDetailPage() {
                   </span>
                 </div>
               </div>
+
+              {issue.reporter && (
+                <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Reported By</span>
+                    <span className="font-medium text-slate-200">{issue.reporter.name}</span>
+                    <span className="text-[11px] text-slate-400 block">
+                      {issue.reporter.phone || issue.reporter.email}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -376,6 +659,219 @@ export default function IssueDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Admin Verify Modal */}
+      {triageModal === 'verify' && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-emerald-500/30 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-scale-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                Verify & Accept Civic Report
+              </h3>
+              <button
+                onClick={() => setTriageModal(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleVerifySubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Verification Audit Note (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={verifyNote}
+                  onChange={(e) => setVerifyNote(e.target.value)}
+                  placeholder="e.g. Validated location on GIS. Severity confirmed. Approved for road maintenance routing."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Note Visibility
+                </label>
+                <select
+                  value={verifyVisibility}
+                  onChange={(e) => setVerifyVisibility(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="public">Public (Visible to Citizen)</option>
+                  <option value="internal">Internal (Municipal Admins & Workers Only)</option>
+                </select>
+              </div>
+
+              {actionError && (
+                <p className="text-xs text-rose-400 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {actionError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setTriageModal(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/20 transition disabled:opacity-50"
+                >
+                  {actionLoading ? 'Accepting...' : 'Confirm Verification'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Reject Modal (Queue 9: Mandatory Reason) */}
+      {triageModal === 'reject' && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-500/30 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-scale-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <XCircle className="w-5 h-5 text-rose-400" />
+                Reject Civic Report
+              </h3>
+              <button
+                onClick={() => setTriageModal(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleRejectSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Rejection Classification
+                </label>
+                <select
+                  value={rejectionCategory}
+                  onChange={(e) => setRejectionCategory(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200 focus:outline-none focus:border-rose-500"
+                >
+                  {REJECTION_CATEGORIES.map((cat) => (
+                    <option key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Mandatory Rejection Explanation <span className="text-rose-400">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Explain clearly to the citizen why this report cannot be resolved by the municipal corporation (min 10 chars)..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                />
+                <span className="text-[11px] text-slate-400">
+                  This explanation is permanently logged in the public audit timeline.
+                </span>
+              </div>
+
+              {actionError && (
+                <p className="text-xs text-rose-400 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {actionError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setTriageModal(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-lg shadow-rose-600/20 transition disabled:opacity-50"
+                >
+                  {actionLoading ? 'Rejecting...' : 'Reject Report'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Request Info Modal */}
+      {triageModal === 'request_info' && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-yellow-500/30 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-scale-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-yellow-400" />
+                Request Information from Citizen
+              </h3>
+              <button
+                onClick={() => setTriageModal(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleRequestInfoSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Clarification Prompt <span className="text-yellow-400">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={infoMessage}
+                  onChange={(e) => setInfoMessage(e.target.value)}
+                  placeholder="Specify what details are missing (e.g. Landmark is ambiguous, please clarify building name or pole ID)..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-yellow-500"
+                />
+              </div>
+
+              {actionError && (
+                <p className="text-xs text-rose-400 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {actionError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setTriageModal(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-semibold shadow-lg shadow-yellow-600/20 transition disabled:opacity-50"
+                >
+                  {actionLoading ? 'Sending...' : 'Send Request'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Photo Modal */}
       {selectedPhoto && (
