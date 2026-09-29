@@ -24,7 +24,7 @@ A feature can be marked Done only when:
 
 | Queue | Feature | Status | Commit / Notes |
 |---|---|---|---|
-| **0** | **Project Foundation** | 🔄 In Progress | Foundation setup (client, server, health route, error handler) |
+| **0** | **Project Foundation** | ✅ Done | `418631d` chore: initialize MERN project foundation |
 | 1 | Authentication | ⏳ Pending | Register, login, logout, JWT, protected routes |
 | 2 | Roles & Permissions | ⏳ Pending | RBAC (Citizen, Worker, Admin, Super Admin) |
 | 3 | Configuration Data | ⏳ Pending | Categories, departments, service areas, seed script |
