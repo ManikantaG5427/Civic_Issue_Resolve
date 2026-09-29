@@ -26,8 +26,8 @@ A feature can be marked Done only when:
 |---|---|---|---|
 | **0** | **Project Foundation** | ✅ Done | `418631d` chore: initialize MERN project foundation |
 | **1** | **Authentication** | ✅ Done | `ed5712c` feat: add authentication with JWT and protected routes |
-| **2** | **Roles & Permissions** | ✅ Done | `feat: add role-based access control and permissions` |
-| 3 | Configuration Data | ⏳ Pending | Categories, departments, service areas, seed script |
+| **2** | **Roles & Permissions** | ✅ Done | `62d828e` feat: add role-based access control and permissions |
+| **3** | **Configuration Data** | ✅ Done | `feat: add civic categories departments and service areas` |
 | 4 | Citizen Creates Issue | ⏳ Pending | Issue reporting with category, title, description, location |
 | 5 | Map Location & GPS | ⏳ Pending | Leaflet/OSM map pin selection, GeoJSON storage |
 | 6 | Evidence Image Upload | ⏳ Pending | Multer photo evidence upload & preview |

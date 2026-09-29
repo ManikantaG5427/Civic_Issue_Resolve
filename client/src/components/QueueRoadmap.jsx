@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Smartphone, Database, Lock, Layers } from 'lucide-react';
+import { ShieldCheck, Smartphone, Database, Lock, Layers, FilePlus2 } from 'lucide-react';
 
 export default function QueueRoadmap() {
   const queues = [
@@ -20,14 +20,14 @@ export default function QueueRoadmap() {
     {
       id: 2,
       name: 'Roles & RBAC',
-      status: 'active',
+      status: 'done',
       desc: 'Citizen, Field Worker, Admin, Super Admin backend permissions & routes.',
       icon: ShieldCheck,
     },
     {
       id: 3,
       name: 'Configuration Data',
-      status: 'pending',
+      status: 'active',
       desc: 'Categories, departments, pilot service areas, seed scripts, & admin APIs.',
       icon: Layers,
     },

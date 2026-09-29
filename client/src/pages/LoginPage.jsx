@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Lock, Mail, Eye, EyeOff, AlertCircle, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, AlertCircle, ArrowRight, Sparkles, User, HardHat, ShieldCheck, Crown } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -15,6 +15,12 @@ export default function LoginPage() {
   const location = useLocation();
 
   const from = location.state?.from?.pathname || '/dashboard';
+
+  const handleFillDemo = (demoEmail) => {
+    setEmail(demoEmail);
+    setPassword('Password123!');
+    setFormError('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -114,6 +120,67 @@ export default function LoginPage() {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
+
+          {/* 1-Click Demo Accounts Quick-Fill */}
+          <div className="mt-6 pt-5 border-t border-slate-800">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-teal-400" />
+                Quick-Fill Demo Accounts
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">Password: Password123!</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleFillDemo('citizen@civicresolve.org')}
+                className="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-750 border border-slate-700 text-left text-xs transition flex items-center space-x-2"
+              >
+                <User className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                <div className="truncate">
+                  <div className="font-semibold text-slate-200">Citizen</div>
+                  <div className="text-[10px] text-slate-400 truncate">citizen@...</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFillDemo('worker@civicresolve.org')}
+                className="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-750 border border-slate-700 text-left text-xs transition flex items-center space-x-2"
+              >
+                <HardHat className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <div className="truncate">
+                  <div className="font-semibold text-slate-200">Worker</div>
+                  <div className="text-[10px] text-slate-400 truncate">worker@...</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFillDemo('admin@civicresolve.org')}
+                className="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-750 border border-slate-700 text-left text-xs transition flex items-center space-x-2"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <div className="truncate">
+                  <div className="font-semibold text-slate-200">Admin</div>
+                  <div className="text-[10px] text-slate-400 truncate">admin@...</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFillDemo('superadmin@civicresolve.org')}
+                className="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-750 border border-slate-700 text-left text-xs transition flex items-center space-x-2"
+              >
+                <Crown className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                <div className="truncate">
+                  <div className="font-semibold text-slate-200">Super Admin</div>
+                  <div className="text-[10px] text-slate-400 truncate">superadmin@...</div>
+                </div>
+              </button>
+            </div>
+          </div>
 
           <div className="mt-6 pt-5 border-t border-slate-800 text-center">
             <p className="text-xs text-slate-400">

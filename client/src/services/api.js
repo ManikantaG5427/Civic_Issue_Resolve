@@ -104,3 +104,13 @@ export const authAPI = {
   getMe: () => apiRequest('/auth/me'),
   refresh: (refreshToken) => apiRequest('/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
 };
+
+/**
+ * System Configuration API Endpoints
+ */
+export const configAPI = {
+  getCategories: () => apiRequest('/categories'),
+  getDepartments: () => apiRequest('/departments'),
+  getServiceAreas: () => apiRequest('/service-areas'),
+  getConfigSummary: () => apiRequest('/config/summary'),
+};

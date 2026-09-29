@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShieldAlert, LogIn, LogOut, UserPlus, LayoutDashboard, Crown, ShieldCheck, HardHat, User } from 'lucide-react';
+import { ShieldAlert, LogIn, LogOut, UserPlus, LayoutDashboard, Layers } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
@@ -44,7 +44,7 @@ export default function Navbar() {
             </div>
           </Link>
           <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-500/10 text-teal-400 border border-teal-500/20">
-            Queue 2 · RBAC
+            Queue 3 · Configuration
           </span>
         </div>
 
@@ -56,6 +56,16 @@ export default function Navbar() {
             }`}
           >
             Overview
+          </Link>
+
+          <Link
+            to="/catalog"
+            className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              location.pathname === '/catalog' ? 'text-teal-400' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>Civic Catalog</span>
           </Link>
 
           {isAuthenticated ? (

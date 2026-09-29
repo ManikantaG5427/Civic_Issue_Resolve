@@ -2,6 +2,12 @@ import express from 'express';
 import healthRoutes from './healthRoutes.js';
 import authRoutes from './authRoutes.js';
 import rbacRoutes from './rbacRoutes.js';
+import configRoutes from './configRoutes.js';
+import {
+  getServiceAreas,
+  getDepartments,
+  getCategories,
+} from '../controllers/configController.js';
 
 const router = express.Router();
 
@@ -13,5 +19,11 @@ router.use('/auth', authRoutes);
 
 // Mount role-based permission verification routes
 router.use('/rbac', rbacRoutes);
+
+// Mount system configuration routes
+router.use('/config', configRoutes);
+router.get('/service-areas', getServiceAreas);
+router.get('/departments', getDepartments);
+router.get('/categories', getCategories);
 
 export default router;
