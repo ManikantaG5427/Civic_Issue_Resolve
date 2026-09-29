@@ -11,6 +11,7 @@ import ReportIssuePage from './pages/ReportIssuePage';
 import MyReportsPage from './pages/MyReportsPage';
 import IssueDetailPage from './pages/IssueDetailPage';
 import AdminReviewQueuePage from './pages/AdminReviewQueuePage';
+import WorkerDashboardPage from './pages/WorkerDashboardPage';
 import ConfigCatalogPage from './pages/ConfigCatalogPage';
 import ForbiddenPage from './pages/ForbiddenPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -50,6 +51,14 @@ export default function App() {
                 element={
                   <RoleRoute allowedRoles={['administrator', 'super_admin']}>
                     <AdminReviewQueuePage />
+                  </RoleRoute>
+                }
+              />
+              <Route
+                path="/worker/tasks"
+                element={
+                  <RoleRoute allowedRoles={['field_worker', 'super_admin']}>
+                    <WorkerDashboardPage />
                   </RoleRoute>
                 }
               />

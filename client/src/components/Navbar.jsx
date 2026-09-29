@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShieldAlert, LogIn, LogOut, UserPlus, LayoutDashboard, Layers, FilePlus2, FileText } from 'lucide-react';
+import { ShieldAlert, LogIn, LogOut, UserPlus, LayoutDashboard, Layers, FilePlus2, FileText, HardHat } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
@@ -43,8 +43,8 @@ export default function Navbar() {
               </span>
             </div>
           </Link>
-          <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-            Queue 10 · Dispatch & SLA
+          <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            Queue 11 · Worker Tasks
           </span>
         </div>
 
@@ -94,6 +94,20 @@ export default function Navbar() {
                     <span>My Reports</span>
                   </Link>
                 </>
+              )}
+
+              {(user?.role === 'field_worker' || user?.role === 'super_admin') && (
+                <Link
+                  to="/worker/tasks"
+                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition ${
+                    location.pathname === '/worker/tasks'
+                      ? 'bg-amber-500 text-slate-950'
+                      : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  }`}
+                >
+                  <HardHat className="w-3.5 h-3.5" />
+                  <span>Tasks</span>
+                </Link>
               )}
 
               {(user?.role === 'administrator' || user?.role === 'super_admin') && (

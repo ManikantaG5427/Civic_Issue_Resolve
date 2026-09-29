@@ -170,6 +170,22 @@ export const adminAPI = {
 };
 
 /**
+ * Field Worker Operational API Endpoints
+ */
+export const workerAPI = {
+  getTasks: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '' && value !== 'all') {
+        searchParams.append(key, value);
+      }
+    });
+    const queryString = searchParams.toString();
+    return apiRequest(`/worker/tasks${queryString ? `?${queryString}` : ''}`);
+  },
+};
+
+/**
  * Evidence & Media Upload API Endpoints
  */
 export const uploadAPI = {

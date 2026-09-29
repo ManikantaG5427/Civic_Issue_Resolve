@@ -180,15 +180,23 @@ export default function DashboardPage() {
 
           {user?.role === 'field_worker' && (
             <>
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
-                  Field Queue
+              <Link
+                to="/worker/tasks"
+                className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-amber-500/50 space-y-2 block transition group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                    Field Queue
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-0.5 transition" />
                 </div>
-                <div className="text-sm font-medium text-white">Assigned Tasks</div>
+                <div className="text-sm font-medium text-white group-hover:text-amber-300 transition">
+                  Assigned Tasks Queue
+                </div>
                 <p className="text-xs text-slate-400">
-                  Inspect assigned civic repairs, GPS routes, and priority deadlines.
+                  Inspect assigned civic repairs, GPS routes, and active SLA resolution deadlines.
                 </p>
-              </div>
+              </Link>
 
               <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
                 <div className="text-xs font-semibold text-amber-400 uppercase tracking-wider">

@@ -6,6 +6,7 @@ import configRoutes from './configRoutes.js';
 import issueRoutes from './issueRoutes.js';
 import uploadRoutes from './uploadRoutes.js';
 import adminRoutes from './adminRoutes.js';
+import workerRoutes from './workerRoutes.js';
 import {
   getServiceAreas,
   getDepartments,
@@ -31,6 +32,9 @@ router.use('/uploads', uploadRoutes);
 
 // Mount administrator operations routes
 router.use('/admin', adminRoutes);
+
+// Mount field worker operations routes
+router.use('/worker', workerRoutes);
 
 // Mount system configuration routes
 router.use('/config', configRoutes);
