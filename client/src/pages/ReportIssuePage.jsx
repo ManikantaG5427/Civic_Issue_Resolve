@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { configAPI, issueAPI } from '../services/api';
+import LocationPickerMap from '../components/LocationPickerMap';
+import MapPreview from '../components/MapPreview';
 import {
   FilePlus2,
   Tag,
@@ -25,8 +27,8 @@ export default function ReportIssuePage() {
   const [description, setDescription] = useState('');
   const [landmark, setLandmark] = useState('');
   const [address, setAddress] = useState('');
-  const [latitude, setLatitude] = useState('17.4849');
-  const [longitude, setLongitude] = useState('78.3967');
+  const [latitude, setLatitude] = useState(17.4849);
+  const [longitude, setLongitude] = useState(78.3967);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
@@ -49,6 +51,10 @@ export default function ReportIssuePage() {
         if (areasRes.data?.length > 0) {
           setServiceAreaId(areasRes.data[0]._id);
           setAddress(`${areasRes.data[0].name}, ${areasRes.data[0].city}`);
+          if (areasRes.data[0].centerLocation?.coordinates) {
+            setLongitude(areasRes.data[0].centerLocation.coordinates[0]);
+            setLatitude(areasRes.data[0].centerLocation.coordinates[1]);
+          }
         }
       } catch {
         setFormError('Failed to load civic categories. Please make sure data is seeded.');
@@ -61,6 +67,11 @@ export default function ReportIssuePage() {
   }, []);
 
   const selectedCategory = categories.find((c) => c._id === categoryId);
+
+  const handleLocationChange = (newLat, newLng) => {
+    setLatitude(newLat);
+    setLongitude(newLng);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -92,7 +103,7 @@ export default function ReportIssuePage() {
         serviceArea: serviceAreaId,
         landmark: landmark.trim(),
         address: address.trim() || 'Kukatpally, Hyderabad',
-        coordinates: [parseFloat(longitude) || 78.3967, parseFloat(latitude) || 17.4849],
+        coordinates: [longitude, latitude], // [Lng, Lat] format for GeoJSON
       };
 
       const response = await issueAPI.createIssue(payload);
@@ -123,8 +134,15 @@ export default function ReportIssuePage() {
     }
   };
 
-  // SUCCESS CONFIRMATION VIEW
+  // SUCCESS CONFIRMATION VIEW WITH MAP PREVIEW
   if (submittedIssue) {
+    const issueLat = submittedIssue.location?.coordinates
+      ? submittedIssue.location.coordinates[1]
+      : latitude;
+    const issueLng = submittedIssue.location?.coordinates
+      ? submittedIssue.location.coordinates[0]
+      : longitude;
+
     return (
       <div className="min-h-[75vh] flex items-center justify-center py-8 px-4">
         <div className="max-w-xl w-full glass-panel p-8 sm:p-10 rounded-3xl border border-teal-500/30 bg-slate-900/80 shadow-2xl text-center space-y-6">
@@ -140,16 +158,32 @@ export default function ReportIssuePage() {
               Issue #{submittedIssue.issueNumber}
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
-              Your civic issue has been officially registered and queued for municipal administrator review in{' '}
+              Your civic issue has been officially registered and queued for municipal review in{' '}
               <span className="text-teal-400 font-semibold">{submittedIssue.serviceArea?.name}</span>.
             </p>
+          </div>
+
+          {/* Map Preview of Pinned Location */}
+          <div className="space-y-2 text-left">
+            <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+              <span className="flex items-center gap-1 font-medium">
+                <MapPin className="w-3.5 h-3.5 text-teal-400" />
+                Verified Issue Coordinates:
+              </span>
+              <span className="font-mono text-slate-300">
+                [{issueLng.toFixed(4)}, {issueLat.toFixed(4)}]
+              </span>
+            </div>
+            <MapPreview latitude={issueLat} longitude={issueLng} height="180px" />
           </div>
 
           {/* Issue Summary Card */}
           <div className="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 text-left text-xs sm:text-sm space-y-2.5">
             <div className="flex justify-between pb-2 border-b border-slate-800/80">
               <span className="text-slate-400">Issue Title:</span>
-              <span className="text-white font-semibold">{submittedIssue.title}</span>
+              <span className="text-white font-semibold truncate max-w-[280px]">
+                {submittedIssue.title}
+              </span>
             </div>
 
             <div className="flex justify-between pb-2 border-b border-slate-800/80">
@@ -211,7 +245,7 @@ export default function ReportIssuePage() {
               Report a Civic Issue
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Submit verifiable details for road, sanitation, water, or electrical issues in your neighborhood.
+              Select category, pin exact GPS location on the map, and describe the civic issue.
             </p>
           </div>
         </div>
@@ -376,42 +410,14 @@ export default function ReportIssuePage() {
               </div>
             </div>
 
-            {/* Coordinates / GPS Preview (Queue 4 baseline, Leaflet map interactive pin in Queue 5) */}
-            <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                  <Compass className="w-3.5 h-3.5 text-teal-400" />
-                  Geo-Coordinates [Lng, Lat]
-                </span>
-                <span className="text-[10px] text-slate-500 font-mono">
-                  Default: Kukatpally Pilot Center
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] text-slate-400 font-medium mb-1">
-                    Latitude
-                  </label>
-                  <input
-                    type="text"
-                    value={latitude}
-                    onChange={(e) => setLatitude(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-slate-400 font-medium mb-1">
-                    Longitude
-                  </label>
-                  <input
-                    type="text"
-                    value={longitude}
-                    onChange={(e) => setLongitude(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 font-mono"
-                  />
-                </div>
-              </div>
+            {/* Interactive Leaflet Location Picker Map (Queue 5) */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-4">
+              <LocationPickerMap
+                latitude={latitude}
+                longitude={longitude}
+                onChange={handleLocationChange}
+                height="320px"
+              />
             </div>
 
             {/* Submit Button */}

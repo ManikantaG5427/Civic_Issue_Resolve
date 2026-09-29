@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Smartphone, Database, Lock, Layers, FilePlus2, MapPin } from 'lucide-react';
+import { ShieldCheck, Database, Lock, Layers, FilePlus2, MapPin, Camera } from 'lucide-react';
 
 export default function QueueRoadmap() {
   const queues = [
@@ -34,15 +34,15 @@ export default function QueueRoadmap() {
     {
       id: 4,
       name: 'Citizen Creates Issue',
-      status: 'active',
+      status: 'done',
       desc: 'CIVIC-YYYY-XXXXXX ticket generator, submitted status, validation & timeline.',
       icon: FilePlus2,
     },
     {
       id: 5,
       name: 'Map Location & GPS',
-      status: 'pending',
-      desc: 'Interactive Leaflet OSM pin drop, draggable marker, & GeoJSON Point.',
+      status: 'active',
+      desc: 'Interactive Leaflet OSM pin drop, draggable marker, & browser GPS capture.',
       icon: MapPin,
     },
   ];
