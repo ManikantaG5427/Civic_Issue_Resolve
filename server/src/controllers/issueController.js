@@ -80,7 +80,7 @@ export const createIssue = async (req, res, next) => {
       },
     ];
 
-    // 6. Create Issue Record
+    // 6. Create Issue Record with Evidence
     const newIssue = new Issue({
       issueNumber,
       title: title.trim(),
@@ -97,6 +97,7 @@ export const createIssue = async (req, res, next) => {
         type: 'Point',
         coordinates: issueCoordinates,
       },
+      evidence: Array.isArray(req.body.evidence) ? req.body.evidence : [],
       timeline: initialTimeline,
       auditLogs: initialAudit,
     });

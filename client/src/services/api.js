@@ -122,3 +122,38 @@ export const issueAPI = {
   createIssue: (data) => apiRequest('/issues', { method: 'POST', body: JSON.stringify(data) }),
   getIssueById: (id) => apiRequest(`/issues/${id}`),
 };
+
+/**
+ * Evidence & Media Upload API Endpoints
+ */
+export const uploadAPI = {
+  uploadEvidence: async (files, stage = 'initial') => {
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append('images', file);
+    }
+    formData.append('stage', stage);
+
+    const token = getStoredToken();
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/uploads/evidence`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      const error = new Error(data.message || 'File upload failed');
+      error.status = response.status;
+      error.errors = data.errors;
+      throw error;
+    }
+
+    return data;
+  },
+};

@@ -44,7 +44,7 @@ export default function Navbar() {
             </div>
           </Link>
           <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-500/10 text-teal-400 border border-teal-500/20">
-            Queue 5 · GPS Map
+            Queue 6 · Evidence
           </span>
         </div>
 

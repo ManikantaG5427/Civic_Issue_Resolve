@@ -31,6 +31,18 @@ export const errorHandler = (err, req, res, _next) => {
     }));
   }
 
+  // Handle Multer file upload errors
+  if (err.name === 'MulterError') {
+    statusCode = 400;
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      message = `File too large. Maximum allowed size is ${process.env.MAX_FILE_SIZE_MB || 5}MB per image`;
+    } else if (err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'LIMIT_FILE_COUNT') {
+      message = 'Too many files uploaded. Maximum 3 images allowed per report';
+    } else {
+      message = `Upload error: ${err.message}`;
+    }
+  }
+
   // Handle JWT Errors if encountered
   if (err.name === 'JsonWebTokenError') {
     statusCode = 401;

@@ -4,6 +4,7 @@ import authRoutes from './authRoutes.js';
 import rbacRoutes from './rbacRoutes.js';
 import configRoutes from './configRoutes.js';
 import issueRoutes from './issueRoutes.js';
+import uploadRoutes from './uploadRoutes.js';
 import {
   getServiceAreas,
   getDepartments,
@@ -23,6 +24,9 @@ router.use('/rbac', rbacRoutes);
 
 // Mount civic issue management routes
 router.use('/issues', issueRoutes);
+
+// Mount media and evidence upload routes
+router.use('/uploads', uploadRoutes);
 
 // Mount system configuration routes
 router.use('/config', configRoutes);

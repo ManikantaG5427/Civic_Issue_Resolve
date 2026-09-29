@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Database, Lock, Layers, FilePlus2, MapPin, Camera } from 'lucide-react';
+import { ShieldCheck, Database, Lock, Layers, FilePlus2, MapPin, Camera, ClipboardList } from 'lucide-react';
 
 export default function QueueRoadmap() {
   const queues = [
@@ -41,9 +41,23 @@ export default function QueueRoadmap() {
     {
       id: 5,
       name: 'Map Location & GPS',
-      status: 'active',
+      status: 'done',
       desc: 'Interactive Leaflet OSM pin drop, draggable marker, & browser GPS capture.',
       icon: MapPin,
+    },
+    {
+      id: 6,
+      name: 'Evidence Image Upload',
+      status: 'active',
+      desc: 'Multer secure multi-photo evidence uploads, previews & gallery.',
+      icon: Camera,
+    },
+    {
+      id: 7,
+      name: 'My Reports & Timeline',
+      status: 'pending',
+      desc: 'Citizen reports dashboard, search/filter, pagination & status timeline.',
+      icon: ClipboardList,
     },
   ];
 
@@ -59,7 +73,7 @@ export default function QueueRoadmap() {
         </span>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {queues.map((q) => {
           const Icon = q.icon;
           const isActive = q.status === 'active';

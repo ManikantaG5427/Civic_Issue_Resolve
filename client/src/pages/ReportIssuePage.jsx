@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { configAPI, issueAPI } from '../services/api';
+import { configAPI, issueAPI, uploadAPI } from '../services/api';
 import LocationPickerMap from '../components/LocationPickerMap';
 import MapPreview from '../components/MapPreview';
 import {
@@ -12,7 +12,9 @@ import {
   ArrowRight,
   CheckCircle2,
   RefreshCw,
-  Compass,
+  Camera,
+  UploadCloud,
+  X,
 } from 'lucide-react';
 
 export default function ReportIssuePage() {
@@ -30,7 +32,13 @@ export default function ReportIssuePage() {
   const [latitude, setLatitude] = useState(17.4849);
   const [longitude, setLongitude] = useState(78.3967);
 
+  // Evidence Image Upload State (Queue 6)
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [previewUrls, setPreviewUrls] = useState([]);
+  const fileInputRef = useRef(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadStatusText, setUploadStatusText] = useState('');
   const [formError, setFormError] = useState('');
   const [fieldErrors, setFieldErrors] = useState([]);
   const [submittedIssue, setSubmittedIssue] = useState(null);
@@ -73,6 +81,59 @@ export default function ReportIssuePage() {
     setLongitude(newLng);
   };
 
+  // Image Selection Handler
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const newValidFiles = [];
+    const newPreviewList = [...previewUrls];
+
+    for (const file of files) {
+      if (!allowedTypes.includes(file.type.toLowerCase())) {
+        setFormError(`File '${file.name}' is not supported. Use JPG, PNG, or WEBP.`);
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        setFormError(`File '${file.name}' exceeds the 5MB maximum size limit.`);
+        return;
+      }
+
+      if (selectedFiles.length + newValidFiles.length >= 3) {
+        setFormError('You can upload a maximum of 3 evidence images per report.');
+        break;
+      }
+
+      newValidFiles.push(file);
+      newPreviewList.push({
+        name: file.name,
+        size: (file.size / 1024 / 1024).toFixed(2),
+        url: URL.createObjectURL(file),
+      });
+    }
+
+    setSelectedFiles((prev) => [...prev, ...newValidFiles]);
+    setPreviewUrls(newPreviewList);
+    setFormError('');
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Remove Selected Image
+  const handleRemoveImage = (indexToRemove) => {
+    // Revoke object URL to avoid memory leak
+    if (previewUrls[indexToRemove]?.url) {
+      URL.revokeObjectURL(previewUrls[indexToRemove].url);
+    }
+
+    setSelectedFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+    setPreviewUrls((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
@@ -96,6 +157,19 @@ export default function ReportIssuePage() {
     setIsSubmitting(true);
 
     try {
+      let uploadedEvidence = [];
+
+      // Upload selected evidence photos if any
+      if (selectedFiles.length > 0) {
+        setUploadStatusText(`Uploading ${selectedFiles.length} evidence photo(s)...`);
+        const uploadRes = await uploadAPI.uploadEvidence(selectedFiles, 'initial');
+        if (uploadRes.success && uploadRes.data) {
+          uploadedEvidence = uploadRes.data;
+        }
+      }
+
+      setUploadStatusText('Saving civic issue report...');
+
       const payload = {
         title: title.trim(),
         description: description.trim(),
@@ -103,7 +177,8 @@ export default function ReportIssuePage() {
         serviceArea: serviceAreaId,
         landmark: landmark.trim(),
         address: address.trim() || 'Kukatpally, Hyderabad',
-        coordinates: [longitude, latitude], // [Lng, Lat] format for GeoJSON
+        coordinates: [longitude, latitude], // [Lng, Lat]
+        evidence: uploadedEvidence,
       };
 
       const response = await issueAPI.createIssue(payload);
@@ -118,6 +193,7 @@ export default function ReportIssuePage() {
       }
     } finally {
       setIsSubmitting(false);
+      setUploadStatusText('');
     }
   };
 
@@ -134,7 +210,7 @@ export default function ReportIssuePage() {
     }
   };
 
-  // SUCCESS CONFIRMATION VIEW WITH MAP PREVIEW
+  // SUCCESS CONFIRMATION VIEW
   if (submittedIssue) {
     const issueLat = submittedIssue.location?.coordinates
       ? submittedIssue.location.coordinates[1]
@@ -158,23 +234,47 @@ export default function ReportIssuePage() {
               Issue #{submittedIssue.issueNumber}
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
-              Your civic issue has been officially registered and queued for municipal review in{' '}
+              Your civic issue and photographic evidence have been registered for review in{' '}
               <span className="text-teal-400 font-semibold">{submittedIssue.serviceArea?.name}</span>.
             </p>
           </div>
+
+          {/* Photo Evidence Gallery Preview (Queue 6) */}
+          {submittedIssue.evidence?.length > 0 && (
+            <div className="space-y-2 text-left">
+              <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5 px-1">
+                <Camera className="w-3.5 h-3.5 text-teal-400" />
+                Attached Photo Evidence ({submittedIssue.evidence.length})
+              </span>
+              <div className="grid grid-cols-3 gap-2">
+                {submittedIssue.evidence.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="relative rounded-xl overflow-hidden border border-slate-700/80 aspect-video bg-slate-950"
+                  >
+                    <img
+                      src={`http://localhost:5000${item.url}`}
+                      alt={`Evidence ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Map Preview of Pinned Location */}
           <div className="space-y-2 text-left">
             <div className="flex items-center justify-between text-xs text-slate-400 px-1">
               <span className="flex items-center gap-1 font-medium">
                 <MapPin className="w-3.5 h-3.5 text-teal-400" />
-                Verified Issue Coordinates:
+                Verified Incident Location:
               </span>
               <span className="font-mono text-slate-300">
                 [{issueLng.toFixed(4)}, {issueLat.toFixed(4)}]
               </span>
             </div>
-            <MapPreview latitude={issueLat} longitude={issueLng} height="180px" />
+            <MapPreview latitude={issueLat} longitude={issueLng} height="160px" />
           </div>
 
           {/* Issue Summary Card */}
@@ -220,6 +320,8 @@ export default function ReportIssuePage() {
                 setTitle('');
                 setDescription('');
                 setLandmark('');
+                setSelectedFiles([]);
+                setPreviewUrls([]);
               }}
               className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-semibold text-sm border border-slate-700 transition"
             >
@@ -245,7 +347,7 @@ export default function ReportIssuePage() {
               Report a Civic Issue
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Select category, pin exact GPS location on the map, and describe the civic issue.
+              Submit photo evidence, pinpoint GPS location, and describe the civic problem for municipal repair.
             </p>
           </div>
         </div>
@@ -371,7 +473,7 @@ export default function ReportIssuePage() {
               </div>
               <textarea
                 required
-                rows={4}
+                rows={3}
                 maxLength={2000}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -410,13 +512,86 @@ export default function ReportIssuePage() {
               </div>
             </div>
 
-            {/* Interactive Leaflet Location Picker Map (Queue 5) */}
+            {/* Photo Evidence Upload Section (Queue 6) */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Camera className="w-3.5 h-3.5 text-teal-400" />
+                  Attach Evidence Photos (Max 3, 5MB each)
+                </span>
+                <span className="text-[11px] font-mono text-slate-500">
+                  {selectedFiles.length}/3 selected
+                </span>
+              </div>
+
+              {/* Upload Drop Area */}
+              {selectedFiles.length < 3 && (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-slate-700/80 hover:border-teal-500/60 bg-slate-900/40 hover:bg-slate-900/70 rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center space-y-2 group"
+                >
+                  <div className="w-10 h-10 rounded-full bg-slate-800 group-hover:bg-teal-500/10 group-hover:text-teal-400 text-slate-400 flex items-center justify-center transition">
+                    <UploadCloud className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-teal-400 hover:underline">
+                      Click to choose photos
+                    </span>
+                    <span className="text-xs text-slate-400"> or drag and drop</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    Supports JPG, JPEG, PNG, WEBP (Up to 5MB each)
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </div>
+              )}
+
+              {/* Selected Photo Thumbnails Preview */}
+              {previewUrls.length > 0 && (
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  {previewUrls.map((preview, index) => (
+                    <div
+                      key={index}
+                      className="relative rounded-xl overflow-hidden border border-slate-700 bg-slate-900 aspect-video group"
+                    >
+                      <img
+                        src={preview.url}
+                        alt={`Evidence ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-between p-2">
+                        <span className="text-[10px] text-slate-200 truncate max-w-[80px]">
+                          {preview.size} MB
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(index)}
+                          className="p-1 rounded-md bg-rose-500/80 hover:bg-rose-500 text-white transition shadow"
+                          title="Remove image"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Interactive Leaflet Location Picker Map */}
             <div className="p-4 sm:p-5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-4">
               <LocationPickerMap
                 latitude={latitude}
                 longitude={longitude}
                 onChange={handleLocationChange}
-                height="320px"
+                height="300px"
               />
             </div>
 
@@ -426,8 +601,17 @@ export default function ReportIssuePage() {
               disabled={isSubmitting}
               className="w-full py-3 px-4 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-sm transition shadow-lg shadow-teal-500/20 flex items-center justify-center space-x-2 disabled:opacity-50"
             >
-              <span>{isSubmitting ? 'Submitting Report...' : 'Submit Civic Issue Report'}</span>
-              <ArrowRight className="w-4 h-4" />
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>{uploadStatusText || 'Submitting Report...'}</span>
+                </>
+              ) : (
+                <>
+                  <span>Submit Civic Issue Report</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
         )}

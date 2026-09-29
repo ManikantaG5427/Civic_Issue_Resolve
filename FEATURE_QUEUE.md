@@ -29,8 +29,8 @@ A feature can be marked Done only when:
 | **2** | **Roles & Permissions** | ✅ Done | `62d828e` feat: add role-based access control and permissions |
 | **3** | **Configuration Data** | ✅ Done | `e4ae92e` feat: add civic categories departments and service areas |
 | **4** | **Citizen Creates Issue** | ✅ Done | `e495314` feat: add citizen civic issue reporting |
-| **5** | **Map Location & GPS** | ✅ Done | `feat: add issue map location and GPS selection` |
-| 6 | Evidence Image Upload | ⏳ Pending | Multer photo evidence upload & preview |
+| **5** | **Map Location & GPS** | ✅ Done | `d721ed3` feat: add issue map location and GPS selection |
+| **6** | **Evidence Image Upload** | ✅ Done | `feat: add secure civic issue evidence uploads` |
 | 7 | My Reports & Detail | ⏳ Pending | Citizen report tracking and timeline |
 | 8 | Admin Review Queue | ⏳ Pending | Review submitted issues by service area |
 | 9 | Verify, Reject, Request Info | ⏳ Pending | Admin status transitions with mandatory reasons |
