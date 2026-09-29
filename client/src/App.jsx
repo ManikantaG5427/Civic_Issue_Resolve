@@ -7,10 +7,12 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
+import ReportIssuePage from './pages/ReportIssuePage';
 import ConfigCatalogPage from './pages/ConfigCatalogPage';
 import ForbiddenPage from './pages/ForbiddenPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import RoleRoute from './components/RoleRoute';
 
 export default function App() {
   return (
@@ -24,6 +26,14 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/catalog" element={<ConfigCatalogPage />} />
+              <Route
+                path="/report-issue"
+                element={
+                  <RoleRoute allowedRoles={['citizen', 'super_admin']}>
+                    <ReportIssuePage />
+                  </RoleRoute>
+                }
+              />
               <Route
                 path="/dashboard"
                 element={

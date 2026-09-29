@@ -114,3 +114,11 @@ export const configAPI = {
   getServiceAreas: () => apiRequest('/service-areas'),
   getConfigSummary: () => apiRequest('/config/summary'),
 };
+
+/**
+ * Civic Issue Management API Endpoints
+ */
+export const issueAPI = {
+  createIssue: (data) => apiRequest('/issues', { method: 'POST', body: JSON.stringify(data) }),
+  getIssueById: (id) => apiRequest(`/issues/${id}`),
+};

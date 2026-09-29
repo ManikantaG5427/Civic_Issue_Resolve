@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShieldAlert, LogIn, LogOut, UserPlus, LayoutDashboard, Layers } from 'lucide-react';
+import { ShieldAlert, LogIn, LogOut, UserPlus, LayoutDashboard, Layers, FilePlus2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
@@ -44,7 +44,7 @@ export default function Navbar() {
             </div>
           </Link>
           <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-500/10 text-teal-400 border border-teal-500/20">
-            Queue 3 · Configuration
+            Queue 4 · Reporting
           </span>
         </div>
 
@@ -65,11 +65,25 @@ export default function Navbar() {
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>Civic Catalog</span>
+            <span>Catalog</span>
           </Link>
 
           {isAuthenticated ? (
             <>
+              {(user?.role === 'citizen' || user?.role === 'super_admin') && (
+                <Link
+                  to="/report-issue"
+                  className={`inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition shadow-md ${
+                    location.pathname === '/report-issue'
+                      ? 'bg-teal-400 text-slate-950'
+                      : 'bg-teal-500 hover:bg-teal-400 text-slate-950 shadow-teal-500/20'
+                  }`}
+                >
+                  <FilePlus2 className="w-3.5 h-3.5" />
+                  <span>Report Issue</span>
+                </Link>
+              )}
+
               <Link
                 to="/dashboard"
                 className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${

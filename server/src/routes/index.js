@@ -3,6 +3,7 @@ import healthRoutes from './healthRoutes.js';
 import authRoutes from './authRoutes.js';
 import rbacRoutes from './rbacRoutes.js';
 import configRoutes from './configRoutes.js';
+import issueRoutes from './issueRoutes.js';
 import {
   getServiceAreas,
   getDepartments,
@@ -19,6 +20,9 @@ router.use('/auth', authRoutes);
 
 // Mount role-based permission verification routes
 router.use('/rbac', rbacRoutes);
+
+// Mount civic issue management routes
+router.use('/issues', issueRoutes);
 
 // Mount system configuration routes
 router.use('/config', configRoutes);
