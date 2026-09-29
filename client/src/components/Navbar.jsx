@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShieldAlert, LogIn, LogOut, UserPlus, User, LayoutDashboard } from 'lucide-react';
+import { ShieldAlert, LogIn, LogOut, UserPlus, LayoutDashboard, Crown, ShieldCheck, HardHat, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
@@ -11,6 +11,19 @@ export default function Navbar() {
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  const getRoleBadge = (role) => {
+    switch (role) {
+      case 'super_admin':
+        return { label: 'Super Admin', color: 'bg-purple-500/10 text-purple-300 border-purple-500/20' };
+      case 'administrator':
+        return { label: 'Admin', color: 'bg-sky-500/10 text-sky-300 border-sky-500/20' };
+      case 'field_worker':
+        return { label: 'Worker', color: 'bg-amber-500/10 text-amber-300 border-amber-500/20' };
+      default:
+        return { label: 'Citizen', color: 'bg-teal-500/10 text-teal-300 border-teal-500/20' };
+    }
   };
 
   return (
@@ -31,7 +44,7 @@ export default function Navbar() {
             </div>
           </Link>
           <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-500/10 text-teal-400 border border-teal-500/20">
-            Queue 1 · Authentication
+            Queue 2 · RBAC
           </span>
         </div>
 
@@ -67,8 +80,12 @@ export default function Navbar() {
                   <span className="text-xs text-slate-200 font-medium max-w-[120px] truncate">
                     {user?.name}
                   </span>
-                  <span className="text-[10px] uppercase font-semibold text-teal-400 bg-teal-500/10 px-1.5 py-0.2 rounded">
-                    {user?.role}
+                  <span
+                    className={`text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded border ${
+                      getRoleBadge(user?.role).color
+                    }`}
+                  >
+                    {getRoleBadge(user?.role).label}
                   </span>
                 </div>
 

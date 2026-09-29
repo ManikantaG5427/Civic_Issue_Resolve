@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Smartphone, Database, Lock } from 'lucide-react';
+import { ShieldCheck, Smartphone, Database, Lock, Layers } from 'lucide-react';
 
 export default function QueueRoadmap() {
   const queues = [
@@ -13,23 +13,23 @@ export default function QueueRoadmap() {
     {
       id: 1,
       name: 'Authentication',
-      status: 'active',
+      status: 'done',
       desc: 'User model, register, login, bcryptjs hash, JWT tokens, protected routes.',
       icon: Lock,
     },
     {
       id: 2,
       name: 'Roles & RBAC',
-      status: 'pending',
+      status: 'active',
       desc: 'Citizen, Field Worker, Admin, Super Admin backend permissions & routes.',
       icon: ShieldCheck,
     },
     {
-      id: 'M0',
-      name: 'Mobile Foundation',
+      id: 3,
+      name: 'Configuration Data',
       status: 'pending',
-      desc: 'React Native & Expo client connecting to the shared backend.',
-      icon: Smartphone,
+      desc: 'Categories, departments, pilot service areas, seed scripts, & admin APIs.',
+      icon: Layers,
     },
   ];
 

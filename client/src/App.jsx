@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
+import ForbiddenPage from './pages/ForbiddenPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -29,6 +30,7 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/forbidden" element={<ForbiddenPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </main>
