@@ -1,0 +1,29 @@
+{
+  "name": "civic-issue-resolution-platform",
+  "version": "1.0.0",
+  "description": "CivicResolve - Civic Issue Resolution Platform (MERN + React Native Ready)",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"blue,green\" \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "build": "npm run build --workspace=client",
+    "lint": "npm run lint --workspace=server && npm run lint --workspace=client",
+    "test": "npm run test --workspace=server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "keywords": [
+    "civic-tech",
+    "mern",
+    "issue-tracking",
+    "smart-city"
+  ],
+  "author": "CivicResolve Team",
+  "license": "MIT"
+}
