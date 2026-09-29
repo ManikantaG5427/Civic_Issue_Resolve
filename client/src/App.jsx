@@ -8,6 +8,8 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import ReportIssuePage from './pages/ReportIssuePage';
+import MyReportsPage from './pages/MyReportsPage';
+import IssueDetailPage from './pages/IssueDetailPage';
 import ConfigCatalogPage from './pages/ConfigCatalogPage';
 import ForbiddenPage from './pages/ForbiddenPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -32,6 +34,22 @@ export default function App() {
                   <RoleRoute allowedRoles={['citizen', 'super_admin']}>
                     <ReportIssuePage />
                   </RoleRoute>
+                }
+              />
+              <Route
+                path="/my-reports"
+                element={
+                  <RoleRoute allowedRoles={['citizen', 'super_admin']}>
+                    <MyReportsPage />
+                  </RoleRoute>
+                }
+              />
+              <Route
+                path="/issues/:id"
+                element={
+                  <ProtectedRoute>
+                    <IssueDetailPage />
+                  </ProtectedRoute>
                 }
               />
               <Route

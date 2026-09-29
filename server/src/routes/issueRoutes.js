@@ -1,5 +1,9 @@
 import express from 'express';
-import { createIssue, getIssueById } from '../controllers/issueController.js';
+import {
+  createIssue,
+  getIssueById,
+  getMyReports,
+} from '../controllers/issueController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { validateCreateIssue } from '../middlewares/issueValidation.js';
 
@@ -7,6 +11,9 @@ const router = express.Router();
 
 // All issue management actions require authentication
 router.use(protect);
+
+// GET /api/issues/my-reports -> List authenticated citizen's submitted reports
+router.get('/my-reports', getMyReports);
 
 // POST /api/issues -> Create a new civic issue report
 router.post('/', validateCreateIssue, createIssue);

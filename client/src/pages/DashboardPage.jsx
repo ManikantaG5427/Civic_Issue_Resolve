@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../services/api';
 import {
@@ -129,25 +130,41 @@ export default function DashboardPage() {
         <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
           {user?.role === 'citizen' && (
             <>
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="text-xs font-semibold text-teal-400 uppercase tracking-wider">
-                  Citizen Reporting
+              <Link
+                to="/report-issue"
+                className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-teal-500/50 space-y-2 block transition group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-teal-400 uppercase tracking-wider">
+                    Citizen Reporting
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-teal-400 group-hover:translate-x-0.5 transition" />
                 </div>
-                <div className="text-sm font-medium text-white">Report Civic Issues</div>
+                <div className="text-sm font-medium text-white group-hover:text-teal-300 transition">
+                  Report Civic Issues
+                </div>
                 <p className="text-xs text-slate-400">
                   Submit road, water, electricity, and sanitation issues with photo proof & GPS.
                 </p>
-              </div>
+              </Link>
 
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="text-xs font-semibold text-teal-400 uppercase tracking-wider">
-                  Issue Tracking
+              <Link
+                to="/my-reports"
+                className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-teal-500/50 space-y-2 block transition group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-teal-400 uppercase tracking-wider">
+                    Issue Tracking
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-teal-400 group-hover:translate-x-0.5 transition" />
                 </div>
-                <div className="text-sm font-medium text-white">My Reports Timeline</div>
+                <div className="text-sm font-medium text-white group-hover:text-teal-300 transition">
+                  My Reports Timeline
+                </div>
                 <p className="text-xs text-slate-400">
                   Track verification status, assigned departments, and field repair progress.
                 </p>
-              </div>
+              </Link>
 
               <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
                 <div className="text-xs font-semibold text-teal-400 uppercase tracking-wider">

@@ -19,6 +19,7 @@ export const createIssue = async (req, res, next) => {
       landmark,
       address,
       coordinates,
+      evidence,
     } = req.body;
 
     // 1. Validate Category
@@ -97,7 +98,7 @@ export const createIssue = async (req, res, next) => {
         type: 'Point',
         coordinates: issueCoordinates,
       },
-      evidence: Array.isArray(req.body.evidence) ? req.body.evidence : [],
+      evidence: Array.isArray(evidence) ? evidence : [],
       timeline: initialTimeline,
       auditLogs: initialAudit,
     });
@@ -127,6 +128,68 @@ export const createIssue = async (req, res, next) => {
 };
 
 /**
+ * Get all issues reported by the authenticated citizen with pagination & filters
+ * GET /api/issues/my-reports
+ */
+export const getMyReports = async (req, res, next) => {
+  try {
+    const { status, category, search, page = 1, limit = 10 } = req.query;
+
+    const query = { reporter: req.user._id };
+
+    // Filter by status if provided
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    // Filter by category if provided
+    if (category && category !== 'all') {
+      query.category = category;
+    }
+
+    // Search by issue number or title
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      query.$or = [{ title: searchRegex }, { issueNumber: searchRegex }, { 'location.landmark': searchRegex }];
+    }
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 10));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [total, issues] = await Promise.all([
+      Issue.countDocuments(query),
+      Issue.find(query)
+        .populate('category', 'name code icon defaultPriority estimatedSlaHours')
+        .populate('serviceArea', 'name code city state')
+        .populate('department', 'name code defaultSlaHours')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum),
+    ]);
+
+    // Sanitize timeline visibility for citizen view
+    const sanitizedIssues = issues.map((issue) => {
+      const issueObj = issue.toObject();
+      if (issueObj.timeline) {
+        issueObj.timeline = issueObj.timeline.filter((t) => t.visibility === 'public');
+      }
+      return issueObj;
+    });
+
+    return successResponse(res, 'My reported issues retrieved successfully', {
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum) || 1,
+      issues: sanitizedIssues,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get issue details by ID or Issue Number
  * GET /api/issues/:id
  */
@@ -148,7 +211,7 @@ export const getIssueById = async (req, res, next) => {
       return next(new AppError('Civic issue not found', 404));
     }
 
-    // Role-based privacy: Citizens can view their own reports or public sanitized versions
+    // Role-based privacy: Citizens can only inspect their own reports
     if (
       req.user.role === 'citizen' &&
       issue.reporter._id.toString() !== req.user._id.toString()
@@ -158,7 +221,14 @@ export const getIssueById = async (req, res, next) => {
       );
     }
 
-    return successResponse(res, 'Civic issue details retrieved', issue, 200);
+    const issueObj = issue.toObject();
+
+    // Hide internal administrative notes from citizens
+    if (req.user.role === 'citizen' && issueObj.timeline) {
+      issueObj.timeline = issueObj.timeline.filter((t) => t.visibility === 'public');
+    }
+
+    return successResponse(res, 'Civic issue details retrieved', issueObj, 200);
   } catch (error) {
     next(error);
   }
