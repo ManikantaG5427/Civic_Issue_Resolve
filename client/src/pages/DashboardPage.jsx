@@ -214,15 +214,23 @@ export default function DashboardPage() {
 
           {user?.role === 'administrator' && (
             <>
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="text-xs font-semibold text-sky-400 uppercase tracking-wider">
-                  Review Queue
+              <Link
+                to="/admin/review-queue"
+                className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-sky-500/50 space-y-2 block transition group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-sky-400 uppercase tracking-wider">
+                    Review Queue
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-sky-400 group-hover:translate-x-0.5 transition" />
                 </div>
-                <div className="text-sm font-medium text-white">Service Area Verification</div>
+                <div className="text-sm font-medium text-white group-hover:text-sky-300 transition">
+                  Service Area Verification
+                </div>
                 <p className="text-xs text-slate-400">
-                  Verify or reject submitted reports and request missing citizen information.
+                  Triage submitted reports, verify citizen evidence, and route to field departments.
                 </p>
-              </div>
+              </Link>
 
               <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
                 <div className="text-xs font-semibold text-sky-400 uppercase tracking-wider">

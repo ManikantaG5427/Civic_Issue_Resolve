@@ -134,6 +134,22 @@ export const issueAPI = {
 };
 
 /**
+ * Administrator & Operational Review API Endpoints
+ */
+export const adminAPI = {
+  getReviewQueue: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '' && value !== 'all') {
+        searchParams.append(key, value);
+      }
+    });
+    const queryString = searchParams.toString();
+    return apiRequest(`/admin/review-queue${queryString ? `?${queryString}` : ''}`);
+  },
+};
+
+/**
  * Evidence & Media Upload API Endpoints
  */
 export const uploadAPI = {

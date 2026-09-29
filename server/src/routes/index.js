@@ -5,6 +5,7 @@ import rbacRoutes from './rbacRoutes.js';
 import configRoutes from './configRoutes.js';
 import issueRoutes from './issueRoutes.js';
 import uploadRoutes from './uploadRoutes.js';
+import adminRoutes from './adminRoutes.js';
 import {
   getServiceAreas,
   getDepartments,
@@ -27,6 +28,9 @@ router.use('/issues', issueRoutes);
 
 // Mount media and evidence upload routes
 router.use('/uploads', uploadRoutes);
+
+// Mount administrator operations routes
+router.use('/admin', adminRoutes);
 
 // Mount system configuration routes
 router.use('/config', configRoutes);

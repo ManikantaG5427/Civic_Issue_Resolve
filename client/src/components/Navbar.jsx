@@ -43,8 +43,8 @@ export default function Navbar() {
               </span>
             </div>
           </Link>
-          <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-500/10 text-teal-400 border border-teal-500/20">
-            Queue 7 · My Reports
+          <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">
+            Queue 8 · Admin Triage
           </span>
         </div>
 
@@ -94,6 +94,20 @@ export default function Navbar() {
                     <span>My Reports</span>
                   </Link>
                 </>
+              )}
+
+              {(user?.role === 'administrator' || user?.role === 'super_admin') && (
+                <Link
+                  to="/admin/review-queue"
+                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition ${
+                    location.pathname === '/admin/review-queue'
+                      ? 'bg-sky-500 text-slate-950'
+                      : 'bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                  }`}
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  <span>Review Queue</span>
+                </Link>
               )}
 
               <Link
