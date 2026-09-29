@@ -149,12 +149,24 @@ export const adminAPI = {
     const queryString = searchParams.toString();
     return apiRequest(`/admin/review-queue${queryString ? `?${queryString}` : ''}`);
   },
+  getWorkers: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '' && value !== 'all') {
+        searchParams.append(key, value);
+      }
+    });
+    const queryString = searchParams.toString();
+    return apiRequest(`/admin/workers${queryString ? `?${queryString}` : ''}`);
+  },
   verifyIssue: (id, data) =>
     apiRequest(`/admin/issues/${id}/verify`, { method: 'POST', body: JSON.stringify(data) }),
   rejectIssue: (id, data) =>
     apiRequest(`/admin/issues/${id}/reject`, { method: 'POST', body: JSON.stringify(data) }),
   requestInfo: (id, data) =>
     apiRequest(`/admin/issues/${id}/request-info`, { method: 'POST', body: JSON.stringify(data) }),
+  assignIssue: (id, data) =>
+    apiRequest(`/admin/issues/${id}/assign`, { method: 'POST', body: JSON.stringify(data) }),
 };
 
 /**

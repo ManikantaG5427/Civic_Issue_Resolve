@@ -33,8 +33,8 @@ A feature can be marked Done only when:
 | **6** | **Evidence Image Upload** | ✅ Done | `a5f2388` feat: add secure civic issue evidence uploads |
 | **7** | **My Reports & Detail** | ✅ Done | `9cdf182` feat: add citizen reports dashboard and issue timeline |
 | **8** | **Admin Review Queue** | ✅ Done | `f0b3ced` feat: add administrator review queue and triage metrics |
-| **9** | **Verify, Reject, Request Info** | ✅ Done | `feat: add admin triage verify reject and request info workflow` |
-| 10 | Assignment Workflow | ⏳ Pending | Priority, department, and worker assignment |
+| **9** | **Verify, Reject, Request Info** | ✅ Done | `0c77041` feat: add admin triage verify reject and request info workflow |
+| **10** | **Assignment Workflow** | ✅ Done | `feat: add field worker assignment and SLA deadline dispatch` |
 | 11 | Worker Dashboard | ⏳ Pending | Operational queue for assigned tasks |
 | 12 | Worker Progress Updates | ⏳ Pending | In-progress workflow & updates |
 | 13 | Worker Resolution Evidence | ⏳ Pending | Proof of resolution (before/after photos) |

@@ -43,8 +43,8 @@ export default function Navbar() {
               </span>
             </div>
           </Link>
-          <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">
-            Queue 8 · Admin Triage
+          <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            Queue 10 · Dispatch & SLA
           </span>
         </div>
 

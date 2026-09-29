@@ -101,6 +101,7 @@ const issueSchema = new mongoose.Schema(
       type: String,
       enum: [
         'submitted',
+        'in_review',
         'under_review',
         'info_requested',
         'verified',
@@ -115,7 +116,7 @@ const issueSchema = new mongoose.Schema(
     },
     priority: {
       type: String,
-      enum: ['low', 'medium', 'high', 'critical'],
+      enum: ['low', 'medium', 'high', 'urgent', 'critical'],
       default: 'medium',
     },
     location: {

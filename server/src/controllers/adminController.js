@@ -1,4 +1,5 @@
 import Issue from '../models/Issue.js';
+import User from '../models/User.js';
 import { successResponse } from '../utils/apiResponse.js';
 
 /**
@@ -331,6 +332,157 @@ export const requestInfo = async (req, res, next) => {
       .populate('timeline.performedBy', 'name role');
 
     return successResponse(res, 'Information requested from citizen', populated, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get available field workers for assignment
+ * GET /api/admin/workers
+ */
+export const getWorkers = async (req, res, next) => {
+  try {
+    const { department, serviceArea } = req.query;
+
+    const query = { role: 'field_worker', isActive: true };
+
+    if (department && department !== 'all') {
+      query.department = department;
+    }
+
+    if (serviceArea && serviceArea !== 'all') {
+      query.serviceArea = serviceArea;
+    }
+
+    const workers = await User.find(query)
+      .select('name email phone role department serviceArea')
+      .populate('department', 'name code')
+      .populate('serviceArea', 'name code');
+
+    // Compute active workload for each worker
+    const workersWithWorkload = await Promise.all(
+      workers.map(async (worker) => {
+        const activeTasks = await Issue.countDocuments({
+          assignedWorker: worker._id,
+          status: { $in: ['assigned', 'in_progress'] },
+        });
+        const workerObj = worker.toObject();
+        workerObj.activeTasksCount = activeTasks;
+        return workerObj;
+      })
+    );
+
+    return successResponse(
+      res,
+      'Field workers retrieved successfully',
+      workersWithWorkload,
+      200
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Assign issue to department and field worker with priority and SLA
+ * POST /api/admin/issues/:id/assign
+ */
+export const assignIssue = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { departmentId, workerId, priority, slaHours = 48, assignmentNote } = req.body;
+
+    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Civic issue not found' });
+    }
+
+    if (['closed', 'rejected'].includes(issue.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot assign an issue that is already ${issue.status}`,
+      });
+    }
+
+    // Validate assigned worker if provided
+    let assignedWorker = null;
+    if (workerId) {
+      assignedWorker = await User.findOne({ _id: workerId, role: 'field_worker', isActive: true });
+      if (!assignedWorker) {
+        return res.status(400).json({
+          success: false,
+          message: 'The selected user is not an active field worker',
+        });
+      }
+    }
+
+    const previousState = {
+      status: issue.status,
+      assignedWorker: issue.assignedWorker,
+      department: issue.department,
+      priority: issue.priority,
+    };
+
+    // Calculate SLA deadline
+    const hoursNum = Math.max(1, parseInt(slaHours, 10) || 48);
+    const slaDeadline = new Date(Date.now() + hoursNum * 3600 * 1000);
+
+    // Update Issue fields
+    if (departmentId) issue.department = departmentId;
+    if (assignedWorker) {
+      issue.assignedWorker = assignedWorker._id;
+      issue.assignedAt = new Date();
+    }
+    if (priority && ['low', 'medium', 'high', 'urgent', 'critical'].includes(priority)) {
+      issue.priority = priority;
+    }
+    issue.slaDeadline = slaDeadline;
+    issue.status = 'assigned';
+
+    const workerName = assignedWorker ? assignedWorker.name : 'Field Team';
+    const noteText = assignmentNote
+      ? assignmentNote.trim()
+      : `Dispatched to ${workerName} with ${issue.priority} priority (SLA: ${hoursNum} hours).`;
+
+    issue.timeline.push({
+      status: 'assigned',
+      action: 'Issue Assigned & Dispatched',
+      performedBy: req.user._id,
+      note: noteText,
+      visibility: 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: 'ISSUE_ASSIGNED',
+      performedBy: req.user._id,
+      previousState,
+      newState: {
+        status: 'assigned',
+        assignedWorker: issue.assignedWorker,
+        department: issue.department,
+        priority: issue.priority,
+        slaDeadline,
+        slaHours: hoursNum,
+      },
+      ipAddress: req.ip || req.connection?.remoteAddress,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    const populated = await Issue.findById(issue._id)
+      .populate('category', 'name code icon defaultPriority estimatedSlaHours')
+      .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code defaultSlaHours')
+      .populate('reporter', 'name email phone')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('timeline.performedBy', 'name role');
+
+    return successResponse(res, 'Civic issue assigned successfully', populated, 200);
   } catch (error) {
     next(error);
   }

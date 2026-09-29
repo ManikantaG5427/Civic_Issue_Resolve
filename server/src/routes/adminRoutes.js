@@ -4,6 +4,8 @@ import {
   verifyIssue,
   rejectIssue,
   requestInfo,
+  getWorkers,
+  assignIssue,
 } from '../controllers/adminController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { authorize } from '../middlewares/roleMiddleware.js';
@@ -17,6 +19,9 @@ router.use(authorize('administrator', 'super_admin'));
 // GET /api/admin/review-queue -> Triage & review queue
 router.get('/review-queue', getReviewQueue);
 
+// GET /api/admin/workers -> Available field workers for dispatch
+router.get('/workers', getWorkers);
+
 // POST /api/admin/issues/:id/verify -> Verify & accept issue into in_review
 router.post('/issues/:id/verify', verifyIssue);
 
@@ -25,6 +30,9 @@ router.post('/issues/:id/reject', rejectIssue);
 
 // POST /api/admin/issues/:id/request-info -> Request clarification from citizen
 router.post('/issues/:id/request-info', requestInfo);
+
+// POST /api/admin/issues/:id/assign -> Assign issue to department, worker, and SLA
+router.post('/issues/:id/assign', assignIssue);
 
 export default router;
 

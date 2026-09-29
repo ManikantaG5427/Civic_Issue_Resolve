@@ -20,10 +20,10 @@ import {
   XCircle,
   HelpCircle,
   Send,
-  MessageSquare,
   AlertTriangle,
+  Flame,
 } from 'lucide-react';
-import { issueAPI, adminAPI } from '../services/api';
+import { issueAPI, adminAPI, configAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Timeline from '../components/Timeline';
 import MapPreview from '../components/MapPreview';
@@ -53,8 +53,8 @@ const getStatusDetails = (status) => {
       };
     case 'assigned':
       return {
-        label: 'Worker Assigned',
-        desc: 'A field worker has been dispatched to inspect and address this issue.',
+        label: 'Worker Assigned & Dispatched',
+        desc: 'Assigned to field worker with active SLA target deadline.',
         color: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30 ring-indigo-500/20',
       };
     case 'in_progress':
@@ -106,8 +106,8 @@ export default function IssueDetailPage() {
   const [copied, setCopied] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
 
-  // Admin Triage Modal States (Queue 9)
-  const [triageModal, setTriageModal] = useState(null); // 'verify' | 'reject' | 'request_info'
+  // Admin Triage Modal States (Queue 9 & 10)
+  const [triageModal, setTriageModal] = useState(null); // 'verify' | 'reject' | 'request_info' | 'assign'
   const [verifyNote, setVerifyNote] = useState('');
   const [verifyVisibility, setVerifyVisibility] = useState('public');
   const [rejectionReason, setRejectionReason] = useState('');
@@ -116,6 +116,15 @@ export default function IssueDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [actionSuccess, setActionSuccess] = useState(null);
+
+  // Queue 10: Assignment State
+  const [departments, setDepartments] = useState([]);
+  const [workers, setWorkers] = useState([]);
+  const [assignDepartment, setAssignDepartment] = useState('');
+  const [assignWorker, setAssignWorker] = useState('');
+  const [assignPriority, setAssignPriority] = useState('medium');
+  const [assignSlaHours, setAssignSlaHours] = useState(48);
+  const [assignNote, setAssignNote] = useState('');
 
   // Citizen Clarification Submission State
   const [citizenResponseNote, setCitizenResponseNote] = useState('');
@@ -129,6 +138,13 @@ export default function IssueDetailPage() {
       const res = await issueAPI.getIssueById(id);
       if (res.data) {
         setIssue(res.data);
+        setAssignPriority(res.data.priority || 'medium');
+        if (res.data.department?._id || res.data.department) {
+          setAssignDepartment(res.data.department?._id || res.data.department);
+        }
+        if (res.data.assignedWorker?._id || res.data.assignedWorker) {
+          setAssignWorker(res.data.assignedWorker?._id || res.data.assignedWorker);
+        }
       }
     } catch (err) {
       setError(err.message || 'Failed to load civic issue details');
@@ -140,6 +156,26 @@ export default function IssueDetailPage() {
   useEffect(() => {
     loadIssue();
   }, [loadIssue]);
+
+  // Load departments and field workers when admin opens page
+  useEffect(() => {
+    const isAdminUser = user?.role === 'administrator' || user?.role === 'super_admin';
+    if (!isAdminUser) return;
+
+    async function loadAssignmentCatalogs() {
+      try {
+        const [deptRes, workerRes] = await Promise.all([
+          configAPI.getDepartments(),
+          adminAPI.getWorkers(),
+        ]);
+        if (deptRes.data) setDepartments(deptRes.data);
+        if (workerRes.data) setWorkers(workerRes.data);
+      } catch (err) {
+        console.error('Failed to load assignment options', err);
+      }
+    }
+    loadAssignmentCatalogs();
+  }, [user]);
 
   const handleCopyTicket = () => {
     if (!issue?.issueNumber) return;
@@ -224,7 +260,33 @@ export default function IssueDetailPage() {
     }
   };
 
-  // 4. Citizen: Provide Clarification
+  // 4. Admin: Assign Issue (Queue 10)
+  const handleAssignSubmit = async (e) => {
+    e.preventDefault();
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await adminAPI.assignIssue(issue.issueNumber || issue._id, {
+        departmentId: assignDepartment || undefined,
+        workerId: assignWorker || undefined,
+        priority: assignPriority,
+        slaHours: Number(assignSlaHours) || 48,
+        assignmentNote: assignNote,
+      });
+      if (res.data) {
+        setIssue(res.data);
+        setActionSuccess('Issue assigned and dispatched to field worker with SLA deadline.');
+        setTriageModal(null);
+        setAssignNote('');
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to assign issue');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 5. Citizen: Provide Clarification
   const handleCitizenResponseSubmit = async (e) => {
     e.preventDefault();
     if (!citizenResponseNote || citizenResponseNote.trim().length < 5) {
@@ -389,9 +451,23 @@ export default function IssueDetailPage() {
             {statusInfo.desc}
           </p>
         </div>
+
+        {/* SLA Deadline Tracker Pill if Assigned */}
+        {issue.slaDeadline && (
+          <div className="pt-2 flex items-center gap-2 text-xs">
+            <span className="text-slate-400">SLA Resolution Target:</span>
+            <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 font-medium flex items-center gap-1">
+              <Clock className="w-3 h-3 text-indigo-400" />
+              {new Date(issue.slaDeadline).toLocaleString(undefined, {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })}
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Queue 9 Feature: Administrator Triage Control Center */}
+      {/* Queue 9 & 10 Feature: Administrator Triage & Dispatch Control Center */}
       {canAdminTriage && (
         <div className="p-6 rounded-3xl bg-slate-900/90 border border-sky-500/30 shadow-xl space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
@@ -401,10 +477,10 @@ export default function IssueDetailPage() {
               </div>
               <div>
                 <h2 className="text-base font-bold text-white">
-                  Administrator Triage & Intake Actions (Queue 9)
+                  Administrator Triage & Dispatch Control (Queue 9 & 10)
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Verify validity, reject with mandatory reason, or request citizen clarification.
+                  Assign field workers, set SLA deadlines, verify validity, or reject with reason.
                 </p>
               </div>
             </div>
@@ -415,6 +491,19 @@ export default function IssueDetailPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-1">
+            {/* Queue 10: Assign Button */}
+            <button
+              onClick={() => {
+                setTriageModal('assign');
+                setActionError(null);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20 transition"
+            >
+              <HardHat className="w-4 h-4" />
+              <span>Assign Department & Worker</span>
+            </button>
+
+            {/* Queue 9: Verify Button */}
             <button
               onClick={() => {
                 setTriageModal('verify');
@@ -423,9 +512,10 @@ export default function IssueDetailPage() {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/20 transition"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>Verify & Accept Issue</span>
+              <span>Verify & Accept</span>
             </button>
 
+            {/* Queue 9: Request Info Button */}
             <button
               onClick={() => {
                 setTriageModal('request_info');
@@ -434,9 +524,10 @@ export default function IssueDetailPage() {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold shadow-lg shadow-amber-600/20 transition"
             >
               <HelpCircle className="w-4 h-4" />
-              <span>Request Information</span>
+              <span>Request Info</span>
             </button>
 
+            {/* Queue 9: Reject Button */}
             <button
               onClick={() => {
                 setTriageModal('reject');
@@ -584,9 +675,20 @@ export default function IssueDetailPage() {
         <div className="space-y-6">
           {/* Assignment & Department Card */}
           <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
-            <h3 className="text-xs uppercase font-semibold text-slate-400 tracking-wider">
-              Department & Assignment
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs uppercase font-semibold text-slate-400 tracking-wider">
+                Department & Assignment
+              </h3>
+              {canAdminTriage && (
+                <button
+                  onClick={() => setTriageModal('assign')}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1"
+                >
+                  <HardHat className="w-3.5 h-3.5" />
+                  <span>Reassign</span>
+                </button>
+              )}
+            </div>
 
             <div className="space-y-3 text-xs">
               <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center gap-3">
@@ -608,8 +710,17 @@ export default function IssueDetailPage() {
                 <div>
                   <span className="text-slate-400 block text-[11px]">Field Worker</span>
                   <span className="font-medium text-slate-200">
-                    {issue.assignedWorker?.name || 'Awaiting Field Dispatch'}
+                    {issue.assignedWorker?.name ? (
+                      <span className="text-indigo-300 font-semibold">{issue.assignedWorker.name}</span>
+                    ) : (
+                      'Awaiting Field Dispatch'
+                    )}
                   </span>
+                  {issue.assignedWorker?.phone && (
+                    <span className="text-[11px] text-slate-400 block">
+                      📞 {issue.assignedWorker.phone}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -659,6 +770,137 @@ export default function IssueDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Admin Queue 10: Assign Department & Worker Modal */}
+      {triageModal === 'assign' && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-scale-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <HardHat className="w-5 h-5 text-indigo-400" />
+                Dispatch & Assign Field Worker
+              </h3>
+              <button
+                onClick={() => setTriageModal(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAssignSubmit} className="space-y-4">
+              {/* Department */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Responsible Municipal Department
+                </label>
+                <select
+                  value={assignDepartment}
+                  onChange={(e) => setAssignDepartment(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="">Select Department...</option>
+                  {departments.map((d) => (
+                    <option key={d._id} value={d._id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Field Worker */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Assign Field Worker
+                </label>
+                <select
+                  value={assignWorker}
+                  onChange={(e) => setAssignWorker(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="">Select Field Worker...</option>
+                  {workers.map((w) => (
+                    <option key={w._id} value={w._id}>
+                      {w.name} ({w.department?.name || 'Field Dept'}) — {w.activeTasksCount || 0} active tasks
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Priority & SLA Hours Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Priority Level
+                  </label>
+                  <select
+                    value={assignPriority}
+                    onChange={(e) => setAssignPriority(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="urgent">🚨 Urgent (Immediate)</option>
+                    <option value="high">⚠️ High Priority</option>
+                    <option value="medium">⚡ Medium Priority</option>
+                    <option value="low">ℹ️ Low Priority</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    SLA Deadline Target (Hours)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="360"
+                    value={assignSlaHours}
+                    onChange={(e) => setAssignSlaHours(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Dispatch Note */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Dispatch Instructions / Operational Note
+                </label>
+                <textarea
+                  rows={2}
+                  value={assignNote}
+                  onChange={(e) => setAssignNote(e.target.value)}
+                  placeholder="e.g. Inspect road crater, deploy cold mix patch before evening rush hour."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {actionError && (
+                <p className="text-xs text-rose-400 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {actionError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setTriageModal(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20 transition disabled:opacity-50"
+                >
+                  {actionLoading ? 'Dispatching...' : 'Confirm Dispatch'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Admin Verify Modal */}
       {triageModal === 'verify' && (
