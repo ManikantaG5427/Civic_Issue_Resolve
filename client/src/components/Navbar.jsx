@@ -1,9 +1,17 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { ShieldAlert, Activity, GitBranch } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ShieldAlert, LogIn, LogOut, UserPlus, User, LayoutDashboard } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isAuthenticated, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   return (
     <header className="sticky top-0 z-50 glass-panel border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md">
@@ -23,11 +31,11 @@ export default function Navbar() {
             </div>
           </Link>
           <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-500/10 text-teal-400 border border-teal-500/20">
-            Queue 0 · Foundation
+            Queue 1 · Authentication
           </span>
         </div>
 
-        <nav className="flex items-center space-x-4">
+        <nav className="flex items-center space-x-3 sm:space-x-4">
           <Link
             to="/"
             className={`text-sm font-medium transition-colors ${
@@ -36,17 +44,63 @@ export default function Navbar() {
           >
             Overview
           </Link>
-          <Link
-            to="/non-existent-page"
-            className="text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors"
-          >
-            404 Test
-          </Link>
-          <div className="h-4 w-px bg-slate-800" />
-          <div className="flex items-center gap-2 text-xs font-mono text-slate-400 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800">
-            <GitBranch className="w-3.5 h-3.5 text-teal-400" />
-            <span>MERN Stack</span>
-          </div>
+
+          {isAuthenticated ? (
+            <>
+              <Link
+                to="/dashboard"
+                className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                  location.pathname === '/dashboard' ? 'text-teal-400' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Dashboard</span>
+              </Link>
+
+              <div className="h-4 w-px bg-slate-800" />
+
+              <div className="flex items-center gap-2">
+                <div className="hidden md:flex items-center gap-2 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+                  <div className="w-6 h-6 rounded-md bg-teal-500/20 text-teal-300 text-xs font-bold flex items-center justify-center">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <span className="text-xs text-slate-200 font-medium max-w-[120px] truncate">
+                    {user?.name}
+                  </span>
+                  <span className="text-[10px] uppercase font-semibold text-teal-400 bg-teal-500/10 px-1.5 py-0.2 rounded">
+                    {user?.role}
+                  </span>
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-rose-300 text-xs font-medium border border-slate-700 transition"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="inline-flex items-center space-x-1.5 text-sm font-medium text-slate-300 hover:text-white transition px-2 py-1"
+              >
+                <LogIn className="w-4 h-4 text-teal-400" />
+                <span>Sign In</span>
+              </Link>
+
+              <Link
+                to="/register"
+                className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold text-xs sm:text-sm transition shadow-lg shadow-teal-500/20"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Register</span>
+              </Link>
+            </>
+          )}
         </nav>
       </div>
     </header>

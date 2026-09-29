@@ -1,19 +1,19 @@
 import React from 'react';
-import { CheckCircle, CircleDot, ArrowRight, ShieldCheck, Cpu, Smartphone, Database, Lock } from 'lucide-react';
+import { ShieldCheck, Smartphone, Database, Lock } from 'lucide-react';
 
 export default function QueueRoadmap() {
   const queues = [
     {
       id: 0,
       name: 'Project Foundation',
-      status: 'active',
+      status: 'done',
       desc: 'MERN structure, Vite client, Express server, health route, error handling.',
       icon: Database,
     },
     {
       id: 1,
       name: 'Authentication',
-      status: 'pending',
+      status: 'active',
       desc: 'User model, register, login, bcryptjs hash, JWT tokens, protected routes.',
       icon: Lock,
     },
@@ -49,6 +49,7 @@ export default function QueueRoadmap() {
         {queues.map((q) => {
           const Icon = q.icon;
           const isActive = q.status === 'active';
+          const isDone = q.status === 'done';
 
           return (
             <div
@@ -56,13 +57,19 @@ export default function QueueRoadmap() {
               className={`p-4 rounded-xl border transition-all duration-200 ${
                 isActive
                   ? 'bg-teal-950/20 border-teal-500/40 ring-1 ring-teal-500/30 shadow-lg shadow-teal-950/50'
+                  : isDone
+                  ? 'bg-emerald-950/10 border-emerald-500/30'
                   : 'bg-slate-800/30 border-slate-800 hover:border-slate-700'
               }`}
             >
               <div className="flex items-center justify-between mb-3">
                 <div
                   className={`p-2 rounded-lg ${
-                    isActive ? 'bg-teal-500/20 text-teal-400' : 'bg-slate-800 text-slate-400'
+                    isActive
+                      ? 'bg-teal-500/20 text-teal-400'
+                      : isDone
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'bg-slate-800 text-slate-400'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -71,10 +78,12 @@ export default function QueueRoadmap() {
                   className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                     isActive
                       ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                      : isDone
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                       : 'bg-slate-800 text-slate-500'
                   }`}
                 >
-                  {isActive ? 'Current Queue' : 'Upcoming'}
+                  {isDone ? 'Completed' : isActive ? 'Current Queue' : 'Upcoming'}
                 </span>
               </div>
 
