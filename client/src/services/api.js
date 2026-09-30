@@ -186,6 +186,9 @@ export const adminAPI = {
     apiRequest(`/admin/issues/${id}/request-info`, { method: 'POST', body: JSON.stringify(data) }),
   assignIssue: (id, data) =>
     apiRequest(`/admin/issues/${id}/assign`, { method: 'POST', body: JSON.stringify(data) }),
+  triggerSlaCheck: () =>
+    apiRequest('/admin/sla/check-escalations', { method: 'POST' }),
+  getOverdueIssues: () => apiRequest('/admin/sla/overdue'),
 };
 
 /**

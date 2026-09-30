@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import app from './app.js';
 import { connectDB } from './config/db.js';
 import { initSocket } from './socket.js';
+import { initSlaCron, stopSlaCron } from './services/slaCronService.js';
 
 // Load environment variables
 dotenv.config();
@@ -24,9 +25,13 @@ const server = app.listen(PORT, () => {
 // Initialize Socket.IO
 initSocket(server);
 
+// Initialize SLA Background Engine
+initSlaCron();
+
 // Handle graceful shutdown
 const shutdown = (signal) => {
   console.info(`[Server] Received ${signal}. Closing HTTP server gracefully...`);
+  stopSlaCron();
   server.close(() => {
     console.info('[Server] HTTP server closed.');
     process.exit(0);

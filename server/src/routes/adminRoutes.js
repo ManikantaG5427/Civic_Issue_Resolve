@@ -7,6 +7,7 @@ import {
   getWorkers,
   assignIssue,
 } from '../controllers/adminController.js';
+import { triggerSlaCheck, getOverdueIssues } from '../controllers/slaController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { authorize } from '../middlewares/roleMiddleware.js';
 
@@ -21,6 +22,13 @@ router.get('/review-queue', getReviewQueue);
 
 // GET /api/admin/workers -> Available field workers for dispatch
 router.get('/workers', getWorkers);
+
+// SLA Automated Background Engine (Queue 19)
+// POST /api/admin/sla/check-escalations -> Trigger manual SLA escalation sweep
+router.post('/sla/check-escalations', triggerSlaCheck);
+
+// GET /api/admin/sla/overdue -> Retrieve list of all currently overdue / escalated issues
+router.get('/sla/overdue', getOverdueIssues);
 
 // POST /api/admin/issues/:id/verify -> Verify & accept issue into in_review
 router.post('/issues/:id/verify', verifyIssue);

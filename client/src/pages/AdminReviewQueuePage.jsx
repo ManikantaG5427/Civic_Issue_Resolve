@@ -18,9 +18,11 @@ import {
   CheckCircle2,
   Layers,
   ArrowUpDown,
+  Zap,
 } from 'lucide-react';
 import { adminAPI, configAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 
 const STATUS_OPTIONS = [
   { value: 'triage', label: 'Actionable Triage (Pending Review)' },
@@ -78,6 +80,7 @@ const getPriorityBadge = (priority) => {
 
 export default function AdminReviewQueuePage() {
   const { user } = useAuth();
+  const { subscribeToEvent } = useSocket();
   const [issues, setIssues] = useState([]);
   const [metrics, setMetrics] = useState({
     pendingTriage: 0,
@@ -90,6 +93,8 @@ export default function AdminReviewQueuePage() {
   const [serviceAreas, setServiceAreas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [slaSweepRunning, setSlaSweepRunning] = useState(false);
+  const [slaSuccessMessage, setSlaSuccessMessage] = useState(null);
 
   // Filters and Pagination
   const [search, setSearch] = useState('');
@@ -165,6 +170,34 @@ export default function AdminReviewQueuePage() {
     fetchQueue();
   }, [fetchQueue]);
 
+  // Real-time Socket.IO live sync for incoming issues & state changes
+  useEffect(() => {
+    const unsubscribe = subscribeToEvent('issue_updated', () => {
+      fetchQueue();
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [fetchQueue, subscribeToEvent]);
+
+  // Queue 19: Manual SLA Escalation Sweep
+  const handleRunSlaCheck = async () => {
+    setSlaSweepRunning(true);
+    setSlaSuccessMessage(null);
+    try {
+      const res = await adminAPI.triggerSlaCheck();
+      if (res.data) {
+        setSlaSuccessMessage(res.data.message || 'SLA escalation sweep complete.');
+        fetchQueue();
+        setTimeout(() => setSlaSuccessMessage(null), 5000);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to trigger SLA check');
+    } finally {
+      setSlaSweepRunning(false);
+    }
+  };
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setPage(1);
@@ -178,7 +211,7 @@ export default function AdminReviewQueuePage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20">
-              Queue 8 · Administrator Triage
+              Queue 8 & 19 · Administrator Triage & SLA Engine
             </span>
             <span className="text-xs text-slate-400">Operational Review & Routing</span>
           </div>
@@ -187,11 +220,22 @@ export default function AdminReviewQueuePage() {
             Civic Issue Review Queue
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Centralized intake and verification queue for municipal triage, department dispatch, and priority control.
+            Centralized intake and verification queue for municipal triage, department dispatch, and automated SLA escalation.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Queue 19: SLA Background Trigger Button */}
+          <button
+            onClick={handleRunSlaCheck}
+            disabled={slaSweepRunning}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold transition disabled:opacity-50"
+            title="Scan database for overdue tasks and escalate"
+          >
+            <Zap className={`w-3.5 h-3.5 text-amber-400 ${slaSweepRunning ? 'animate-bounce' : ''}`} />
+            <span>{slaSweepRunning ? 'Scanning Overdue...' : 'Run SLA Sweep'}</span>
+          </button>
+
           <button
             onClick={fetchQueue}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-200 transition"
@@ -201,6 +245,22 @@ export default function AdminReviewQueuePage() {
           </button>
         </div>
       </div>
+
+      {/* SLA Success Message */}
+      {slaSuccessMessage && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <span>{slaSuccessMessage}</span>
+          </div>
+          <button
+            onClick={() => setSlaSuccessMessage(null)}
+            className="text-[11px] text-amber-400 hover:text-white font-semibold"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* KPI Triage Metrics Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
@@ -516,6 +576,12 @@ export default function AdminReviewQueuePage() {
                     >
                       {statusBadge.label}
                     </span>
+                    {issue.isEscalated && (
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1 animate-pulse">
+                        <Zap className="w-3 h-3 text-rose-400" />
+                        <span>SLA ESCALATED</span>
+                      </span>
+                    )}
                     <span className="text-xs text-slate-400 flex items-center gap-1 ml-auto lg:ml-0">
                       <Clock className="w-3 h-3 text-slate-500" />
                       {new Date(issue.createdAt).toLocaleDateString(undefined, {
