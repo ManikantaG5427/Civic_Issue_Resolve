@@ -27,11 +27,13 @@ import { issueAPI, adminAPI, configAPI, workerAPI, uploadAPI } from '../services
 import { useAuth } from '../context/AuthContext';
 import Timeline from '../components/Timeline';
 import MapPreview from '../components/MapPreview';
+import BeforeAfterComparison from '../components/BeforeAfterComparison';
 import {
   Wrench,
   Play,
   Upload,
   Layers,
+  Sparkles,
 } from 'lucide-react';
 
 const REJECTION_CATEGORIES = [
@@ -132,14 +134,21 @@ export default function IssueDetailPage() {
   const [assignSlaHours, setAssignSlaHours] = useState(48);
   const [assignNote, setAssignNote] = useState('');
 
-  // Queue 12: Worker Actions State
-  const [workerModal, setWorkerModal] = useState(null); // 'start_work' | 'progress_update'
+  // Queue 12 & 13: Worker Actions State
+  const [workerModal, setWorkerModal] = useState(null); // 'start_work' | 'progress_update' | 'resolve'
   const [startWorkNote, setStartWorkNote] = useState('');
   const [progressNote, setProgressNote] = useState('');
   const [materialsUsed, setMaterialsUsed] = useState('');
   const [isInternalProgress, setIsInternalProgress] = useState(false);
   const [progressPhotos, setProgressPhotos] = useState([]);
   const [uploadingProgressPhotos, setUploadingProgressPhotos] = useState(false);
+
+  // Queue 13: Resolution Proof State
+  const [resolutionSummary, setResolutionSummary] = useState('');
+  const [resolutionPhotos, setResolutionPhotos] = useState([]);
+  const [uploadingResolutionPhotos, setUploadingResolutionPhotos] = useState(false);
+  const [repairCost, setRepairCost] = useState('');
+  const [materialsUsedResolution, setMaterialsUsedResolution] = useState('');
 
   // Citizen Clarification Submission State
   const [citizenResponseNote, setCitizenResponseNote] = useState('');
@@ -371,7 +380,60 @@ export default function IssueDetailPage() {
     }
   };
 
-  // 8. Citizen: Provide Clarification
+  // 8. Worker: Resolution Photo Upload (Queue 13)
+  const handleResolutionPhotoUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    setUploadingResolutionPhotos(true);
+    try {
+      const uploadRes = await uploadAPI.uploadEvidence(files, 'resolution');
+      if (uploadRes.data?.urls) {
+        setResolutionPhotos((prev) => [...prev, ...uploadRes.data.urls]);
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to upload resolution proof photos');
+    } finally {
+      setUploadingResolutionPhotos(false);
+    }
+  };
+
+  // 9. Worker: Submit Resolution Proof (Queue 13)
+  const handleResolveSubmit = async (e) => {
+    e.preventDefault();
+    if (!resolutionSummary || resolutionSummary.trim().length < 10) {
+      setActionError('Resolution summary must be at least 10 characters explaining work completed.');
+      return;
+    }
+    if (!resolutionPhotos.length) {
+      setActionError('At least one resolution proof photograph is required.');
+      return;
+    }
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await workerAPI.resolveTask(issue.issueNumber || issue._id, {
+        resolutionSummary,
+        resolutionPhotos,
+        materialsUsed: materialsUsedResolution,
+        repairCost: repairCost ? Number(repairCost) : undefined,
+      });
+      if (res.data) {
+        setIssue(res.data.issue || res.data);
+        setActionSuccess('Task resolved and submitted for citizen verification with photographic proof.');
+        setWorkerModal(null);
+        setResolutionSummary('');
+        setResolutionPhotos([]);
+        setMaterialsUsedResolution('');
+        setRepairCost('');
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to submit resolution proof');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 10. Citizen: Provide Clarification
   const handleCitizenResponseSubmit = async (e) => {
     e.preventDefault();
     if (!citizenResponseNote || citizenResponseNote.trim().length < 5) {
@@ -617,6 +679,18 @@ export default function IssueDetailPage() {
               <span>Log Progress & Materials</span>
             </button>
 
+            {/* Queue 13: Submit Resolution Proof Button */}
+            <button
+              onClick={() => {
+                setWorkerModal('resolve');
+                setActionError(null);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition"
+            >
+              <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+              <span>Submit Resolution Proof</span>
+            </button>
+
             {/* GPS Route Link */}
             <a
               href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
@@ -768,38 +842,11 @@ export default function IssueDetailPage() {
             </p>
           </div>
 
-          {/* Evidence Photos Gallery */}
-          {issue.evidence && issue.evidence.length > 0 && (
-            <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-teal-400" />
-                  Attached Photo Evidence ({issue.evidence.length})
-                </h2>
-                <span className="text-xs text-slate-400">Click to expand</span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {issue.evidence.map((img, idx) => (
-                  <button
-                    key={img.url || idx}
-                    type="button"
-                    onClick={() => setSelectedPhoto(img.url)}
-                    className="group relative aspect-video rounded-xl overflow-hidden border border-slate-800 hover:border-teal-500/50 transition bg-slate-950"
-                  >
-                    <img
-                      src={img.url}
-                      alt={img.caption || `Evidence photo ${idx + 1}`}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                    />
-                    <div className="absolute inset-0 bg-slate-950/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                      <ExternalLink className="w-5 h-5 text-white" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Evidence Photos & Before/After Proof Gallery (Queue 13) */}
+          <BeforeAfterComparison
+            evidence={issue.evidence || []}
+            onExpandPhoto={(url) => setSelectedPhoto(url)}
+          />
 
           {/* Location & Map */}
           <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
@@ -1467,6 +1514,145 @@ export default function IssueDetailPage() {
                   className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 transition disabled:opacity-50"
                 >
                   {actionLoading ? 'Saving...' : 'Submit Progress Update'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Worker Queue 13: Resolution Proof Modal */}
+      {workerModal === 'resolve' && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-emerald-500/30 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-scale-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                Submit Resolution Proof & Close Work
+              </h3>
+              <button
+                onClick={() => setWorkerModal(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleResolveSubmit} className="space-y-4">
+              <p className="text-xs text-slate-300">
+                Submit completed photographic proof. The status will transition to{' '}
+                <strong className="text-emerald-400">Resolved (Verification Pending)</strong> for citizen verification.
+              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Resolution Summary <span className="text-emerald-400">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={resolutionSummary}
+                  onChange={(e) => setResolutionSummary(e.target.value)}
+                  placeholder="Detail how the issue was resolved (e.g. Cleared 15m underground sewer blockage and replaced damaged manhole cover frame)..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {/* Mandatory Resolution Photos Upload */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-300">
+                  Mandatory Resolution Proof Photos <span className="text-emerald-400">*</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-semibold border border-emerald-500/40 transition">
+                    <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Upload After-Repair Photos</span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleResolutionPhotoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {uploadingResolutionPhotos && (
+                    <span className="text-xs text-emerald-400 animate-pulse">Uploading photos...</span>
+                  )}
+                  {resolutionPhotos.length > 0 && (
+                    <span className="text-xs text-emerald-400 font-semibold">
+                      ✓ {resolutionPhotos.length} proof photo(s) attached
+                    </span>
+                  )}
+                </div>
+
+                {resolutionPhotos.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {resolutionPhotos.map((url, i) => (
+                      <div
+                        key={url || i}
+                        className="relative w-14 h-14 rounded-xl overflow-hidden border border-emerald-500/40 ring-1 ring-emerald-500/30"
+                      >
+                        <img src={url} alt="Resolution proof" className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Materials & Cost Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Materials Used (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={materialsUsedResolution}
+                    onChange={(e) => setMaterialsUsedResolution(e.target.value)}
+                    placeholder="e.g. 50kg asphalt, 2 bolts"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Repair Cost (₹ INR Optional)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={repairCost}
+                    onChange={(e) => setRepairCost(e.target.value)}
+                    placeholder="e.g. 3500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {actionError && (
+                <p className="text-xs text-rose-400 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {actionError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWorkerModal(null);
+                    setResolutionPhotos([]);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition disabled:opacity-50"
+                >
+                  {actionLoading ? 'Submitting...' : 'Confirm Resolution'}
                 </button>
               </div>
             </form>

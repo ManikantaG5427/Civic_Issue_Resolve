@@ -3,6 +3,7 @@ import {
   getAssignedTasks,
   startWork,
   addProgressUpdate,
+  resolveTask,
 } from '../controllers/workerController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { authorize } from '../middlewares/roleMiddleware.js';
@@ -22,5 +23,9 @@ router.post('/issues/:id/start-work', startWork);
 // POST /api/worker/issues/:id/progress-update -> Record progress notes, materials & stage photos
 router.post('/issues/:id/progress-update', addProgressUpdate);
 
+// POST /api/worker/issues/:id/resolve -> Submit mandatory photo proof & summary -> resolved_verification_pending
+router.post('/issues/:id/resolve', resolveTask);
+
 export default router;
+
 

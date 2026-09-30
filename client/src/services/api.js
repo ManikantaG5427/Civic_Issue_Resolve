@@ -190,6 +190,11 @@ export const workerAPI = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  resolveTask: (id, data) =>
+    apiRequest(`/worker/issues/${id}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 /**

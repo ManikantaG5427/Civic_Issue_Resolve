@@ -317,3 +317,128 @@ export const addProgressUpdate = async (req, res, next) => {
   }
 };
 
+/**
+ * Worker submits resolution proof (mandatory after photos + summary)
+ * POST /api/worker/issues/:id/resolve
+ */
+export const resolveTask = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { resolutionSummary, resolutionPhotos, materialsUsed, repairCost } = req.body;
+
+    if (!resolutionSummary || resolutionSummary.trim().length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Resolution summary must be at least 10 characters long explaining the completed repair work',
+      });
+    }
+
+    if (!Array.isArray(resolutionPhotos) || resolutionPhotos.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one resolution proof photograph is required to verify completed work',
+      });
+    }
+
+    const query = id.match(/^[0-9a-fA-F]{24}$/) ? { _id: id } : { issueNumber: id.toUpperCase() };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Civic issue report not found',
+      });
+    }
+
+    // RBAC: Verify worker assignment (Super Admin / Admin bypass)
+    if (
+      req.user.role === 'field_worker' &&
+      (!issue.assignedWorker || issue.assignedWorker.toString() !== req.user._id.toString())
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You are not assigned to work on this issue',
+      });
+    }
+
+    const allowableStatuses = ['in_progress', 'assigned', 'reopened'];
+    if (!allowableStatuses.includes(issue.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot resolve issue with status: '${issue.status}'`,
+      });
+    }
+
+    const previousStatus = issue.status;
+    issue.status = 'resolved_verification_pending';
+
+    // Attach resolution proof photos
+    resolutionPhotos.forEach((photo) => {
+      if (typeof photo === 'string') {
+        issue.evidence.push({
+          url: photo,
+          stage: 'resolution',
+          uploadedAt: new Date(),
+        });
+      } else if (photo && photo.url) {
+        issue.evidence.push({
+          url: photo.url,
+          filename: photo.filename || '',
+          fileSize: photo.fileSize || null,
+          mimeType: photo.mimeType || 'image/jpeg',
+          stage: 'resolution',
+          uploadedAt: new Date(),
+        });
+      }
+    });
+
+    let fullNote = `Resolution Summary: ${resolutionSummary.trim()}`;
+    if (materialsUsed && materialsUsed.trim()) {
+      fullNote += `\n[Materials / Equipment: ${materialsUsed.trim()}]`;
+    }
+    if (repairCost !== undefined && repairCost !== null && repairCost !== '') {
+      fullNote += `\n[Municipal Repair Cost: ₹${Number(repairCost).toLocaleString('en-IN')}]`;
+    }
+
+    issue.timeline.push({
+      status: 'resolved_verification_pending',
+      action: 'Resolved by Field Personnel',
+      performedBy: req.user._id,
+      note: fullNote,
+      visibility: 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: 'WORK_RESOLVED',
+      performedBy: req.user._id,
+      previousState: { status: previousStatus },
+      newState: {
+        status: 'resolved_verification_pending',
+        summary: resolutionSummary.trim(),
+        photosCount: resolutionPhotos.length,
+        repairCost: repairCost || null,
+      },
+      ipAddress: req.ip,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    const populatedIssue = await Issue.findById(issue._id)
+      .populate('category', 'name code icon')
+      .populate('serviceArea', 'name code')
+      .populate('department', 'name code')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('reporter', 'name email phone')
+      .populate('timeline.performedBy', 'name role department');
+
+    return successResponse(res, 'Task resolved with photo proof and submitted for citizen verification', {
+      issue: populatedIssue,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
