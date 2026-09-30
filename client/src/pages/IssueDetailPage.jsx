@@ -29,6 +29,7 @@ import { useSocket } from '../context/SocketContext';
 import Timeline from '../components/Timeline';
 import MapPreview from '../components/MapPreview';
 import BeforeAfterComparison from '../components/BeforeAfterComparison';
+import CommentSection from '../components/CommentSection';
 import {
   Wrench,
   Play,
@@ -1061,6 +1062,17 @@ export default function IssueDetailPage() {
               <MapPreview latitude={lat} longitude={lng} height="220px" zoom={16} />
             </div>
           </div>
+
+          {/* Queue 17: Discussions & Municipal Internal Notes */}
+          <CommentSection
+            issueId={issue.issueNumber || issue._id}
+            initialComments={issue.comments || []}
+            onCommentAdded={(data) => {
+              if (data?.comments) {
+                setIssue((prev) => ({ ...prev, comments: data.comments }));
+              }
+            }}
+          />
         </div>
 
         {/* Right Column: Municipal Assignment & Vertical Timeline */}

@@ -7,6 +7,7 @@ import {
   confirmResolution,
   reopenIssue,
 } from '../controllers/issueController.js';
+import { addComment, getComments } from '../controllers/commentController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { validateCreateIssue } from '../middlewares/issueValidation.js';
 
@@ -20,6 +21,13 @@ router.get('/my-reports', getMyReports);
 
 // POST /api/issues -> Create a new civic issue report
 router.post('/', validateCreateIssue, createIssue);
+
+// Comments Subsystem (Queue 17)
+// POST /api/issues/:id/comments -> Add public comment or staff internal note
+router.post('/:id/comments', addComment);
+
+// GET /api/issues/:id/comments -> Retrieve sanitized comments list
+router.get('/:id/comments', getComments);
 
 // POST /api/issues/:id/provide-info -> Citizen provides clarification/requested info
 router.post('/:id/provide-info', provideRequestedInfo);

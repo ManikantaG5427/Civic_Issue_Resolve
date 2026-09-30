@@ -137,6 +137,9 @@ export const issueAPI = {
     apiRequest(`/issues/${id}/confirm-resolution`, { method: 'POST', body: JSON.stringify(data) }),
   reopenIssue: (id, data) =>
     apiRequest(`/issues/${id}/reopen`, { method: 'POST', body: JSON.stringify(data) }),
+  addComment: (id, data) =>
+    apiRequest(`/issues/${id}/comments`, { method: 'POST', body: JSON.stringify(data) }),
+  getComments: (id) => apiRequest(`/issues/${id}/comments`),
 };
 
 /**

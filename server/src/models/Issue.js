@@ -33,6 +33,47 @@ const timelineEntrySchema = new mongoose.Schema(
   { _id: true }
 );
 
+const commentSchema = new mongoose.Schema(
+  {
+    author: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    authorName: {
+      type: String,
+      required: true,
+    },
+    authorRole: {
+      type: String,
+      enum: ['citizen', 'field_worker', 'administrator', 'super_admin'],
+      required: true,
+    },
+    content: {
+      type: String,
+      required: [true, 'Comment content is required'],
+      trim: true,
+      minlength: [2, 'Comment must be at least 2 characters long'],
+      maxlength: [2000, 'Comment cannot exceed 2000 characters'],
+    },
+    isInternal: {
+      type: Boolean,
+      default: false,
+    },
+    attachments: [
+      {
+        url: String,
+        filename: String,
+      },
+    ],
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: true }
+);
+
 const auditLogSchema = new mongoose.Schema(
   {
     action: {
@@ -189,6 +230,24 @@ const issueSchema = new mongoose.Schema(
         type: Date,
         default: null,
       },
+    },
+    comments: [commentSchema],
+    followers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    upvotes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    duplicateOf: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Issue',
+      default: null,
     },
     timeline: [timelineEntrySchema],
     auditLogs: [auditLogSchema],

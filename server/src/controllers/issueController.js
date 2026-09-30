@@ -223,9 +223,14 @@ export const getIssueById = async (req, res, next) => {
 
     const issueObj = issue.toObject();
 
-    // Hide internal administrative notes from citizens
-    if (req.user.role === 'citizen' && issueObj.timeline) {
-      issueObj.timeline = issueObj.timeline.filter((t) => t.visibility === 'public');
+    // Hide internal administrative notes & internal comments from citizens
+    if (req.user.role === 'citizen') {
+      if (issueObj.timeline) {
+        issueObj.timeline = issueObj.timeline.filter((t) => t.visibility === 'public');
+      }
+      if (issueObj.comments) {
+        issueObj.comments = issueObj.comments.filter((c) => !c.isInternal);
+      }
     }
 
     return successResponse(res, 'Civic issue details retrieved', issueObj, 200);
