@@ -12,6 +12,7 @@ import ReportIssuePage from './pages/ReportIssuePage';
 import MyReportsPage from './pages/MyReportsPage';
 import IssueDetailPage from './pages/IssueDetailPage';
 import AdminReviewQueuePage from './pages/AdminReviewQueuePage';
+import AdminAnalyticsPage from './pages/AdminAnalyticsPage';
 import WorkerDashboardPage from './pages/WorkerDashboardPage';
 import ConfigCatalogPage from './pages/ConfigCatalogPage';
 import ForbiddenPage from './pages/ForbiddenPage';
@@ -53,6 +54,14 @@ export default function App() {
                 element={
                   <RoleRoute allowedRoles={['administrator', 'super_admin']}>
                     <AdminReviewQueuePage />
+                  </RoleRoute>
+                }
+              />
+              <Route
+                path="/admin/analytics"
+                element={
+                  <RoleRoute allowedRoles={['administrator', 'super_admin']}>
+                    <AdminAnalyticsPage />
                   </RoleRoute>
                 }
               />

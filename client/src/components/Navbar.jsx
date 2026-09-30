@@ -1,6 +1,17 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShieldAlert, LogIn, LogOut, UserPlus, LayoutDashboard, Layers, FilePlus2, FileText, HardHat } from 'lucide-react';
+import {
+  ShieldAlert,
+  LogIn,
+  LogOut,
+  UserPlus,
+  LayoutDashboard,
+  Layers,
+  FilePlus2,
+  FileText,
+  HardHat,
+  BarChart3,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import NotificationPopover from './NotificationPopover';
 
@@ -112,17 +123,31 @@ export default function Navbar() {
               )}
 
               {(user?.role === 'administrator' || user?.role === 'super_admin') && (
-                <Link
-                  to="/admin/review-queue"
-                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition ${
-                    location.pathname === '/admin/review-queue'
-                      ? 'bg-sky-500 text-slate-950'
-                      : 'bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30'
-                  }`}
-                >
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                  <span>Review Queue</span>
-                </Link>
+                <>
+                  <Link
+                    to="/admin/review-queue"
+                    className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition ${
+                      location.pathname === '/admin/review-queue'
+                        ? 'bg-sky-500 text-slate-950'
+                        : 'bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                    }`}
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    <span>Review Queue</span>
+                  </Link>
+
+                  <Link
+                    to="/admin/analytics"
+                    className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition ${
+                      location.pathname === '/admin/analytics'
+                        ? 'bg-teal-500 text-slate-950'
+                        : 'bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                    }`}
+                  >
+                    <BarChart3 className="w-3.5 h-3.5" />
+                    <span>Analytics</span>
+                  </Link>
+                </>
               )}
 
               <Link

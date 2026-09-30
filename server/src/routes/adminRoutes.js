@@ -8,6 +8,7 @@ import {
   assignIssue,
 } from '../controllers/adminController.js';
 import { triggerSlaCheck, getOverdueIssues } from '../controllers/slaController.js';
+import { getAdminAnalytics } from '../controllers/analyticsController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { authorize } from '../middlewares/roleMiddleware.js';
 
@@ -16,6 +17,10 @@ const router = express.Router();
 // Enforce authentication & Administrator/Super Admin role for all admin operations
 router.use(protect);
 router.use(authorize('administrator', 'super_admin'));
+
+// Municipal Intelligence & Analytics (Queue 20)
+// GET /api/admin/analytics -> Aggregate KPI metrics, category breakdowns, and worker leaderboards
+router.get('/analytics', getAdminAnalytics);
 
 // GET /api/admin/review-queue -> Triage & review queue
 router.get('/review-queue', getReviewQueue);

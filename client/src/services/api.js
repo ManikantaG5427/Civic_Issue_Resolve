@@ -189,6 +189,16 @@ export const adminAPI = {
   triggerSlaCheck: () =>
     apiRequest('/admin/sla/check-escalations', { method: 'POST' }),
   getOverdueIssues: () => apiRequest('/admin/sla/overdue'),
+  getAnalytics: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '' && value !== 'all') {
+        searchParams.append(key, value);
+      }
+    });
+    const queryString = searchParams.toString();
+    return apiRequest(`/admin/analytics${queryString ? `?${queryString}` : ''}`);
+  },
 };
 
 /**
