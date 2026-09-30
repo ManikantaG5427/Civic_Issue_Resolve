@@ -23,10 +23,16 @@ import {
   AlertTriangle,
   Flame,
 } from 'lucide-react';
-import { issueAPI, adminAPI, configAPI } from '../services/api';
+import { issueAPI, adminAPI, configAPI, workerAPI, uploadAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Timeline from '../components/Timeline';
 import MapPreview from '../components/MapPreview';
+import {
+  Wrench,
+  Play,
+  Upload,
+  Layers,
+} from 'lucide-react';
 
 const REJECTION_CATEGORIES = [
   { value: 'jurisdiction', label: 'Out of Municipal Pilot Jurisdiction' },
@@ -125,6 +131,15 @@ export default function IssueDetailPage() {
   const [assignPriority, setAssignPriority] = useState('medium');
   const [assignSlaHours, setAssignSlaHours] = useState(48);
   const [assignNote, setAssignNote] = useState('');
+
+  // Queue 12: Worker Actions State
+  const [workerModal, setWorkerModal] = useState(null); // 'start_work' | 'progress_update'
+  const [startWorkNote, setStartWorkNote] = useState('');
+  const [progressNote, setProgressNote] = useState('');
+  const [materialsUsed, setMaterialsUsed] = useState('');
+  const [isInternalProgress, setIsInternalProgress] = useState(false);
+  const [progressPhotos, setProgressPhotos] = useState([]);
+  const [uploadingProgressPhotos, setUploadingProgressPhotos] = useState(false);
 
   // Citizen Clarification Submission State
   const [citizenResponseNote, setCitizenResponseNote] = useState('');
@@ -286,7 +301,77 @@ export default function IssueDetailPage() {
     }
   };
 
-  // 5. Citizen: Provide Clarification
+  // 5. Worker: Start Work (Queue 12)
+  const handleStartWorkSubmit = async (e) => {
+    e?.preventDefault();
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await workerAPI.startWork(issue.issueNumber || issue._id, {
+        note: startWorkNote || 'Field worker arrived on site and initiated repair operations.',
+      });
+      if (res.data) {
+        setIssue(res.data.issue || res.data);
+        setActionSuccess('Work marked as started! Status updated to In Progress.');
+        setWorkerModal(null);
+        setStartWorkNote('');
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to start work on this issue');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 6. Worker: Progress Photo Upload
+  const handleProgressPhotoUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    setUploadingProgressPhotos(true);
+    try {
+      const uploadRes = await uploadAPI.uploadEvidence(files, 'progress');
+      if (uploadRes.data?.urls) {
+        setProgressPhotos((prev) => [...prev, ...uploadRes.data.urls]);
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to upload stage photos');
+    } finally {
+      setUploadingProgressPhotos(false);
+    }
+  };
+
+  // 7. Worker: Submit Progress Update (Queue 12)
+  const handleProgressSubmit = async (e) => {
+    e.preventDefault();
+    if (!progressNote || progressNote.trim().length < 5) {
+      setActionError('Progress note must be at least 5 characters.');
+      return;
+    }
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await workerAPI.addProgressUpdate(issue.issueNumber || issue._id, {
+        note: progressNote,
+        materialsUsed,
+        stagePhotos: progressPhotos,
+        isInternal: isInternalProgress,
+      });
+      if (res.data) {
+        setIssue(res.data.issue || res.data);
+        setActionSuccess('Progress update logged to official resolution timeline.');
+        setWorkerModal(null);
+        setProgressNote('');
+        setMaterialsUsed('');
+        setProgressPhotos([]);
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to record progress update');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 8. Citizen: Provide Clarification
   const handleCitizenResponseSubmit = async (e) => {
     e.preventDefault();
     if (!citizenResponseNote || citizenResponseNote.trim().length < 5) {
@@ -361,6 +446,14 @@ export default function IssueDetailPage() {
   const [lng, lat] = issue.location?.coordinates || [78.3967, 17.4849];
   const isAdmin = user?.role === 'administrator' || user?.role === 'super_admin';
   const isReporter = user?.role === 'citizen' && (issue.reporter?._id === user?._id || issue.reporter === user?._id);
+  const isAssignedWorker =
+    user?.role === 'field_worker' &&
+    (issue.assignedWorker?._id === user?._id ||
+      issue.assignedWorker === user?._id ||
+      issue.assignedWorker?._id?.toString() === user?._id?.toString());
+  const canWorkerOperate =
+    (isAssignedWorker || user?.role === 'super_admin') &&
+    ['assigned', 'in_progress', 'reopened'].includes(issue.status);
   const canAdminTriage = isAdmin && !['closed', 'rejected'].includes(issue.status);
   const canRespondInfo = (isReporter || isAdmin) && issue.status === 'info_requested';
 
@@ -369,11 +462,18 @@ export default function IssueDetailPage() {
       {/* Back Navigation Bar */}
       <div className="flex items-center justify-between gap-4">
         <Link
-          to={isAdmin ? '/admin/review-queue' : '/my-reports'}
+          to={user?.role === 'field_worker' ? '/worker/tasks' : isAdmin ? '/admin/review-queue' : '/my-reports'}
           className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-teal-400 transition group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span>Back to {isAdmin ? 'Review Queue' : 'My Reports'}</span>
+          <span>
+            Back to{' '}
+            {user?.role === 'field_worker'
+              ? 'Task Queue'
+              : isAdmin
+                ? 'Review Queue'
+                : 'My Reports'}
+          </span>
         </Link>
 
         <div className="flex items-center gap-2">
@@ -466,6 +566,70 @@ export default function IssueDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Queue 12 Feature: Field Worker Operations & Progress Center */}
+      {canWorkerOperate && (
+        <div className="p-6 rounded-3xl bg-slate-900/90 border border-amber-500/30 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <HardHat className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white">
+                  Field Worker Operations & Live Execution (Queue 12)
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Update on-site repair progress, log equipment/materials used, or begin execution.
+                </p>
+              </div>
+            </div>
+
+            <div className="text-xs text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 font-medium">
+              Assigned Personnel: {user?.name || 'Field Specialist'}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            {/* Start Work Button (if not already in progress) */}
+            {issue.status === 'assigned' && (
+              <button
+                onClick={() => {
+                  setWorkerModal('start_work');
+                  setActionError(null);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 transition"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                <span>Start Work on Site</span>
+              </button>
+            )}
+
+            {/* Add Progress Update Button */}
+            <button
+              onClick={() => {
+                setWorkerModal('progress_update');
+                setActionError(null);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold border border-slate-700 transition"
+            >
+              <Wrench className="w-4 h-4 text-amber-400" />
+              <span>Log Progress & Materials</span>
+            </button>
+
+            {/* GPS Route Link */}
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-slate-300 text-xs font-medium border border-slate-800 transition"
+            >
+              <MapPin className="w-3.5 h-3.5 text-teal-400" />
+              <span>Navigate in Google Maps</span>
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Queue 9 & 10 Feature: Administrator Triage & Dispatch Control Center */}
       {canAdminTriage && (
@@ -1108,6 +1272,201 @@ export default function IssueDetailPage() {
                   className="px-5 py-2 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-semibold shadow-lg shadow-yellow-600/20 transition disabled:opacity-50"
                 >
                   {actionLoading ? 'Sending...' : 'Send Request'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Worker Queue 12: Start Work Confirmation Modal */}
+      {workerModal === 'start_work' && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-amber-500/30 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-scale-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Play className="w-5 h-5 text-amber-400 fill-amber-400" />
+                Start Work on Site
+              </h3>
+              <button
+                onClick={() => setWorkerModal(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleStartWorkSubmit} className="space-y-4">
+              <p className="text-sm text-slate-300">
+                You are about to mark this civic repair task as{' '}
+                <strong className="text-amber-400">In Progress</strong>. The reporting citizen and municipal dashboard will be notified of your on-site activity.
+              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Arrival / Site Preparation Note (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={startWorkNote}
+                  onChange={(e) => setStartWorkNote(e.target.value)}
+                  placeholder="e.g. Arrived at Kukatpally junction with road repair crew and asphalt compacting equipment."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {actionError && (
+                <p className="text-xs text-rose-400 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {actionError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setWorkerModal(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 transition disabled:opacity-50"
+                >
+                  {actionLoading ? 'Updating...' : 'Confirm Work Started'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Worker Queue 12: Add Progress Update Modal */}
+      {workerModal === 'progress_update' && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-amber-500/30 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-scale-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Wrench className="w-5 h-5 text-amber-400" />
+                Log Repair Progress & Materials
+              </h3>
+              <button
+                onClick={() => setWorkerModal(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleProgressSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Progress Note <span className="text-amber-400">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={progressNote}
+                  onChange={(e) => setProgressNote(e.target.value)}
+                  placeholder="Detail work performed (e.g. excavated damaged pipeline, cleared sewage blockage, applied asphalt mix)..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Materials, Tools & Machinery Used (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={materialsUsed}
+                  onChange={(e) => setMaterialsUsed(e.target.value)}
+                  placeholder="e.g. 2x 200mm PVC pipes, 50kg cement, 1x backhoe loader"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {/* Stage Photos Upload */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-300">
+                  On-Site Progress Photos
+                </label>
+                <div className="flex items-center gap-3">
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition">
+                    <Upload className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Upload Stage Photos</span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleProgressPhotoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {uploadingProgressPhotos && (
+                    <span className="text-xs text-amber-400 animate-pulse">Uploading photos...</span>
+                  )}
+                  {progressPhotos.length > 0 && (
+                    <span className="text-xs text-emerald-400">
+                      ✓ {progressPhotos.length} photo(s) attached
+                    </span>
+                  )}
+                </div>
+
+                {progressPhotos.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {progressPhotos.map((url, i) => (
+                      <div
+                        key={url || i}
+                        className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-700"
+                      >
+                        <img src={url} alt="Progress thumbnail" className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Visibility Checkbox */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="internalProgressCheck"
+                  checked={isInternalProgress}
+                  onChange={(e) => setIsInternalProgress(e.target.checked)}
+                  className="rounded border-slate-800 bg-slate-950 text-amber-500 focus:ring-0 focus:ring-offset-0"
+                />
+                <label htmlFor="internalProgressCheck" className="text-xs text-slate-300 select-none">
+                  Mark as internal operational note (hidden from citizen)
+                </label>
+              </div>
+
+              {actionError && (
+                <p className="text-xs text-rose-400 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {actionError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWorkerModal(null);
+                    setProgressPhotos([]);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 transition disabled:opacity-50"
+                >
+                  {actionLoading ? 'Saving...' : 'Submit Progress Update'}
                 </button>
               </div>
             </form>

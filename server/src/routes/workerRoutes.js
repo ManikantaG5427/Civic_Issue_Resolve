@@ -1,5 +1,9 @@
 import express from 'express';
-import { getAssignedTasks } from '../controllers/workerController.js';
+import {
+  getAssignedTasks,
+  startWork,
+  addProgressUpdate,
+} from '../controllers/workerController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { authorize } from '../middlewares/roleMiddleware.js';
 
@@ -12,4 +16,11 @@ router.use(authorize('field_worker', 'super_admin'));
 // GET /api/worker/tasks -> Personal assigned task queue
 router.get('/tasks', getAssignedTasks);
 
+// POST /api/worker/issues/:id/start-work -> Begin work, status: in_progress
+router.post('/issues/:id/start-work', startWork);
+
+// POST /api/worker/issues/:id/progress-update -> Record progress notes, materials & stage photos
+router.post('/issues/:id/progress-update', addProgressUpdate);
+
 export default router;
+

@@ -183,6 +183,13 @@ export const workerAPI = {
     const queryString = searchParams.toString();
     return apiRequest(`/worker/tasks${queryString ? `?${queryString}` : ''}`);
   },
+  startWork: (id, data = {}) =>
+    apiRequest(`/worker/issues/${id}/start-work`, { method: 'POST', body: JSON.stringify(data) }),
+  addProgressUpdate: (id, data) =>
+    apiRequest(`/worker/issues/${id}/progress-update`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 /**

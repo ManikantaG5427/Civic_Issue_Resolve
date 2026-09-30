@@ -16,9 +16,9 @@ import {
   Flame,
   CheckCircle2,
   Navigation,
-  Phone,
   Wrench,
   ShieldAlert,
+  Play,
 } from 'lucide-react';
 import { workerAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -108,6 +108,8 @@ export default function WorkerDashboardPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionSuccess, setActionSuccess] = useState(null);
+  const [startingTaskId, setStartingTaskId] = useState(null);
 
   // Filters & Pagination
   const [search, setSearch] = useState('');
@@ -156,6 +158,22 @@ export default function WorkerDashboardPage() {
     e.preventDefault();
     setPage(1);
     fetchTasks();
+  };
+
+  const handleQuickStartWork = async (taskId, issueNumber) => {
+    setStartingTaskId(taskId);
+    setError(null);
+    try {
+      await workerAPI.startWork(taskId, {
+        note: 'Field worker initiated on-site repair operations.',
+      });
+      setActionSuccess(`Work successfully marked In Progress for ${issueNumber || 'task'}.`);
+      fetchTasks();
+    } catch (err) {
+      setError(err.message || 'Failed to start work on task');
+    } finally {
+      setStartingTaskId(null);
+    }
   };
 
   return (
@@ -390,6 +408,22 @@ export default function WorkerDashboardPage() {
         </div>
       </div>
 
+      {/* Action Success Alert */}
+      {actionSuccess && (
+        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm flex items-center justify-between gap-3 shadow-lg shadow-emerald-500/5">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <span>{actionSuccess}</span>
+          </div>
+          <button
+            onClick={() => setActionSuccess(null)}
+            className="text-xs text-emerald-400 hover:text-white font-semibold"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Error State */}
       {error && (
         <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-center gap-3">
@@ -529,19 +563,31 @@ export default function WorkerDashboardPage() {
                     href={mapsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition"
                     title="Open Route Navigation in Maps"
                   >
                     <Navigation className="w-3.5 h-3.5 text-teal-400" />
                     <span>Navigate</span>
                   </a>
 
+                  {task.status === 'assigned' && (
+                    <button
+                      type="button"
+                      disabled={startingTaskId === task._id}
+                      onClick={() => handleQuickStartWork(task._id, task.issueNumber)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 transition disabled:opacity-50"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>{startingTaskId === task._id ? 'Starting...' : 'Start Work'}</span>
+                    </button>
+                  )}
+
                   <Link
                     to={`/issues/${task.issueNumber || task._id}`}
-                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition shadow-md shadow-amber-500/20"
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition"
                   >
-                    <Wrench className="w-3.5 h-3.5" />
-                    <span>Open Task</span>
+                    <Wrench className="w-3.5 h-3.5 text-amber-400" />
+                    <span>View / Log</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>

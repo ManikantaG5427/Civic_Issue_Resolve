@@ -35,8 +35,8 @@ A feature can be marked Done only when:
 | **8** | **Admin Review Queue** | ✅ Done | `f0b3ced` feat: add administrator review queue and triage metrics |
 | **9** | **Verify, Reject, Request Info** | ✅ Done | `0c77041` feat: add admin triage verify reject and request info workflow |
 | **10** | **Assignment Workflow** | ✅ Done | `feat: add field worker assignment and SLA deadline dispatch` |
-| **11** | **Worker Dashboard** | ✅ Done | `feat: add field worker dashboard and operational task queue` |
-| 12 | Worker Progress Updates | ⏳ Pending | In-progress workflow & updates |
+| **11** | **Worker Dashboard** | ✅ Done | `b54ae86` feat: add field worker dashboard and operational task queue |
+| **12** | **Worker Progress Updates** | ✅ Done | `feat: add field worker start work and progress update workflow` |
 | 13 | Worker Resolution Evidence | ⏳ Pending | Proof of resolution (before/after photos) |
 | 14 | Citizen Confirm / Reopen | ⏳ Pending | Verified closure or reopening with reasons |
 | 15 | In-App Notifications | ⏳ Pending | Persistent notification system |

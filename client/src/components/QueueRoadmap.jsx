@@ -48,16 +48,51 @@ export default function QueueRoadmap() {
     {
       id: 6,
       name: 'Evidence Image Upload',
-      status: 'active',
+      status: 'done',
       desc: 'Multer secure multi-photo evidence uploads, previews & gallery.',
       icon: Camera,
     },
     {
       id: 7,
       name: 'My Reports & Timeline',
-      status: 'pending',
+      status: 'done',
       desc: 'Citizen reports dashboard, search/filter, pagination & status timeline.',
       icon: ClipboardList,
+    },
+    {
+      id: 8,
+      name: 'Admin Review Queue',
+      status: 'done',
+      desc: 'Triage dashboard, metrics counters, service area scoping, and filtering.',
+      icon: Layers,
+    },
+    {
+      id: 9,
+      name: 'Verify, Reject, Clarify',
+      status: 'done',
+      desc: 'Admin triage verification, mandatory rejection audit reasons, citizen clarification.',
+      icon: ShieldCheck,
+    },
+    {
+      id: 10,
+      name: 'Assignment Workflow',
+      status: 'done',
+      desc: 'Municipal department and field worker assignment with SLA deadlines.',
+      icon: Database,
+    },
+    {
+      id: 11,
+      name: 'Worker Dashboard',
+      status: 'done',
+      desc: 'Field worker assigned tasks queue, SLA countdowns, and GPS navigation.',
+      icon: ClipboardList,
+    },
+    {
+      id: 12,
+      name: 'Worker Progress Updates',
+      status: 'done',
+      desc: 'Start work status transition, progress logs, materials tracking, and stage photos.',
+      icon: Camera,
     },
   ];
 

@@ -44,7 +44,7 @@ export default function Navbar() {
             </div>
           </Link>
           <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            Queue 11 · Worker Tasks
+            Queue 12 · Worker Progress
           </span>
         </div>
 

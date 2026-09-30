@@ -118,3 +118,202 @@ export const getAssignedTasks = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Worker starts work on assigned civic issue
+ * POST /api/worker/issues/:id/start-work
+ */
+export const startWork = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { note } = req.body;
+
+    const query = id.match(/^[0-9a-fA-F]{24}$/) ? { _id: id } : { issueNumber: id.toUpperCase() };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Civic issue report not found',
+      });
+    }
+
+    // RBAC: Verify worker assignment (Super Admin / Admin bypass)
+    if (
+      req.user.role === 'field_worker' &&
+      (!issue.assignedWorker || issue.assignedWorker.toString() !== req.user._id.toString())
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You are not assigned to work on this issue',
+      });
+    }
+
+    // Validate valid state transition
+    const allowableStatuses = ['assigned', 'reopened', 'in_progress'];
+    if (!allowableStatuses.includes(issue.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot start work on issue with current status: '${issue.status}'`,
+      });
+    }
+
+    const previousStatus = issue.status;
+    issue.status = 'in_progress';
+
+    const timelineNote = note?.trim() || 'Field worker arrived on site and initiated repair operations.';
+
+    issue.timeline.push({
+      status: 'in_progress',
+      action: 'Work Started',
+      performedBy: req.user._id,
+      note: timelineNote,
+      visibility: 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: 'WORK_STARTED',
+      performedBy: req.user._id,
+      previousState: { status: previousStatus },
+      newState: { status: 'in_progress', note: timelineNote },
+      ipAddress: req.ip,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    const populatedIssue = await Issue.findById(issue._id)
+      .populate('category', 'name code icon')
+      .populate('serviceArea', 'name code')
+      .populate('department', 'name code')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('reporter', 'name email phone')
+      .populate('timeline.performedBy', 'name role department');
+
+    return successResponse(res, 'Work started successfully and issue updated to In Progress', {
+      issue: populatedIssue,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Worker records progress note, materials, and optional stage photos
+ * POST /api/worker/issues/:id/progress-update
+ */
+export const addProgressUpdate = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { note, materialsUsed, stagePhotos, isInternal = false } = req.body;
+
+    if (!note || note.trim().length < 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Progress update note must be at least 5 characters long',
+      });
+    }
+
+    const query = id.match(/^[0-9a-fA-F]{24}$/) ? { _id: id } : { issueNumber: id.toUpperCase() };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Civic issue report not found',
+      });
+    }
+
+    // RBAC: Verify worker assignment (Super Admin / Admin bypass)
+    if (
+      req.user.role === 'field_worker' &&
+      (!issue.assignedWorker || issue.assignedWorker.toString() !== req.user._id.toString())
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You are not assigned to work on this issue',
+      });
+    }
+
+    // Allow progress updates on assigned, in_progress, or reopened
+    if (!['assigned', 'in_progress', 'reopened'].includes(issue.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot add progress update to issue with status: '${issue.status}'`,
+      });
+    }
+
+    // Auto-advance to in_progress if still assigned
+    if (issue.status === 'assigned') {
+      issue.status = 'in_progress';
+    }
+
+    // Add stage photos to evidence if provided
+    if (Array.isArray(stagePhotos) && stagePhotos.length > 0) {
+      stagePhotos.forEach((photo) => {
+        if (typeof photo === 'string') {
+          issue.evidence.push({
+            url: photo,
+            stage: 'progress',
+            uploadedAt: new Date(),
+          });
+        } else if (photo && photo.url) {
+          issue.evidence.push({
+            url: photo.url,
+            filename: photo.filename || '',
+            fileSize: photo.fileSize || null,
+            mimeType: photo.mimeType || 'image/jpeg',
+            stage: 'progress',
+            uploadedAt: new Date(),
+          });
+        }
+      });
+    }
+
+    let fullNote = note.trim();
+    if (materialsUsed && materialsUsed.trim()) {
+      fullNote += `\n[Materials & Equipment: ${materialsUsed.trim()}]`;
+    }
+
+    issue.timeline.push({
+      status: issue.status,
+      action: 'Progress Update',
+      performedBy: req.user._id,
+      note: fullNote,
+      visibility: isInternal ? 'internal' : 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: 'PROGRESS_UPDATE',
+      performedBy: req.user._id,
+      previousState: { status: issue.status },
+      newState: {
+        status: issue.status,
+        note: fullNote,
+        photosAdded: Array.isArray(stagePhotos) ? stagePhotos.length : 0,
+        isInternal,
+      },
+      ipAddress: req.ip,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    const populatedIssue = await Issue.findById(issue._id)
+      .populate('category', 'name code icon')
+      .populate('serviceArea', 'name code')
+      .populate('department', 'name code')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('reporter', 'name email phone')
+      .populate('timeline.performedBy', 'name role department');
+
+    return successResponse(res, 'Progress update recorded successfully', {
+      issue: populatedIssue,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
