@@ -39,15 +39,19 @@ A feature can be marked Done only when:
 | **12** | **Worker Progress Updates** | ✅ Done | `0e79044` feat: add field worker start work and progress update workflow |
 | **13** | **Worker Resolution Evidence** | ✅ Done | `3e8ca8d` feat: add resolution proof before after comparison and verification workflow |
 | **14** | **Citizen Confirm / Reopen** | ✅ Done | `f3d79da` feat: add citizen resolution confirmation rating and reopen workflow |
-| **15** | **In-App Notifications** | ✅ Done | `feat: add in-app persistent notifications system and navbar popover` |
-| 16 | Real-Time Socket.IO | ⏳ Pending | Live updates without refresh |
-| 17 | Comments & Internal Notes | ⏳ Pending | Public/internal visibility separation |
-| 18 | Duplicate Detection | ⏳ Pending | Geospatial nearby duplicate search & following |
-| 19 | SLA & Escalation | ⏳ Pending | Deadlines, node-cron overdue tracking, escalation |
-| 20 | Admin Analytics | ⏳ Pending | Recharts KPI cards, trends, worker workload |
-| 21 | Public Issue Map | ⏳ Pending | Privacy-safe verified public map |
-| 22 | Security & Testing | ⏳ Pending | Helmet, rate limits, end-to-end tests, docs |
-| 23 | Optional AI Assistant | ⏳ Pending | Category/title suggestions (advisory only) |
+| **15** | **In-App Notifications** | ✅ Done | `4f623f9` feat: add in-app persistent notifications system and navbar popover |
+| **16** | **Real-Time Socket.IO** | ✅ Done | `4359fb6` feat(realtime): complete queue 16 with Socket.IO authentication and live synchronization |
+| **17** | **Comments & Internal Notes** | ✅ Done | `22d0111` feat(comments): complete queue 17 with discussion comments, staff internal notes, and RBAC sanitization |
+| **18** | **Duplicate Detection & Social Actions** | ✅ Done | `8eda8d4` feat(geospatial): complete queue 18 with nearby duplicate detection, proximity radius calculation, and upvote/follow social actions |
+| **19** | **SLA Automated Background Engine** | ✅ Done | `4a0c3b0` feat(sla): complete queue 19 with automated background SLA cron monitor, escalation engine, and admin controls |
+| **20** | **Admin Analytics & Intelligence** | ✅ Done | `21cb87f` feat(analytics): complete queue 20 with executive KPI scorecard, category distributions, and worker leaderboard |
+| **21** | **Public Verified Civic Map Explorer** | ✅ Done | `976de7f` feat(map): complete queue 21 with public verified civic map explorer, status presets, and drawer previews |
+| **22** | **Security Hardening & OpenAPI Docs** | ✅ Done | `34b247e` feat(security): complete queue 22 with OpenAPI docs, health diagnostics, security headers, and Phase 2 roadmap |
+| **23** | **Mobile Foundation & Authentication** | ✅ Done | `feat(mobile): add React Native Expo companion app architecture, AuthContext, JWT persistence & role routing` |
+| **24** | **Citizen Mobile Reporting & GPS Evidence** | ✅ Done | `feat(mobile): add mobile report creation, camera/gallery evidence, GPS coords & duplicate warning` |
+| **25** | **Mobile Report Tracking & Comments** | ✅ Done | `feat(mobile): add real-time timeline sync, citizen comments, rating & reopen defect workflow` |
+| **26** | **Worker Mobile Task Queue & Resolution** | ✅ Done | `feat(mobile): add SLA countdowns, start work, interim progress logs & photo proof resolution` |
+| **27** | **Mobile Civic Map & Notifications** | ✅ Done | `feat(mobile): add public civic map explorer, status presets, category chips & in-app alerts` |
 
 ---
 

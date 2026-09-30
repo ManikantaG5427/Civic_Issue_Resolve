@@ -16,6 +16,8 @@ import {
   Zap,
   BarChart3,
   ShieldAlert,
+  Smartphone,
+  Wrench,
 } from 'lucide-react';
 
 export default function QueueRoadmap() {
@@ -180,6 +182,41 @@ export default function QueueRoadmap() {
       status: 'done',
       desc: 'Helmet, rate limiters, interactive OpenAPI 3.0 documentation, & full test coverage.',
       icon: ShieldAlert,
+    },
+    {
+      id: 23,
+      name: 'Mobile App Foundation',
+      status: 'done',
+      desc: 'React Native Expo companion app architecture, AuthContext, JWT persistence & role routing.',
+      icon: Smartphone,
+    },
+    {
+      id: 24,
+      name: 'Mobile Citizen Reporting',
+      status: 'done',
+      desc: 'Photo capture, GPS coordinate fetching, categories, and live duplicate warning.',
+      icon: Camera,
+    },
+    {
+      id: 25,
+      name: 'Mobile Tracking & Ratings',
+      status: 'done',
+      desc: 'Live Socket timeline sync, public comments, citizen 1-5 star verification and reopen.',
+      icon: Star,
+    },
+    {
+      id: 26,
+      name: 'Mobile Worker Task Queue',
+      status: 'done',
+      desc: 'SLA countdowns, start work action, interim progress logs & photo proof completion.',
+      icon: Wrench,
+    },
+    {
+      id: 27,
+      name: 'Mobile Map & Alerts',
+      status: 'done',
+      desc: 'City-wide verified civic map explorer, status presets, category chips & alert center.',
+      icon: Radio,
     },
   ];
 

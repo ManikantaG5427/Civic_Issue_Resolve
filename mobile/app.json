@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "CivicResolve",
+    "slug": "civicresolve-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#090d16"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.civicresolve.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "CivicResolve requires camera access to attach photo evidence to civic issue reports.",
+        "NSPhotoLibraryUsageDescription": "CivicResolve requires photo library access to upload civic issue photos.",
+        "NSLocationWhenInUseUsageDescription": "CivicResolve requires your location to accurately geo-tag civic issues on the map."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#090d16"
+      },
+      "package": "org.civicresolve.mobile",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
