@@ -241,6 +241,39 @@ export default function IssueDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Queue 18: Upvote & Follow Actions
+  const handleToggleUpvote = async () => {
+    try {
+      const res = await issueAPI.toggleUpvote(issue.issueNumber || issue._id);
+      if (res.data) {
+        setIssue((prev) => ({
+          ...prev,
+          upvotes: res.data.hasUpvoted
+            ? [...(prev.upvotes || []), user?._id]
+            : (prev.upvotes || []).filter((u) => (u._id || u).toString() !== user?._id?.toString()),
+        }));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleToggleFollow = async () => {
+    try {
+      const res = await issueAPI.toggleFollow(issue.issueNumber || issue._id);
+      if (res.data) {
+        setIssue((prev) => ({
+          ...prev,
+          followers: res.data.hasFollowed
+            ? [...(prev.followers || []), user?._id]
+            : (prev.followers || []).filter((f) => (f._id || f).toString() !== user?._id?.toString()),
+        }));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // 1. Admin: Verify Issue
   const handleVerifySubmit = async (e) => {
     e.preventDefault();
@@ -640,6 +673,42 @@ export default function IssueDetailPage() {
         </Link>
 
         <div className="flex items-center gap-2">
+          {/* Queue 18: Upvote Civic Support Button */}
+          {user && (
+            <button
+              onClick={handleToggleUpvote}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition ${
+                issue.upvotes?.some((u) => (u._id || u).toString() === user._id.toString())
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                  : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800'
+              }`}
+              title="Upvote to elevate municipal priority"
+            >
+              <span>👍 Upvote</span>
+              <span className="font-bold">{issue.upvotes?.length || 0}</span>
+            </button>
+          )}
+
+          {/* Queue 18: Follow Updates Button */}
+          {user && (
+            <button
+              onClick={handleToggleFollow}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition ${
+                issue.followers?.some((f) => (f._id || f).toString() === user._id.toString())
+                  ? 'bg-teal-500/20 text-teal-300 border-teal-500/40'
+                  : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800'
+              }`}
+              title="Follow issue for live notification updates"
+            >
+              <span>🔔</span>
+              <span>
+                {issue.followers?.some((f) => (f._id || f).toString() === user._id.toString())
+                  ? 'Following'
+                  : 'Follow'}
+              </span>
+            </button>
+          )}
+
           <button
             onClick={handleCopyTicket}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-mono text-slate-300 hover:text-white transition"

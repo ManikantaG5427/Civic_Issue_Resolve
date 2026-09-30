@@ -8,6 +8,11 @@ import {
   reopenIssue,
 } from '../controllers/issueController.js';
 import { addComment, getComments } from '../controllers/commentController.js';
+import {
+  getNearbyDuplicates,
+  toggleUpvote,
+  toggleFollow,
+} from '../controllers/duplicateController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { validateCreateIssue } from '../middlewares/issueValidation.js';
 
@@ -16,11 +21,22 @@ const router = express.Router();
 // All issue management actions require authentication
 router.use(protect);
 
+// Geospatial Duplicate Detection (Queue 18)
+// GET /api/issues/nearby-duplicates -> Find active issues within proximity radius
+router.get('/nearby-duplicates', getNearbyDuplicates);
+
 // GET /api/issues/my-reports -> List authenticated citizen's submitted reports
 router.get('/my-reports', getMyReports);
 
 // POST /api/issues -> Create a new civic issue report
 router.post('/', validateCreateIssue, createIssue);
+
+// Social Support & Follow Subsystem (Queue 18)
+// POST /api/issues/:id/upvote -> Upvote or withdraw support
+router.post('/:id/upvote', toggleUpvote);
+
+// POST /api/issues/:id/follow -> Follow / unfollow notifications
+router.post('/:id/follow', toggleFollow);
 
 // Comments Subsystem (Queue 17)
 // POST /api/issues/:id/comments -> Add public comment or staff internal note

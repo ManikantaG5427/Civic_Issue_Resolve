@@ -140,6 +140,18 @@ export const issueAPI = {
   addComment: (id, data) =>
     apiRequest(`/issues/${id}/comments`, { method: 'POST', body: JSON.stringify(data) }),
   getComments: (id) => apiRequest(`/issues/${id}/comments`),
+  getNearbyDuplicates: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.append(key, value);
+      }
+    });
+    const queryString = searchParams.toString();
+    return apiRequest(`/issues/nearby-duplicates${queryString ? `?${queryString}` : ''}`);
+  },
+  toggleUpvote: (id) => apiRequest(`/issues/${id}/upvote`, { method: 'POST' }),
+  toggleFollow: (id) => apiRequest(`/issues/${id}/follow`, { method: 'POST' }),
 };
 
 /**

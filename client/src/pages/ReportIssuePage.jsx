@@ -37,6 +37,12 @@ export default function ReportIssuePage() {
   const [previewUrls, setPreviewUrls] = useState([]);
   const fileInputRef = useRef(null);
 
+  // Geospatial Duplicate Detection State (Queue 18)
+  const [nearbyDuplicates, setNearbyDuplicates] = useState([]);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
+  const [dismissedDuplicates, setDismissedDuplicates] = useState(false);
+  const [upvotedIssues, setUpvotedIssues] = useState({});
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadStatusText, setUploadStatusText] = useState('');
   const [formError, setFormError] = useState('');
@@ -74,11 +80,62 @@ export default function ReportIssuePage() {
     loadConfig();
   }, []);
 
+  // Debounced duplicate detection query when location or category changes
+  useEffect(() => {
+    if (!latitude || !longitude) return;
+    setDismissedDuplicates(false);
+    const timer = setTimeout(async () => {
+      try {
+        setCheckingDuplicates(true);
+        const res = await issueAPI.getNearbyDuplicates({
+          latitude,
+          longitude,
+          category: categoryId || undefined,
+          maxDistanceMeters: 250,
+        });
+        if (res.data?.duplicates) {
+          setNearbyDuplicates(res.data.duplicates);
+        }
+      } catch (err) {
+        // Non-blocking background check
+      } finally {
+        setCheckingDuplicates(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [latitude, longitude, categoryId]);
+
   const selectedCategory = categories.find((c) => c._id === categoryId);
 
   const handleLocationChange = (newLat, newLng) => {
     setLatitude(newLat);
     setLongitude(newLng);
+  };
+
+  const handleToggleUpvoteDuplicate = async (dupId) => {
+    try {
+      const res = await issueAPI.toggleUpvote(dupId);
+      if (res.data) {
+        setUpvotedIssues((prev) => ({
+          ...prev,
+          [dupId]: res.data.hasUpvoted,
+        }));
+        setNearbyDuplicates((prev) =>
+          prev.map((d) =>
+            (d._id === dupId || d.issueNumber === dupId)
+              ? {
+                  ...d,
+                  hasUpvoted: res.data.hasUpvoted,
+                  upvoteCount: res.data.upvoteCount,
+                }
+              : d
+          )
+        );
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Image Selection Handler
@@ -380,6 +437,108 @@ export default function ReportIssuePage() {
 
         {!loadingConfig && (
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Queue 18: Geospatial Duplicate Detection Alert Card */}
+            {nearbyDuplicates.length > 0 && !dismissedDuplicates && (
+              <div className="p-5 rounded-2xl bg-amber-950/30 border border-amber-500/40 text-left space-y-4 animate-fade-in shadow-xl shadow-amber-950/20">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-amber-200 flex items-center gap-2">
+                        <span>Similar Issues Found Nearby</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                          {nearbyDuplicates.length} Active in Proximity
+                        </span>
+                      </h3>
+                      <p className="text-xs text-amber-300/80 mt-0.5">
+                        Other citizens have reported issues near your pinned location. Upvoting existing reports boosts municipal priority without creating duplicate tickets!
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setDismissedDuplicates(true)}
+                    className="text-xs text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+                    title="Dismiss alert"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                  {nearbyDuplicates.map((dup) => {
+                    const isUpvoted = upvotedIssues[dup._id] || dup.hasUpvoted;
+
+                    return (
+                      <div
+                        key={dup._id}
+                        className="p-3 rounded-xl bg-slate-950/80 border border-amber-500/20 hover:border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition"
+                      >
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                              {dup.issueNumber}
+                            </span>
+                            <span className="text-xs font-semibold text-white truncate max-w-[240px]">
+                              {dup.title}
+                            </span>
+                            <span className="text-[10px] text-slate-400 bg-slate-900 px-2 py-0.5 rounded-full border border-slate-800">
+                              📍 ~{dup.distanceMeters}m away
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 line-clamp-1">
+                            {dup.description}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleUpvoteDuplicate(dup._id)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition border ${
+                              isUpvoted
+                                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                                : 'bg-slate-900 hover:bg-slate-850 text-slate-300 border-slate-750'
+                            }`}
+                          >
+                            <span>👍 Upvote</span>
+                            <span className="font-bold">
+                              {dup.upvoteCount + (isUpvoted && !dup.hasUpvoted ? 1 : 0)}
+                            </span>
+                          </button>
+
+                          <Link
+                            to={`/issues/${dup.issueNumber || dup._id}`}
+                            target="_blank"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-medium transition"
+                          >
+                            <span>View</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-1 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">
+                    Not the same issue? You can still file your new report below.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDismissedDuplicates(true)}
+                    className="text-amber-400 hover:underline font-medium"
+                  >
+                    Dismiss & Proceed with Form
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Category & Service Area Selection */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
