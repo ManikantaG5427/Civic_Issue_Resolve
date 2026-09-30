@@ -11,6 +11,7 @@ import {
   FileText,
   HardHat,
   BarChart3,
+  MapPin,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import NotificationPopover from './NotificationPopover';
@@ -55,8 +56,8 @@ export default function Navbar() {
               </span>
             </div>
           </Link>
-          <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            Queue 12 · Worker Progress
+          <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-500/10 text-teal-400 border border-teal-500/20">
+            Active Platform · Real-Time Ready
           </span>
         </div>
 
