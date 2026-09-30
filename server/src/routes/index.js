@@ -8,6 +8,7 @@ import uploadRoutes from './uploadRoutes.js';
 import adminRoutes from './adminRoutes.js';
 import workerRoutes from './workerRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
+import docsRoutes from './docsRoutes.js';
 import {
   getServiceAreas,
   getDepartments,
@@ -15,6 +16,9 @@ import {
 } from '../controllers/configController.js';
 
 const router = express.Router();
+
+// Mount interactive API Documentation (Queue 22)
+router.use('/docs', docsRoutes);
 
 // Mount foundational health check
 router.use('/health', healthRoutes);

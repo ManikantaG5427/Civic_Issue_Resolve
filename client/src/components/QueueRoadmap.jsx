@@ -1,5 +1,22 @@
 import React from 'react';
-import { ShieldCheck, Database, Lock, Layers, FilePlus2, MapPin, Camera, ClipboardList } from 'lucide-react';
+import {
+  ShieldCheck,
+  Database,
+  Lock,
+  Layers,
+  FilePlus2,
+  MapPin,
+  Camera,
+  ClipboardList,
+  Star,
+  Bell,
+  Radio,
+  MessageSquare,
+  Compass,
+  Zap,
+  BarChart3,
+  ShieldAlert,
+} from 'lucide-react';
 
 export default function QueueRoadmap() {
   const queues = [
@@ -93,6 +110,76 @@ export default function QueueRoadmap() {
       status: 'done',
       desc: 'Start work status transition, progress logs, materials tracking, and stage photos.',
       icon: Camera,
+    },
+    {
+      id: 13,
+      name: 'Resolution Proof & Photos',
+      status: 'done',
+      desc: 'Mandatory before/after repair proof photos, materials logging, and cost tracking.',
+      icon: ShieldCheck,
+    },
+    {
+      id: 14,
+      name: 'Citizen Verification & Closure',
+      status: 'done',
+      desc: '1-5 star citizen rating & feedback or mandatory defect explanation with photos.',
+      icon: Star,
+    },
+    {
+      id: 15,
+      name: 'In-App Notifications',
+      status: 'done',
+      desc: 'Persistent notifications model, badge counter, and live status updates.',
+      icon: Bell,
+    },
+    {
+      id: 16,
+      name: 'Real-Time Socket.IO',
+      status: 'done',
+      desc: 'Live bi-directional room subscriptions, ticket updates, and instant alerts.',
+      icon: Radio,
+    },
+    {
+      id: 17,
+      name: 'Comments & Internal Notes',
+      status: 'done',
+      desc: 'Public citizen discussions and private municipal internal notes with RBAC.',
+      icon: MessageSquare,
+    },
+    {
+      id: 18,
+      name: 'Geospatial Duplicate Detection',
+      status: 'done',
+      desc: 'MongoDB 2dsphere proximity radius search, upvoting, and follow subscriptions.',
+      icon: Compass,
+    },
+    {
+      id: 19,
+      name: 'Automated SLA Engine',
+      status: 'done',
+      desc: 'Background cron monitor for overdue SLA deadlines, auto-escalation, and alerts.',
+      icon: Zap,
+    },
+    {
+      id: 20,
+      name: 'Municipal Analytics',
+      status: 'done',
+      desc: 'Executive KPI scorecard, resolution velocity, category distributions, & worker leaderboard.',
+      icon: BarChart3,
+    },
+    {
+      id: 21,
+      name: 'Public Civic Map',
+      status: 'done',
+      desc: 'Open interactive Leaflet map explorer, status presets, and drawer previews.',
+      icon: MapPin,
+    },
+    {
+      id: 22,
+      name: 'Security & Production Hardening',
+      status: 'done',
+      desc: 'Helmet, rate limiters, interactive OpenAPI 3.0 documentation, & full test coverage.',
+      icon: ShieldAlert,
     },
   ];
 
