@@ -7,6 +7,7 @@ import issueRoutes from './issueRoutes.js';
 import uploadRoutes from './uploadRoutes.js';
 import adminRoutes from './adminRoutes.js';
 import workerRoutes from './workerRoutes.js';
+import notificationRoutes from './notificationRoutes.js';
 import {
   getServiceAreas,
   getDepartments,
@@ -26,6 +27,9 @@ router.use('/rbac', rbacRoutes);
 
 // Mount civic issue management routes
 router.use('/issues', issueRoutes);
+
+// Mount in-app persistent notifications
+router.use('/notifications', notificationRoutes);
 
 // Mount media and evidence upload routes
 router.use('/uploads', uploadRoutes);

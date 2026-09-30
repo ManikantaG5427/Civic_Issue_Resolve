@@ -202,6 +202,24 @@ export const workerAPI = {
 };
 
 /**
+ * In-App Notifications API Endpoints (Queue 15)
+ */
+export const notificationAPI = {
+  getNotifications: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.append(key, value);
+      }
+    });
+    const queryString = searchParams.toString();
+    return apiRequest(`/notifications${queryString ? `?${queryString}` : ''}`);
+  },
+  markAsRead: (id) => apiRequest(`/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllAsRead: () => apiRequest('/notifications/read-all', { method: 'PATCH' }),
+};
+
+/**
  * Evidence & Media Upload API Endpoints
  */
 export const uploadAPI = {

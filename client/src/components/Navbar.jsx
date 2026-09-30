@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ShieldAlert, LogIn, LogOut, UserPlus, LayoutDashboard, Layers, FilePlus2, FileText, HardHat } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import NotificationPopover from './NotificationPopover';
 
 export default function Navbar() {
   const location = useLocation();
@@ -135,6 +136,9 @@ export default function Navbar() {
               </Link>
 
               <div className="h-4 w-px bg-slate-800" />
+
+              {/* In-App Notifications Bell (Queue 15) */}
+              <NotificationPopover />
 
               <div className="flex items-center gap-2">
                 <div className="hidden md:flex items-center gap-2 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
