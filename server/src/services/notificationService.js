@@ -1,4 +1,5 @@
 import Notification from '../models/Notification.js';
+import { emitLiveNotification } from '../socket.js';
 
 /**
  * Dispatch an in-app persistent notification to a user
@@ -15,6 +16,10 @@ export const sendNotification = async ({ recipient, title, message, type = 'issu
       isRead: false,
     });
     await notif.save();
+
+    // Emit live real-time notification via Socket.IO
+    emitLiveNotification(recipient, notif);
+
     return notif;
   } catch (err) {
     console.error('[Notification Dispatch Error]', err.message);

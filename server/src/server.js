@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import app from './app.js';
 import { connectDB } from './config/db.js';
+import { initSocket } from './socket.js';
 
 // Load environment variables
 dotenv.config();
@@ -19,6 +20,9 @@ const server = app.listen(PORT, () => {
   console.info(`  Health Check: http://localhost:${PORT}/api/health`);
   console.info(`=================================================`);
 });
+
+// Initialize Socket.IO
+initSocket(server);
 
 // Handle graceful shutdown
 const shutdown = (signal) => {

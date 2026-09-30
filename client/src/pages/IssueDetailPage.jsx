@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { issueAPI, adminAPI, configAPI, workerAPI, uploadAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import Timeline from '../components/Timeline';
 import MapPreview from '../components/MapPreview';
 import BeforeAfterComparison from '../components/BeforeAfterComparison';
@@ -110,6 +111,7 @@ export default function IssueDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { joinIssue, leaveIssue, subscribeToEvent } = useSocket();
   const [issue, setIssue] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -190,6 +192,26 @@ export default function IssueDetailPage() {
   useEffect(() => {
     loadIssue();
   }, [loadIssue]);
+
+  // Real-time Socket.IO room subscription for live issue synchronization
+  useEffect(() => {
+    if (!id) return;
+    joinIssue(id);
+
+    const unsubscribe = subscribeToEvent('issue_updated', (updatedData) => {
+      if (
+        updatedData &&
+        (updatedData._id === id || updatedData.issueNumber === id || updatedData._id?.toString() === id)
+      ) {
+        setIssue(updatedData);
+      }
+    });
+
+    return () => {
+      leaveIssue(id);
+      if (unsubscribe) unsubscribe();
+    };
+  }, [id, joinIssue, leaveIssue, subscribeToEvent]);
 
   // Load departments and field workers when admin opens page
   useEffect(() => {

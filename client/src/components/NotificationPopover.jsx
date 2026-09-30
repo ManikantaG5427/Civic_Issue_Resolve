@@ -13,9 +13,11 @@ import {
 } from 'lucide-react';
 import { notificationAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 
 export default function NotificationPopover() {
   const { isAuthenticated } = useAuth();
+  const { liveNotification } = useSocket();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -40,6 +42,14 @@ export default function NotificationPopover() {
     const interval = setInterval(fetchNotifications, 30000); // Polling fallback
     return () => clearInterval(interval);
   }, [fetchNotifications]);
+
+  // React to live notification from Socket.IO
+  useEffect(() => {
+    if (liveNotification) {
+      setNotifications((prev) => [liveNotification, ...prev.filter((n) => n._id !== liveNotification._id)]);
+      setUnreadCount((c) => c + 1);
+    }
+  }, [liveNotification]);
 
   // Click outside to close
   useEffect(() => {
