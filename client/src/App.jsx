@@ -13,6 +13,7 @@ import MyReportsPage from './pages/MyReportsPage';
 import IssueDetailPage from './pages/IssueDetailPage';
 import AdminReviewQueuePage from './pages/AdminReviewQueuePage';
 import AdminAnalyticsPage from './pages/AdminAnalyticsPage';
+import PublicCivicMapPage from './pages/PublicCivicMapPage';
 import WorkerDashboardPage from './pages/WorkerDashboardPage';
 import ConfigCatalogPage from './pages/ConfigCatalogPage';
 import ForbiddenPage from './pages/ForbiddenPage';
@@ -30,6 +31,7 @@ export default function App() {
           <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <Routes>
               <Route path="/" element={<HomePage />} />
+              <Route path="/map" element={<PublicCivicMapPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/catalog" element={<ConfigCatalogPage />} />

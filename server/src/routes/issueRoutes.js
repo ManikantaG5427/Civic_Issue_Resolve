@@ -13,10 +13,15 @@ import {
   toggleUpvote,
   toggleFollow,
 } from '../controllers/duplicateController.js';
+import { getPublicMapIssues } from '../controllers/publicMapController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { validateCreateIssue } from '../middlewares/issueValidation.js';
 
 const router = express.Router();
+
+// Public Civic Map Explorer (Queue 21 - Open Public Access)
+// GET /api/issues/public-map -> Retrieve anonymized geo-tagged issues
+router.get('/public-map', getPublicMapIssues);
 
 // All issue management actions require authentication
 router.use(protect);

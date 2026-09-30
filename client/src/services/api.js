@@ -152,6 +152,16 @@ export const issueAPI = {
   },
   toggleUpvote: (id) => apiRequest(`/issues/${id}/upvote`, { method: 'POST' }),
   toggleFollow: (id) => apiRequest(`/issues/${id}/follow`, { method: 'POST' }),
+  getPublicMap: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '' && value !== 'all') {
+        searchParams.append(key, value);
+      }
+    });
+    const queryString = searchParams.toString();
+    return apiRequest(`/issues/public-map${queryString ? `?${queryString}` : ''}`);
+  },
 };
 
 /**

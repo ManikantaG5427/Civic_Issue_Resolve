@@ -71,6 +71,16 @@ export default function Navbar() {
           </Link>
 
           <Link
+            to="/map"
+            className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              location.pathname === '/map' ? 'text-teal-400' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <MapPin className="w-4 h-4" />
+            <span>Civic Map</span>
+          </Link>
+
+          <Link
             to="/catalog"
             className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
               location.pathname === '/catalog' ? 'text-teal-400' : 'text-slate-300 hover:text-white'
