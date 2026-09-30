@@ -34,6 +34,8 @@ import {
   Upload,
   Layers,
   Sparkles,
+  Star,
+  RotateCcw,
 } from 'lucide-react';
 
 const REJECTION_CATEGORIES = [
@@ -149,6 +151,14 @@ export default function IssueDetailPage() {
   const [uploadingResolutionPhotos, setUploadingResolutionPhotos] = useState(false);
   const [repairCost, setRepairCost] = useState('');
   const [materialsUsedResolution, setMaterialsUsedResolution] = useState('');
+
+  // Queue 14: Citizen Verification & Reopen State
+  const [citizenModal, setCitizenModal] = useState(null); // 'rating' | 'reopen'
+  const [ratingValue, setRatingValue] = useState(5);
+  const [ratingFeedback, setRatingFeedback] = useState('');
+  const [reopenReasonText, setReopenReasonText] = useState('');
+  const [reopenPhotos, setReopenPhotos] = useState([]);
+  const [uploadingReopenPhotos, setUploadingReopenPhotos] = useState(false);
 
   // Citizen Clarification Submission State
   const [citizenResponseNote, setCitizenResponseNote] = useState('');
@@ -455,6 +465,74 @@ export default function IssueDetailPage() {
       setCitizenError(err.message || 'Failed to submit clarification');
     } finally {
       setCitizenSubmitting(false);
+    }
+  };
+
+  // 11. Citizen: Confirm Resolution & Rate Service (Queue 14)
+  const handleConfirmResolutionSubmit = async (e) => {
+    e?.preventDefault();
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await issueAPI.confirmResolution(issue.issueNumber || issue._id, {
+        rating: ratingValue,
+        feedback: ratingFeedback,
+      });
+      if (res.data) {
+        setIssue(res.data);
+        setActionSuccess('Thank you! Issue resolution verified and officially marked as Closed.');
+        setCitizenModal(null);
+        setRatingFeedback('');
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to confirm resolution');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 12. Citizen: Reopen Photo Upload (Queue 14)
+  const handleReopenPhotoUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    setUploadingReopenPhotos(true);
+    try {
+      const uploadRes = await uploadAPI.uploadEvidence(files, 'reopen');
+      if (uploadRes.data?.urls) {
+        setReopenPhotos((prev) => [...prev, ...uploadRes.data.urls]);
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to upload defect photos');
+    } finally {
+      setUploadingReopenPhotos(false);
+    }
+  };
+
+  // 13. Citizen / Admin: Reopen Issue (Queue 14)
+  const handleReopenSubmit = async (e) => {
+    e.preventDefault();
+    if (!reopenReasonText || reopenReasonText.trim().length < 10) {
+      setActionError('Please provide a specific reason of at least 10 characters explaining why the work is incomplete.');
+      return;
+    }
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await issueAPI.reopenIssue(issue.issueNumber || issue._id, {
+        reopenReason: reopenReasonText,
+        reopenPhotos,
+      });
+      if (res.data) {
+        setIssue(res.data);
+        setActionSuccess('Issue has been reopened and returned to municipal workflow for remediation.');
+        setCitizenModal(null);
+        setReopenReasonText('');
+        setReopenPhotos([]);
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to reopen issue');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -827,10 +905,91 @@ export default function IssueDetailPage() {
         </div>
       )}
 
+      {/* Queue 14 Feature: Citizen Resolution Verification & Closure Banner */}
+      {issue.status === 'resolved_verification_pending' && (isReporter || isAdmin) && (
+        <div className="p-6 rounded-3xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-950 border border-emerald-500/40 shadow-2xl space-y-4 ring-1 ring-emerald-500/20">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  Action Required: Verify Municipal Field Repair (Queue 14)
+                </h3>
+                <p className="text-xs text-slate-300">
+                  The municipal field worker has submitted photographic proof of completion. Please review the before/after photos below and confirm closure.
+                </p>
+              </div>
+            </div>
+
+            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              Pending Your Confirmation
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              onClick={() => {
+                setCitizenModal('rating');
+                setActionError(null);
+              }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Confirm Resolution & Rate Service</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setCitizenModal('reopen');
+                setActionError(null);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-rose-950/40 hover:border-rose-500/40 hover:text-rose-300 text-slate-300 font-semibold text-xs border border-slate-700 transition"
+            >
+              <RotateCcw className="w-4 h-4 text-rose-400" />
+              <span>Reopen Ticket (Work Incomplete)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Grid: Details + Resolution Timeline */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left 2 Columns: Issue Description, Evidence, Location */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Citizen Feedback Rating Card (if Closed with Feedback) */}
+          {issue.feedback?.rating && (
+            <div className="p-6 rounded-2xl bg-slate-900/80 border border-amber-500/30 space-y-3 shadow-lg">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                  Citizen Service Rating & Verification
+                </h3>
+                <div className="flex items-center gap-1 text-amber-400 text-sm">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      className={`w-4 h-4 ${
+                        s <= issue.feedback.rating
+                          ? 'text-amber-400 fill-amber-400'
+                          : 'text-slate-600'
+                      }`}
+                    />
+                  ))}
+                  <span className="text-xs font-bold text-slate-200 ml-1.5">
+                    {issue.feedback.rating}/5 Stars
+                  </span>
+                </div>
+              </div>
+              {issue.feedback.comment && (
+                <p className="text-xs text-slate-300 italic bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                  "{issue.feedback.comment}"
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Detailed Description */}
           <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
             <h2 className="text-base font-semibold text-white flex items-center gap-2">
@@ -1653,6 +1812,213 @@ export default function IssueDetailPage() {
                   className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition disabled:opacity-50"
                 >
                   {actionLoading ? 'Submitting...' : 'Confirm Resolution'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Citizen Queue 14: Confirm Resolution & Star Rating Modal */}
+      {citizenModal === 'rating' && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-emerald-500/30 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-scale-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                Confirm Resolution & Rate Service
+              </h3>
+              <button
+                onClick={() => setCitizenModal(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmResolutionSubmit} className="space-y-4">
+              <p className="text-xs text-slate-300">
+                Please rate the quality and timeliness of the municipal resolution. This will permanently mark the ticket as <strong className="text-emerald-400">Closed</strong>.
+              </p>
+
+              {/* Star Rating Selector */}
+              <div className="text-center py-2 space-y-1">
+                <label className="block text-xs font-semibold text-slate-300">
+                  Rate Resolution Quality
+                </label>
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRatingValue(star)}
+                      className="p-1.5 text-2xl transition hover:scale-125 focus:outline-none"
+                    >
+                      <Star
+                        className={`w-7 h-7 ${
+                          star <= ratingValue
+                            ? 'text-amber-400 fill-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]'
+                            : 'text-slate-600 hover:text-amber-300'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+                <span className="text-xs font-bold text-amber-400">
+                  {ratingValue === 5
+                    ? '★★★★★ Excellent (5/5)'
+                    : ratingValue === 4
+                    ? '★★★★☆ Very Good (4/5)'
+                    : ratingValue === 3
+                    ? '★★★☆☆ Satisfactory (3/5)'
+                    : ratingValue === 2
+                    ? '★★☆☆☆ Needs Improvement (2/5)'
+                    : '★☆☆☆☆ Poor (1/5)'}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Citizen Feedback / Appreciation Note (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={ratingFeedback}
+                  onChange={(e) => setRatingFeedback(e.target.value)}
+                  placeholder="e.g. Prompt action by the field team! Road was cleared and asphalt looks solid."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {actionError && (
+                <p className="text-xs text-rose-400 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {actionError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setCitizenModal(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition disabled:opacity-50"
+                >
+                  {actionLoading ? 'Closing...' : 'Confirm Closure'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Citizen Queue 14: Reopen Issue Modal */}
+      {citizenModal === 'reopen' && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-500/30 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-scale-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <RotateCcw className="w-5 h-5 text-rose-400" />
+                Reopen Civic Ticket
+              </h3>
+              <button
+                onClick={() => setCitizenModal(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleReopenSubmit} className="space-y-4">
+              <p className="text-xs text-slate-300">
+                If the reported civic hazard was not adequately fixed or persists, please specify the exact defect. Status will transition to <strong className="text-rose-400">Reopened</strong>.
+              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Reason for Reopening <span className="text-rose-400">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={reopenReasonText}
+                  onChange={(e) => setReopenReasonText(e.target.value)}
+                  placeholder="Explain clearly why the fix is defective or incomplete (min 10 chars)..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              {/* Reopen Defect Photos */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-300">
+                  New Defect Photo Proof (Optional)
+                </label>
+                <div className="flex items-center gap-3">
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition">
+                    <Upload className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Upload Defect Photos</span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleReopenPhotoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {uploadingReopenPhotos && (
+                    <span className="text-xs text-rose-400 animate-pulse">Uploading...</span>
+                  )}
+                  {reopenPhotos.length > 0 && (
+                    <span className="text-xs text-emerald-400 font-semibold">
+                      ✓ {reopenPhotos.length} photo(s) attached
+                    </span>
+                  )}
+                </div>
+
+                {reopenPhotos.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {reopenPhotos.map((url, i) => (
+                      <div
+                        key={url || i}
+                        className="relative w-12 h-12 rounded-lg overflow-hidden border border-rose-500/40"
+                      >
+                        <img src={url} alt="Reopen photo" className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {actionError && (
+                <p className="text-xs text-rose-400 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {actionError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCitizenModal(null);
+                    setReopenPhotos([]);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-600/20 transition disabled:opacity-50"
+                >
+                  {actionLoading ? 'Reopening...' : 'Confirm Reopen Ticket'}
                 </button>
               </div>
             </form>

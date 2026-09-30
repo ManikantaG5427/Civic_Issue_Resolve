@@ -133,6 +133,10 @@ export const issueAPI = {
   },
   provideInfo: (id, data) =>
     apiRequest(`/issues/${id}/provide-info`, { method: 'POST', body: JSON.stringify(data) }),
+  confirmResolution: (id, data) =>
+    apiRequest(`/issues/${id}/confirm-resolution`, { method: 'POST', body: JSON.stringify(data) }),
+  reopenIssue: (id, data) =>
+    apiRequest(`/issues/${id}/reopen`, { method: 'POST', body: JSON.stringify(data) }),
 };
 
 /**

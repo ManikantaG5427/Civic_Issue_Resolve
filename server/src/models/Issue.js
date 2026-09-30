@@ -173,6 +173,23 @@ const issueSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    feedback: {
+      rating: {
+        type: Number,
+        min: 1,
+        max: 5,
+        default: null,
+      },
+      comment: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      submittedAt: {
+        type: Date,
+        default: null,
+      },
+    },
     timeline: [timelineEntrySchema],
     auditLogs: [auditLogSchema],
   },

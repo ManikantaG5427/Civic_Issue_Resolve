@@ -304,3 +304,194 @@ export const provideRequestedInfo = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Citizen confirms resolution, rates the service, and closes ticket
+ * POST /api/issues/:id/confirm-resolution
+ */
+export const confirmResolution = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { rating, feedback } = req.body;
+
+    const ratingNum = Number(rating);
+    if (!ratingNum || ratingNum < 1 || ratingNum > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid service rating between 1 and 5 stars is required',
+      });
+    }
+
+    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Civic issue not found' });
+    }
+
+    // RBAC: Only reporting citizen or admin can confirm closure
+    if (
+      req.user.role === 'citizen' &&
+      issue.reporter.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You can only confirm closure of your own reported issues',
+      });
+    }
+
+    if (issue.status !== 'resolved_verification_pending') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot confirm resolution on issue with status: '${issue.status}'`,
+      });
+    }
+
+    const previousStatus = issue.status;
+    issue.status = 'closed';
+    issue.feedback = {
+      rating: ratingNum,
+      comment: feedback?.trim() || '',
+      submittedAt: new Date(),
+    };
+
+    const ratingStars = '★'.repeat(ratingNum) + '☆'.repeat(5 - ratingNum);
+    const feedbackNote = `Citizen verified resolution (${ratingStars} ${ratingNum}/5).${
+      feedback?.trim() ? ` Comment: "${feedback.trim()}"` : ''
+    }`;
+
+    issue.timeline.push({
+      status: 'closed',
+      action: 'Resolution Confirmed & Ticket Closed',
+      performedBy: req.user._id,
+      note: feedbackNote,
+      visibility: 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: 'RESOLUTION_CONFIRMED',
+      performedBy: req.user._id,
+      previousState: { status: previousStatus },
+      newState: { status: 'closed', rating: ratingNum, comment: feedback?.trim() || '' },
+      ipAddress: req.ip || req.connection?.remoteAddress,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    const populated = await Issue.findById(issue._id)
+      .populate('category', 'name code icon')
+      .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code')
+      .populate('reporter', 'name email phone')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('timeline.performedBy', 'name role');
+
+    return successResponse(res, 'Civic issue resolution verified and closed successfully', populated, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Citizen or Admin reopens issue if repair was incomplete or defective
+ * POST /api/issues/:id/reopen
+ */
+export const reopenIssue = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reopenReason, reopenPhotos } = req.body;
+
+    if (!reopenReason || reopenReason.trim().length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'A mandatory explanation of at least 10 characters is required to reopen an issue',
+      });
+    }
+
+    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Civic issue not found' });
+    }
+
+    // RBAC: Only reporting citizen or admin can reopen
+    if (
+      req.user.role === 'citizen' &&
+      issue.reporter.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You can only reopen your own reported issues',
+      });
+    }
+
+    const allowableStatuses = ['resolved_verification_pending', 'closed'];
+    if (!allowableStatuses.includes(issue.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot reopen issue with status: '${issue.status}'`,
+      });
+    }
+
+    const previousStatus = issue.status;
+    issue.status = 'reopened';
+
+    // Attach reopen defect photos if provided
+    if (Array.isArray(reopenPhotos) && reopenPhotos.length > 0) {
+      reopenPhotos.forEach((photo) => {
+        if (typeof photo === 'string') {
+          issue.evidence.push({
+            url: photo,
+            stage: 'reopen',
+            uploadedAt: new Date(),
+          });
+        } else if (photo && photo.url) {
+          issue.evidence.push({
+            url: photo.url,
+            filename: photo.filename || '',
+            fileSize: photo.fileSize || null,
+            mimeType: photo.mimeType || 'image/jpeg',
+            stage: 'reopen',
+            uploadedAt: new Date(),
+          });
+        }
+      });
+    }
+
+    issue.timeline.push({
+      status: 'reopened',
+      action: 'Issue Reopened (Defect / Incomplete Work)',
+      performedBy: req.user._id,
+      note: `Reopened by citizen: ${reopenReason.trim()}`,
+      visibility: 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: 'ISSUE_REOPENED',
+      performedBy: req.user._id,
+      previousState: { status: previousStatus },
+      newState: { status: 'reopened', reason: reopenReason.trim() },
+      ipAddress: req.ip || req.connection?.remoteAddress,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    const populated = await Issue.findById(issue._id)
+      .populate('category', 'name code icon')
+      .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code')
+      .populate('reporter', 'name email phone')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('timeline.performedBy', 'name role');
+
+    return successResponse(res, 'Issue reopened and redispatched for municipal field action', populated, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+

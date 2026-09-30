@@ -37,8 +37,8 @@ A feature can be marked Done only when:
 | **10** | **Assignment Workflow** | ✅ Done | `feat: add field worker assignment and SLA deadline dispatch` |
 | **11** | **Worker Dashboard** | ✅ Done | `b54ae86` feat: add field worker dashboard and operational task queue |
 | **12** | **Worker Progress Updates** | ✅ Done | `0e79044` feat: add field worker start work and progress update workflow |
-| **13** | **Worker Resolution Evidence** | ✅ Done | `feat: add resolution proof before after comparison and verification workflow` |
-| 14 | Citizen Confirm / Reopen | ⏳ Pending | Verified closure or reopening with reasons |
+| **13** | **Worker Resolution Evidence** | ✅ Done | `3e8ca8d` feat: add resolution proof before after comparison and verification workflow |
+| **14** | **Citizen Confirm / Reopen** | ✅ Done | `feat: add citizen resolution confirmation rating and reopen workflow` |
 | 15 | In-App Notifications | ⏳ Pending | Persistent notification system |
 | 16 | Real-Time Socket.IO | ⏳ Pending | Live updates without refresh |
 | 17 | Comments & Internal Notes | ⏳ Pending | Public/internal visibility separation |
