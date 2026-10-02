@@ -1,51 +1,58 @@
-import React, { useMemo } from 'react';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
-import L from 'leaflet';
-
-const createStaticMarker = () => {
-  return L.divIcon({
-    className: 'custom-civic-pin-static',
-    html: `
-      <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-full">
-        <div class="w-7 h-7 rounded-full bg-teal-500/40 border-2 border-teal-300 flex items-center justify-center shadow-lg shadow-teal-500/50">
-          <div class="w-3 h-3 rounded-full bg-teal-400 border-2 border-slate-950"></div>
-        </div>
-        <div class="absolute -bottom-1 w-2 h-2 rotate-45 bg-teal-400"></div>
-      </div>
-    `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 28],
-  });
-};
+import React, { useEffect, useRef } from 'react';
+import { loadGoogleMaps } from '../services/googleMapsLoader';
 
 export default function MapPreview({
-  latitude = 17.4849,
-  longitude = 78.3967,
+  latitude = 17.385,
+  longitude = 78.4867,
   height = '200px',
   zoom = 15,
 }) {
-  const position = useMemo(() => [latitude, longitude], [latitude, longitude]);
-  const customIcon = useMemo(() => createStaticMarker(), []);
+  const mapRef = useRef(null);
+  const safeLat = typeof latitude === 'number' && Number.isFinite(latitude) ? latitude : (parseFloat(latitude) || 17.385);
+  const safeLng = typeof longitude === 'number' && Number.isFinite(longitude) ? longitude : (parseFloat(longitude) || 78.4867);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    loadGoogleMaps()
+      .then((maps) => {
+        if (!isMounted || !mapRef.current) return;
+
+        const map = new maps.Map(mapRef.current, {
+          center: { lat: safeLat, lng: safeLng },
+          zoom: zoom,
+          disableDefaultUI: true,
+          gestureHandling: 'none',
+          zoomControl: false,
+          styles: [
+            {
+              featureType: 'poi.business',
+              stylers: [{ visibility: 'simplified' }],
+            },
+          ],
+        });
+
+        new maps.Marker({
+          position: { lat: safeLat, lng: safeLng },
+          map: map,
+          title: 'Issue Location',
+        });
+      })
+      .catch((err) => {
+        console.warn('Map preview fallback:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [safeLat, safeLng, zoom]);
 
   return (
     <div
-      className="rounded-xl overflow-hidden border border-slate-800 shadow-inner relative z-0"
+      className="rounded-xl overflow-hidden border border-slate-200 shadow-sm relative z-0 bg-slate-100"
       style={{ height }}
     >
-      <MapContainer
-        center={position}
-        zoom={zoom}
-        scrollWheelZoom={false}
-        dragging={false}
-        zoomControl={false}
-        className="w-full h-full z-0 pointer-events-none"
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <Marker position={position} icon={customIcon} />
-      </MapContainer>
+      <div ref={mapRef} className="w-full h-full pointer-events-none" />
     </div>
   );
 }

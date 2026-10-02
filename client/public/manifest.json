@@ -1,0 +1,17 @@
+{
+  "name": "CivicResolve — Civic Issue Resolution Platform",
+  "short_name": "CivicResolve",
+  "description": "Report municipal defects, track worker dispatch with GPS proof, and view live civic maps.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F4F7F4",
+  "theme_color": "#183827",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

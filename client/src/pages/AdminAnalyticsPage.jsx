@@ -18,10 +18,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { adminAPI, configAPI } from '../services/api';
-import { useAuth } from '../context/AuthContext';
 
 export default function AdminAnalyticsPage() {
-  const { user } = useAuth();
   const [analytics, setAnalytics] = useState(null);
   const [serviceAreas, setServiceAreas] = useState([]);
   const [selectedServiceArea, setSelectedServiceArea] = useState('all');
@@ -111,21 +109,21 @@ export default function AdminAnalyticsPage() {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-400 border border-teal-500/20">
-              Queue 20 · Municipal Intelligence
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200">
+              Municipal Intelligence
             </span>
-            <span className="text-xs text-slate-400">Executive Performance Dashboard</span>
+            <span className="text-xs text-slate-500">Executive Performance Dashboard</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <BarChart3 className="w-7 h-7 text-teal-400" />
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5 font-heading">
+            <BarChart3 className="w-7 h-7 text-brand-700" />
             Civic Operations & Analytics
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-600 mt-1">
             Comprehensive resolution velocities, SLA compliance rates, department throughput, and worker leaderboards.
           </p>
         </div>
@@ -133,7 +131,7 @@ export default function AdminAnalyticsPage() {
         {/* Action Controls & Filters */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Time Range Selector */}
-          <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1">
+          <div className="flex items-center bg-slate-100 border border-slate-200 rounded-xl p-1">
             {[
               { label: '7D', value: '7d' },
               { label: '30D', value: '30d' },
@@ -145,8 +143,8 @@ export default function AdminAnalyticsPage() {
                 onClick={() => setSelectedTimeRange(t.value)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
                   selectedTimeRange === t.value
-                    ? 'bg-teal-500 text-slate-950 shadow-sm'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-white text-brand-700 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 {t.label}
@@ -158,7 +156,7 @@ export default function AdminAnalyticsPage() {
           <select
             value={selectedServiceArea}
             onChange={(e) => setSelectedServiceArea(e.target.value)}
-            className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-teal-500 transition"
+            className="px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-xs text-slate-700 focus:outline-none focus:border-brand-600 focus:ring-4 focus:ring-brand-100 transition shadow-sm font-medium"
           >
             <option value="all">All Service Areas</option>
             {serviceAreas.map((area) => (
@@ -172,26 +170,26 @@ export default function AdminAnalyticsPage() {
           <button
             onClick={handleExportCSV}
             disabled={!analytics || loading}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-200 transition disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-xs font-semibold text-slate-700 transition disabled:opacity-50 shadow-sm"
             title="Download CSV report"
           >
-            <Download className="w-3.5 h-3.5 text-teal-400" />
+            <Download className="w-3.5 h-3.5 text-brand-700" />
             <span>Export CSV</span>
           </button>
 
           {/* Refresh */}
           <button
             onClick={fetchAnalytics}
-            className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition"
+            className="p-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-600 hover:text-slate-900 transition shadow-sm"
             title="Refresh analytics data"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-teal-400' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-brand-700' : ''}`} />
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2 font-medium">
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
@@ -201,12 +199,12 @@ export default function AdminAnalyticsPage() {
         <div className="space-y-6 animate-pulse">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-28 bg-slate-900 rounded-2xl border border-slate-800"></div>
+              <div key={i} className="h-28 bg-white rounded-2xl border border-slate-200 shadow-soft"></div>
             ))}
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="h-72 bg-slate-900 rounded-3xl border border-slate-800"></div>
-            <div className="h-72 bg-slate-900 rounded-3xl border border-slate-800"></div>
+            <div className="h-72 bg-white rounded-2xl border border-slate-200 shadow-soft"></div>
+            <div className="h-72 bg-white rounded-2xl border border-slate-200 shadow-soft"></div>
           </div>
         </div>
       ) : (
@@ -214,66 +212,66 @@ export default function AdminAnalyticsPage() {
           {/* Top Executive KPI Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total Reported */}
-            <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2 relative overflow-hidden group hover:border-slate-700 transition shadow-lg">
-              <div className="flex items-center justify-between text-xs text-slate-400">
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-2 relative overflow-hidden group hover:border-slate-300 transition shadow-soft">
+              <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
                 <span>Total Reported</span>
-                <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400">
+                <div className="p-1.5 rounded-lg bg-sky-50 text-sky-700">
                   <Layers className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+              <div className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight font-heading">
                 {analytics?.kpis?.totalReported || 0}
               </div>
-              <span className="text-[11px] text-slate-500 block">
+              <span className="text-xs text-slate-500 block">
                 {analytics?.kpis?.pendingTriage || 0} pending initial triage
               </span>
             </div>
 
             {/* Resolution Rate */}
-            <div className="p-5 rounded-2xl bg-slate-900/90 border border-teal-500/30 space-y-2 relative overflow-hidden group hover:border-teal-500/50 transition shadow-lg">
-              <div className="flex items-center justify-between text-xs text-teal-400">
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-2 relative overflow-hidden group hover:border-slate-300 transition shadow-soft">
+              <div className="flex items-center justify-between text-xs text-green-700 font-medium">
                 <span>Resolution Rate</span>
-                <div className="p-1.5 rounded-lg bg-teal-500/10 text-teal-400">
+                <div className="p-1.5 rounded-lg bg-green-50 text-green-700">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-bold text-teal-300 tracking-tight">
+              <div className="text-2xl sm:text-3xl font-bold text-green-700 tracking-tight font-heading">
                 {analytics?.kpis?.resolutionRate || 0}%
               </div>
-              <span className="text-[11px] text-teal-400/70 block">
+              <span className="text-xs text-green-800 block font-medium">
                 {analytics?.kpis?.totalResolved || 0} total tickets resolved
               </span>
             </div>
 
             {/* SLA Compliance */}
-            <div className="p-5 rounded-2xl bg-slate-900/90 border border-indigo-500/30 space-y-2 relative overflow-hidden group hover:border-indigo-500/50 transition shadow-lg">
-              <div className="flex items-center justify-between text-xs text-indigo-400">
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-2 relative overflow-hidden group hover:border-slate-300 transition shadow-soft">
+              <div className="flex items-center justify-between text-xs text-brand-700 font-medium">
                 <span>SLA Target Compliance</span>
-                <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
+                <div className="p-1.5 rounded-lg bg-brand-50 text-brand-700">
                   <Clock className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-bold text-indigo-300 tracking-tight">
+              <div className="text-2xl sm:text-3xl font-bold text-brand-700 tracking-tight font-heading">
                 {analytics?.kpis?.slaComplianceRate || 100}%
               </div>
-              <span className="text-[11px] text-indigo-400/70 block">
+              <span className="text-xs text-brand-800 block font-medium">
                 Avg resolution: {analytics?.kpis?.avgResolutionTimeHours || 0}h
               </span>
             </div>
 
             {/* Citizen Satisfaction */}
-            <div className="p-5 rounded-2xl bg-slate-900/90 border border-amber-500/30 space-y-2 relative overflow-hidden group hover:border-amber-500/50 transition shadow-lg">
-              <div className="flex items-center justify-between text-xs text-amber-400">
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-2 relative overflow-hidden group hover:border-slate-300 transition shadow-soft">
+              <div className="flex items-center justify-between text-xs text-amber-800 font-medium">
                 <span>Citizen Satisfaction</span>
-                <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
-                  <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                <div className="p-1.5 rounded-lg bg-amber-50 text-amber-700">
+                  <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
                 </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-bold text-amber-300 tracking-tight flex items-baseline gap-1.5">
+              <div className="text-2xl sm:text-3xl font-bold text-amber-900 tracking-tight flex items-baseline gap-1.5 font-heading">
                 <span>{analytics?.kpis?.citizenSatisfactionScore || 5.0}</span>
-                <span className="text-xs text-slate-400 font-normal">/ 5.0</span>
+                <span className="text-xs text-slate-500 font-normal">/ 5.0</span>
               </div>
-              <span className="text-[11px] text-amber-400/70 block">
+              <span className="text-xs text-amber-800 block font-medium">
                 {analytics?.kpis?.escalatedCount || 0} escalated breaches
               </span>
             </div>
@@ -282,35 +280,35 @@ export default function AdminAnalyticsPage() {
           {/* Middle Row: Category Breakdown & Status Distribution */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Category Breakdown Progress */}
-            <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-5">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-soft space-y-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-teal-500/10 text-teal-400">
+                  <div className="p-2 rounded-xl bg-civic-50 text-civic-700">
                     <Tag className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">Issues by Category</h3>
-                    <p className="text-xs text-slate-400">Distribution of civic incident types</p>
+                    <h3 className="text-base font-bold text-slate-900 font-heading">Issues by Category</h3>
+                    <p className="text-xs text-slate-500">Distribution of civic incident types</p>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-4">
                 {(analytics?.categoriesBreakdown || []).length === 0 ? (
-                  <p className="text-xs text-slate-500 py-6 text-center">No category data recorded.</p>
+                  <p className="text-xs text-slate-400 py-6 text-center">No category data recorded.</p>
                 ) : (
                   analytics?.categoriesBreakdown?.map((cat) => (
                     <div key={cat.categoryId || cat.name} className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-300 font-medium">{cat.name}</span>
+                        <span className="text-slate-800 font-semibold">{cat.name}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-slate-400">{cat.count} issues</span>
-                          <span className="font-bold text-teal-400">{cat.percentage}%</span>
+                          <span className="text-slate-500">{cat.count} issues</span>
+                          <span className="font-bold text-brand-700">{cat.percentage}%</span>
                         </div>
                       </div>
-                      <div className="w-full h-2 rounded-full bg-slate-950 overflow-hidden">
+                      <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
                         <div
-                          className="h-full bg-gradient-to-r from-teal-500 to-emerald-400 rounded-full transition-all duration-500"
+                          className="h-full bg-brand-600 rounded-full transition-all duration-500"
                           style={{ width: `${Math.max(4, cat.percentage)}%` }}
                         ></div>
                       </div>
@@ -321,15 +319,15 @@ export default function AdminAnalyticsPage() {
             </div>
 
             {/* Status Distribution Grid */}
-            <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-5">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-soft space-y-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400">
+                  <div className="p-2 rounded-xl bg-brand-50 text-brand-700">
                     <Layers className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">Lifecycle Status Pipeline</h3>
-                    <p className="text-xs text-slate-400">Volume across current workflow states</p>
+                    <h3 className="text-base font-bold text-slate-900 font-heading">Lifecycle Status Pipeline</h3>
+                    <p className="text-xs text-slate-500">Volume across current workflow states</p>
                   </div>
                 </div>
               </div>
@@ -339,42 +337,42 @@ export default function AdminAnalyticsPage() {
                   {
                     label: 'Submitted (New)',
                     count: analytics?.statusDistribution?.submitted || 0,
-                    color: 'text-sky-300 bg-sky-500/10 border-sky-500/30',
+                    color: 'text-sky-700 bg-sky-50 border-sky-200',
                   },
                   {
                     label: 'Under Review',
                     count: analytics?.statusDistribution?.in_review || 0,
-                    color: 'text-purple-300 bg-purple-500/10 border-purple-500/30',
+                    color: 'text-violet-700 bg-violet-50 border-violet-200',
                   },
                   {
                     label: 'In Progress / Assigned',
                     count:
                       (analytics?.statusDistribution?.assigned || 0) +
                       (analytics?.statusDistribution?.in_progress || 0),
-                    color: 'text-amber-300 bg-amber-500/10 border-amber-500/30',
+                    color: 'text-cyan-700 bg-cyan-50 border-cyan-200',
                   },
                   {
                     label: 'Verification Pending',
                     count: analytics?.statusDistribution?.resolved_verification_pending || 0,
-                    color: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30',
+                    color: 'text-green-700 bg-green-50 border-green-200',
                   },
                   {
                     label: 'Closed',
                     count: analytics?.statusDistribution?.closed || 0,
-                    color: 'text-slate-300 bg-slate-800 border-slate-700',
+                    color: 'text-slate-700 bg-slate-100 border-slate-200',
                   },
                   {
                     label: 'Rejected',
                     count: analytics?.statusDistribution?.rejected || 0,
-                    color: 'text-rose-300 bg-rose-500/10 border-rose-500/30',
+                    color: 'text-red-700 bg-red-50 border-red-200',
                   },
                 ].map((st, i) => (
                   <div
                     key={i}
-                    className={`p-3.5 rounded-2xl border flex flex-col justify-between space-y-1 ${st.color}`}
+                    className={`p-3.5 rounded-xl border flex flex-col justify-between space-y-1 ${st.color}`}
                   >
-                    <span className="text-[11px] font-semibold opacity-90">{st.label}</span>
-                    <span className="text-xl font-bold tracking-tight">{st.count}</span>
+                    <span className="text-xs font-semibold">{st.label}</span>
+                    <span className="text-xl font-bold tracking-tight font-heading">{st.count}</span>
                   </div>
                 ))}
               </div>
@@ -384,34 +382,34 @@ export default function AdminAnalyticsPage() {
           {/* Bottom Row: Department Performance & Worker Leaderboard */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Department Performance Table */}
-            <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-soft space-y-4">
               <div className="flex items-center gap-2.5 pb-2">
-                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+                <div className="p-2 rounded-xl bg-brand-50 text-brand-700">
                   <Building2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Department Throughput</h3>
-                  <p className="text-xs text-slate-400">Workload resolution rates by municipal branch</p>
+                  <h3 className="text-base font-bold text-slate-900 font-heading">Department Throughput</h3>
+                  <p className="text-xs text-slate-500">Workload resolution rates by municipal branch</p>
                 </div>
               </div>
 
-              <div className="divide-y divide-slate-800 max-h-72 overflow-y-auto">
+              <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
                 {(analytics?.departmentPerformance || []).map((dept) => (
                   <div
                     key={dept._id}
                     className="py-3 flex items-center justify-between gap-4 text-xs"
                   >
                     <div className="space-y-0.5">
-                      <span className="font-semibold text-white">{dept.name}</span>
-                      <span className="text-[10px] text-slate-500 block">
+                      <span className="font-semibold text-slate-900">{dept.name}</span>
+                      <span className="text-xs text-slate-500 block">
                         Assigned: {dept.totalAssigned} · Resolved: {dept.totalResolved}
                       </span>
                     </div>
 
                     <div className="text-right space-y-1">
-                      <span className="font-bold text-teal-400">{dept.completionRate}%</span>
+                      <span className="font-bold text-brand-700">{dept.completionRate}%</span>
                       {dept.escalatedCount > 0 && (
-                        <span className="text-[10px] text-rose-400 font-semibold block">
+                        <span className="text-xs text-red-600 font-semibold block">
                           ⚡ {dept.escalatedCount} escalated
                         </span>
                       )}
@@ -422,20 +420,20 @@ export default function AdminAnalyticsPage() {
             </div>
 
             {/* Field Specialist Leaderboard */}
-            <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-soft space-y-4">
               <div className="flex items-center gap-2.5 pb-2">
-                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
+                <div className="p-2 rounded-xl bg-amber-50 text-amber-700">
                   <Users className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Field Specialist Leaderboard</h3>
-                  <p className="text-xs text-slate-400">Top executing personnel by resolved count</p>
+                  <h3 className="text-base font-bold text-slate-900 font-heading">Field Specialist Leaderboard</h3>
+                  <p className="text-xs text-slate-500">Top executing personnel by resolved count</p>
                 </div>
               </div>
 
-              <div className="divide-y divide-slate-800 max-h-72 overflow-y-auto">
+              <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
                 {(analytics?.workerLeaderboard || []).length === 0 ? (
-                  <p className="text-xs text-slate-500 py-6 text-center">No field workers found.</p>
+                  <p className="text-xs text-slate-400 py-6 text-center">No field workers found.</p>
                 ) : (
                   analytics?.workerLeaderboard?.map((worker, index) => (
                     <div
@@ -443,21 +441,21 @@ export default function AdminAnalyticsPage() {
                       className="py-3 flex items-center justify-between gap-4 text-xs"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-mono font-bold text-[10px] flex items-center justify-center">
+                        <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-mono font-bold text-xs flex items-center justify-center border border-slate-200">
                           #{index + 1}
                         </span>
                         <div>
-                          <span className="font-semibold text-white block">{worker.name}</span>
-                          <span className="text-[10px] text-slate-500">{worker.email}</span>
+                          <span className="font-semibold text-slate-900 block">{worker.name}</span>
+                          <span className="text-xs text-slate-500">{worker.email}</span>
                         </div>
                       </div>
 
                       <div className="text-right space-y-0.5">
-                        <span className="font-bold text-white block">
+                        <span className="font-bold text-slate-900 block">
                           {worker.totalCompleted} tasks completed
                         </span>
-                        <span className="text-[10px] text-amber-400 font-semibold flex items-center gap-1 justify-end">
-                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                        <span className="text-xs text-amber-700 font-semibold flex items-center gap-1 justify-end">
+                          <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
                           {worker.rating} / 5.0
                         </span>
                       </div>

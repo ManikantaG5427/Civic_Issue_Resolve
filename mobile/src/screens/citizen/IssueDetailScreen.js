@@ -226,7 +226,7 @@ const IssueDetailScreen = ({ route, navigation }) => {
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <MapPin size={14} color={colors.textSecondary} />
-              <Text style={styles.metaText}>{issue.location?.address || 'Kukatpally Area'}</Text>
+              <Text style={styles.metaText}>{issue.location?.address || issue.serviceArea?.name || 'Municipal Area'}</Text>
             </View>
             <View style={styles.metaItem}>
               <Clock size={14} color={colors.textSecondary} />

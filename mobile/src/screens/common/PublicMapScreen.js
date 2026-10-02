@@ -113,7 +113,7 @@ const PublicMapScreen = ({ navigation }) => {
             <Navigation size={24} color={colors.primaryLight} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.mapCardTitle}>Kukatpally Pilot Zone</Text>
+            <Text style={styles.mapCardTitle}>Public Civic Map</Text>
             <Text style={styles.mapCardSub}>
               Showing {filteredIssues.length} verified community reports
             </Text>
@@ -149,7 +149,7 @@ const PublicMapScreen = ({ navigation }) => {
                 <View style={styles.locRow}>
                   <MapPin size={13} color={colors.textSecondary} />
                   <Text style={styles.locText} numberOfLines={1}>
-                    {item.location?.address || 'Kukatpally Pilot Area'}
+                    {item.location?.address || item.serviceArea?.name || 'Municipal Area'}
                   </Text>
                 </View>
 

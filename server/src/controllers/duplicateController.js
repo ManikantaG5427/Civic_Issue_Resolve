@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 import Issue from '../models/Issue.js';
-import { sendNotification } from '../services/notificationService.js';
 import { emitIssueEvent } from '../socket.js';
 
 /**

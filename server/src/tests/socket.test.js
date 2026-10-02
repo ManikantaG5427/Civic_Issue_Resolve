@@ -2,7 +2,6 @@ import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'http';
 import { initSocket, getIO, emitIssueEvent, emitLiveNotification } from '../socket.js';
-import { generateAccessToken } from '../utils/tokenUtils.js';
 
 describe('Real-Time Socket.IO Subsystem (Queue 16)', () => {
   let server;

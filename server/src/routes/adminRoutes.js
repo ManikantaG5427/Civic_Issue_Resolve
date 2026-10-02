@@ -6,6 +6,9 @@ import {
   requestInfo,
   getWorkers,
   assignIssue,
+  addWorkerToRoster,
+  removeWorkerFromRoster,
+  submitPhaseProof,
 } from '../controllers/adminController.js';
 import { triggerSlaCheck, getOverdueIssues } from '../controllers/slaController.js';
 import { getAdminAnalytics } from '../controllers/analyticsController.js';
@@ -46,6 +49,13 @@ router.post('/issues/:id/request-info', requestInfo);
 
 // POST /api/admin/issues/:id/assign -> Assign issue to department, worker, and SLA
 router.post('/issues/:id/assign', assignIssue);
+
+// Multi-Worker Dispatch Management
+router.post('/issues/:id/workers', addWorkerToRoster);
+router.delete('/issues/:id/workers/:workerId', removeWorkerFromRoster);
+
+// 3-Phase Work Execution Proof
+router.post('/issues/:id/phase-proof', submitPhaseProof);
 
 export default router;
 

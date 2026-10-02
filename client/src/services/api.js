@@ -100,6 +100,8 @@ export async function checkBackendHealth() {
 export const authAPI = {
   register: (userData) => apiRequest('/auth/register', { method: 'POST', body: JSON.stringify(userData) }),
   login: (credentials) => apiRequest('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
+  forgotPassword: (data) => apiRequest('/auth/forgot-password', { method: 'POST', body: JSON.stringify(data) }),
+  resetPassword: (token, data) => apiRequest(`/auth/reset-password/${token}`, { method: 'POST', body: JSON.stringify(data) }),
   logout: () => apiRequest('/auth/logout', { method: 'POST' }),
   getMe: () => apiRequest('/auth/me'),
   refresh: (refreshToken) => apiRequest('/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
@@ -137,6 +139,10 @@ export const issueAPI = {
     apiRequest(`/issues/${id}/confirm-resolution`, { method: 'POST', body: JSON.stringify(data) }),
   reopenIssue: (id, data) =>
     apiRequest(`/issues/${id}/reopen`, { method: 'POST', body: JSON.stringify(data) }),
+  withdrawIssue: (id, data = {}) =>
+    apiRequest(`/issues/${id}/withdraw`, { method: 'POST', body: JSON.stringify(data) }),
+  deleteIssue: (id) =>
+    apiRequest(`/issues/${id}`, { method: 'DELETE' }),
   addComment: (id, data) =>
     apiRequest(`/issues/${id}/comments`, { method: 'POST', body: JSON.stringify(data) }),
   getComments: (id) => apiRequest(`/issues/${id}/comments`),
@@ -196,6 +202,12 @@ export const adminAPI = {
     apiRequest(`/admin/issues/${id}/request-info`, { method: 'POST', body: JSON.stringify(data) }),
   assignIssue: (id, data) =>
     apiRequest(`/admin/issues/${id}/assign`, { method: 'POST', body: JSON.stringify(data) }),
+  addWorkerToRoster: (id, data) =>
+    apiRequest(`/admin/issues/${id}/workers`, { method: 'POST', body: JSON.stringify(data) }),
+  removeWorkerFromRoster: (id, workerId) =>
+    apiRequest(`/admin/issues/${id}/workers/${workerId}`, { method: 'DELETE' }),
+  submitPhaseProof: (id, data) =>
+    apiRequest(`/admin/issues/${id}/phase-proof`, { method: 'POST', body: JSON.stringify(data) }),
   triggerSlaCheck: () =>
     apiRequest('/admin/sla/check-escalations', { method: 'POST' }),
   getOverdueIssues: () => apiRequest('/admin/sla/overdue'),
@@ -232,6 +244,8 @@ export const workerAPI = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  submitPhaseProof: (id, data) =>
+    apiRequest(`/admin/issues/${id}/phase-proof`, { method: 'POST', body: JSON.stringify(data) }),
   resolveTask: (id, data) =>
     apiRequest(`/worker/issues/${id}/resolve`, {
       method: 'POST',
@@ -261,9 +275,43 @@ export const notificationAPI = {
  * Evidence & Media Upload API Endpoints
  */
 export const uploadAPI = {
+  uploadImage: async (file, stage = 'evidence') => {
+    const formData = new FormData();
+    formData.append('images', file);
+    formData.append('stage', stage);
+
+    const token = getStoredToken();
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/uploads/evidence`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      const error = new Error(data.message || 'File upload failed');
+      error.status = response.status;
+      error.errors = data.errors;
+      throw error;
+    }
+
+    const firstItem = Array.isArray(data.data) ? data.data[0] : data.data;
+    return {
+      success: true,
+      data: firstItem,
+      raw: data,
+    };
+  },
+
   uploadEvidence: async (files, stage = 'initial') => {
     const formData = new FormData();
-    for (const file of files) {
+    const fileList = Array.isArray(files) ? files : [files];
+    for (const file of fileList) {
       formData.append('images', file);
     }
     formData.append('stage', stage);
@@ -290,4 +338,17 @@ export const uploadAPI = {
 
     return data;
   },
+};
+
+/**
+ * Safely format upload image URL for frontend rendering
+ */
+export const getImageUrl = (path) => {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
+    return path;
+  }
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const base = API_BASE_URL.replace(/\/api$/, '');
+  return `${base}${cleanPath}`;
 };

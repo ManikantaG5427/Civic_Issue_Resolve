@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { apiRequest } from '../services/api';
+import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import PageHeader from '../components/common/PageHeader';
 import {
   User,
   Shield,
@@ -19,62 +21,38 @@ import {
   Lock,
   ArrowRight,
   RefreshCw,
+  MapPin,
+  FilePlus2,
+  BarChart3,
 } from 'lucide-react';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [rbacTestResult, setRbacTestResult] = useState(null);
-  const [testingEndpoint, setTestingEndpoint] = useState(null);
-
-  const testRbacAccess = async (endpoint, label) => {
-    setTestingEndpoint(endpoint);
-    setRbacTestResult(null);
-
-    try {
-      const response = await apiRequest(`/rbac/${endpoint}`);
-      setRbacTestResult({
-        endpoint: label,
-        status: 'success',
-        statusCode: 200,
-        message: response.message,
-        data: response.data,
-      });
-    } catch (err) {
-      setRbacTestResult({
-        endpoint: label,
-        status: 'error',
-        statusCode: err.status || 403,
-        message: err.message,
-      });
-    } finally {
-      setTestingEndpoint(null);
-    }
-  };
 
   const getRoleBadge = (role) => {
     switch (role) {
       case 'super_admin':
         return {
           label: 'Super Admin',
-          color: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+          color: 'bg-purple-50 text-purple-700 border-purple-200',
           icon: Crown,
         };
       case 'administrator':
         return {
           label: 'Administrator',
-          color: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+          color: 'bg-brand-50 text-brand-700 border-brand-200',
           icon: ShieldCheck,
         };
       case 'field_worker':
         return {
           label: 'Field Worker',
-          color: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+          color: 'bg-amber-50 text-amber-800 border-amber-200',
           icon: HardHat,
         };
       default:
         return {
           label: 'Citizen',
-          color: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+          color: 'bg-civic-50 text-civic-700 border-civic-200',
           icon: User,
         };
     }
@@ -84,97 +62,99 @@ export default function DashboardPage() {
   const RoleIcon = roleMeta.icon;
 
   return (
-    <div className="space-y-8 py-4">
-      {/* Welcome Banner */}
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-teal-950/30 relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center space-x-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-teal-500 to-sky-500 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-teal-500/20">
-              <RoleIcon className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold text-white tracking-tight">
-                  Welcome, {user?.name || 'User'}
-                </h1>
-                <span
-                  className={`text-xs font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${roleMeta.color}`}
-                >
-                  {roleMeta.label}
-                </span>
-              </div>
-              <p className="text-sm text-slate-400 mt-1">
-                Role-Based Access Control is enforced by backend middleware and client guards.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-8">
+      {/* Page Header */}
+      <PageHeader
+        title={`Welcome, ${user?.name || 'User'}`}
+        description="Role-Based Access Control and operational modules for your verified identity."
+        badge={
+          <span
+            className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border ${roleMeta.color}`}
+          >
+            {roleMeta.label}
+          </span>
+        }
+        action={
+          user?.role === 'citizen' || user?.role === 'super_admin' ? (
+            <Link to="/report-issue">
+              <Button icon={FilePlus2}>Report New Issue</Button>
+            </Link>
+          ) : null
+        }
+      />
 
-      {/* Role-Specific Operational Modules (Queue 2 Ready) */}
-      <div className="glass-panel p-6 rounded-2xl border border-slate-800 bg-slate-900/50">
-        <div className="flex items-center space-x-3 pb-4 border-b border-slate-800">
-          <div className="p-2 rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20">
+      {/* Role-Specific Operational Modules */}
+      <Card className="p-6 sm:p-8">
+        <div className="flex items-center space-x-3 pb-4 border-b border-slate-200">
+          <div className="p-2 rounded-xl bg-brand-50 text-brand-700 border border-brand-200">
             <Shield className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-white">
+            <h3 className="text-base font-bold text-slate-900 font-heading">
               Role Authority: {roleMeta.label} Workspace
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               Module permissions available for your assigned role in the resolution platform
             </p>
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           {user?.role === 'citizen' && (
             <>
               <Link
                 to="/report-issue"
-                className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-teal-500/50 space-y-2 block transition group"
+                className="p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-brand-300 hover:bg-white hover:shadow-card space-y-2 block transition group"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-teal-400 uppercase tracking-wider">
+                  <span className="text-xs font-bold text-brand-700 uppercase tracking-wider">
                     Citizen Reporting
                   </span>
-                  <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-teal-400 group-hover:translate-x-0.5 transition" />
+                  <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-brand-700 group-hover:translate-x-0.5 transition" />
                 </div>
-                <div className="text-sm font-medium text-white group-hover:text-teal-300 transition">
+                <div className="text-sm font-bold text-slate-900 font-heading">
                   Report Civic Issues
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-600 leading-relaxed">
                   Submit road, water, electricity, and sanitation issues with photo proof & GPS.
                 </p>
               </Link>
 
               <Link
                 to="/my-reports"
-                className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-teal-500/50 space-y-2 block transition group"
+                className="p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-brand-300 hover:bg-white hover:shadow-card space-y-2 block transition group"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-teal-400 uppercase tracking-wider">
+                  <span className="text-xs font-bold text-brand-700 uppercase tracking-wider">
                     Issue Tracking
                   </span>
-                  <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-teal-400 group-hover:translate-x-0.5 transition" />
+                  <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-brand-700 group-hover:translate-x-0.5 transition" />
                 </div>
-                <div className="text-sm font-medium text-white group-hover:text-teal-300 transition">
+                <div className="text-sm font-bold text-slate-900 font-heading">
                   My Reports Timeline
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-600 leading-relaxed">
                   Track verification status, assigned departments, and field repair progress.
                 </p>
               </Link>
 
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="text-xs font-semibold text-teal-400 uppercase tracking-wider">
-                  Verification
+              <Link
+                to="/map"
+                className="p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-civic-300 hover:bg-white hover:shadow-card space-y-2 block transition group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-civic-700 uppercase tracking-wider">
+                    Civic Map
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-civic-700 group-hover:translate-x-0.5 transition" />
                 </div>
-                <div className="text-sm font-medium text-white">Confirm / Reopen</div>
-                <p className="text-xs text-slate-400">
-                  Inspect after-work repair evidence and confirm resolution or reopen tickets.
+                <div className="text-sm font-bold text-slate-900 font-heading">
+                  Explore City Map
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  View verified community complaints and active municipal field works nearby.
                 </p>
-              </div>
+              </Link>
             </>
           )}
 
@@ -182,249 +162,177 @@ export default function DashboardPage() {
             <>
               <Link
                 to="/worker/tasks"
-                className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-amber-500/50 space-y-2 block transition group"
+                className="p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-amber-300 hover:bg-white hover:shadow-card space-y-2 block transition group"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
-                    Field Queue
+                  <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">
+                    Field Tasks
                   </span>
-                  <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-0.5 transition" />
+                  <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-amber-700 group-hover:translate-x-0.5 transition" />
                 </div>
-                <div className="text-sm font-medium text-white group-hover:text-amber-300 transition">
-                  Assigned Tasks Queue
+                <div className="text-sm font-bold text-slate-900 font-heading">
+                  Assigned Task Queue
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-600 leading-relaxed">
                   Inspect assigned civic repairs, GPS routes, and active SLA resolution deadlines.
                 </p>
               </Link>
 
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
-                  Work Progress
-                </div>
-                <div className="text-sm font-medium text-white">Live Updates</div>
-                <p className="text-xs text-slate-400">
-                  Start repairs, submit material notes, and notify citizens of timeline changes.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
-                  Resolution Proof
-                </div>
-                <div className="text-sm font-medium text-white">Evidence Upload</div>
-                <p className="text-xs text-slate-400">
-                  Upload mandatory after-repair photos before submitting tickets for closure.
-                </p>
-              </div>
-            </>
-          )}
-
-          {user?.role === 'administrator' && (
-            <>
               <Link
-                to="/admin/review-queue"
-                className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-sky-500/50 space-y-2 block transition group"
+                to="/map"
+                className="p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-brand-300 hover:bg-white hover:shadow-card space-y-2 block transition group"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-sky-400 uppercase tracking-wider">
-                    Review Queue
+                  <span className="text-xs font-bold text-brand-700 uppercase tracking-wider">
+                    Geospatial Map
                   </span>
-                  <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-sky-400 group-hover:translate-x-0.5 transition" />
+                  <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-brand-700 group-hover:translate-x-0.5 transition" />
                 </div>
-                <div className="text-sm font-medium text-white group-hover:text-sky-300 transition">
-                  Service Area Verification
+                <div className="text-sm font-bold text-slate-900 font-heading">
+                  City Map Navigator
                 </div>
-                <p className="text-xs text-slate-400">
-                  Triage submitted reports, verify citizen evidence, and route to field departments.
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Locate assigned issues and inspect neighboring reported hazards.
                 </p>
               </Link>
 
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="text-xs font-semibold text-sky-400 uppercase tracking-wider">
-                  Dispatch
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="text-xs font-bold text-amber-800 uppercase tracking-wider">
+                  Resolution Evidence
                 </div>
-                <div className="text-sm font-medium text-white">Worker & SLA Assignment</div>
-                <p className="text-xs text-slate-400">
-                  Assign tickets to responsible field departments and set resolution deadlines.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="text-xs font-semibold text-sky-400 uppercase tracking-wider">
-                  Supervision
-                </div>
-                <div className="text-sm font-medium text-white">Audit & Escalation</div>
-                <p className="text-xs text-slate-400">
-                  Track overdue tickets, worker workload, and internal operational notes.
+                <div className="text-sm font-bold text-slate-900 font-heading">Proof Capture</div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Upload mandatory before/after completion photos before submitting tickets.
                 </p>
               </div>
             </>
           )}
 
-          {user?.role === 'super_admin' && (
+          {(user?.role === 'administrator' || user?.role === 'super_admin') && (
             <>
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="text-xs font-semibold text-purple-400 uppercase tracking-wider">
-                  Governance
+              <Link
+                to="/admin/review-queue"
+                className="p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-brand-300 hover:bg-white hover:shadow-card space-y-2 block transition group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-brand-700 uppercase tracking-wider">
+                    Review Queue
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-brand-700 group-hover:translate-x-0.5 transition" />
                 </div>
-                <div className="text-sm font-medium text-white">System Configuration</div>
-                <p className="text-xs text-slate-400">
-                  Manage pilot service areas, departments, and civic issue categories.
+                <div className="text-sm font-bold text-slate-900 font-heading">
+                  Triage & Verification Board
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Triage submitted reports, verify evidence, reject invalid items, or dispatch workers.
                 </p>
-              </div>
+              </Link>
 
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="text-xs font-semibold text-purple-400 uppercase tracking-wider">
-                  Access Control
+              <Link
+                to="/admin/analytics"
+                className="p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-civic-300 hover:bg-white hover:shadow-card space-y-2 block transition group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-civic-700 uppercase tracking-wider">
+                    Intelligence
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-civic-700 group-hover:translate-x-0.5 transition" />
                 </div>
-                <div className="text-sm font-medium text-white">User & Role Management</div>
-                <p className="text-xs text-slate-400">
-                  Grant admin/worker privileges and manage service-area assignments.
+                <div className="text-sm font-bold text-slate-900 font-heading">
+                  Operations Analytics & KPIs
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Resolution velocities, SLA compliance %, category distributions, and worker leaderboard.
                 </p>
-              </div>
+              </Link>
 
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="text-xs font-semibold text-purple-400 uppercase tracking-wider">
-                  Platform Analytics
+              <Link
+                to="/catalog"
+                className="p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-purple-300 hover:bg-white hover:shadow-card space-y-2 block transition group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-purple-700 uppercase tracking-wider">
+                    Catalogs
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-purple-700 group-hover:translate-x-0.5 transition" />
                 </div>
-                <div className="text-sm font-medium text-white">Global Metrics</div>
-                <p className="text-xs text-slate-400">
-                  Cross-jurisdiction SLA compliance, resolution times, and audit histories.
+                <div className="text-sm font-bold text-slate-900 font-heading">
+                  System Configuration
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Inspect departments, pilot service areas, and civic complaint categories.
                 </p>
-              </div>
+              </Link>
             </>
           )}
         </div>
-      </div>
+      </Card>
 
-      {/* Live Backend RBAC Permission Verifier */}
-      <div className="glass-panel p-6 rounded-2xl border border-slate-800 bg-slate-900/40 space-y-4">
-        <div className="flex items-center space-x-3 pb-3 border-b border-slate-800">
-          <div className="p-2 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
-            <Lock className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="text-base font-semibold text-white">
-              Live Backend RBAC Policy Tester
-            </h3>
-            <p className="text-xs text-slate-400">
-              Test how backend authorization middleware responds to your current active token
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <button
-            onClick={() => testRbacAccess('citizen-access', 'GET /api/rbac/citizen-access')}
-            disabled={testingEndpoint !== null}
-            className="p-3 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 text-left transition text-xs space-y-1 disabled:opacity-50"
-          >
-            <div className="font-semibold text-teal-300">Test Citizen Endpoint</div>
-            <div className="text-slate-400 text-[11px]">Requires: citizen, super_admin</div>
-          </button>
-
-          <button
-            onClick={() => testRbacAccess('worker-access', 'GET /api/rbac/worker-access')}
-            disabled={testingEndpoint !== null}
-            className="p-3 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 text-left transition text-xs space-y-1 disabled:opacity-50"
-          >
-            <div className="font-semibold text-amber-300">Test Worker Endpoint</div>
-            <div className="text-slate-400 text-[11px]">Requires: field_worker, super_admin</div>
-          </button>
-
-          <button
-            onClick={() => testRbacAccess('admin-access', 'GET /api/rbac/admin-access')}
-            disabled={testingEndpoint !== null}
-            className="p-3 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 text-left transition text-xs space-y-1 disabled:opacity-50"
-          >
-            <div className="font-semibold text-sky-300">Test Admin Endpoint</div>
-            <div className="text-slate-400 text-[11px]">Requires: administrator, super_admin</div>
-          </button>
-        </div>
-
-        {rbacTestResult && (
-          <div
-            className={`p-4 rounded-xl border text-xs space-y-1 ${
-              rbacTestResult.status === 'success'
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-            }`}
-          >
-            <div className="flex items-center justify-between font-semibold">
-              <span>{rbacTestResult.endpoint}</span>
-              <span className="font-mono uppercase font-bold">
-                HTTP {rbacTestResult.statusCode} {rbacTestResult.status === 'success' ? 'OK' : 'FORBIDDEN'}
-              </span>
-            </div>
-            <p className="opacity-90">{rbacTestResult.message}</p>
-          </div>
-        )}
-      </div>
-
-      {/* User Details & Session Card */}
+      {/* Profile & Security State Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="glass-panel p-6 rounded-2xl border border-slate-800 bg-slate-900/40 space-y-4">
-          <div className="flex items-center space-x-3 pb-3 border-b border-slate-800">
-            <div className="p-2 rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20">
+        <Card className="p-6">
+          <div className="flex items-center space-x-3 pb-3 border-b border-slate-200 mb-4">
+            <div className="p-2 rounded-xl bg-brand-50 text-brand-700 border border-brand-200">
               <User className="w-4 h-4" />
             </div>
-            <h3 className="text-base font-semibold text-white">Profile & Identity</h3>
+            <h3 className="text-base font-bold text-slate-900 font-heading">Profile & Identity</h3>
           </div>
 
           <div className="space-y-3 text-sm">
-            <div className="flex justify-between py-1 border-b border-slate-800/60">
-              <span className="text-slate-400">Full Name</span>
-              <span className="text-slate-200 font-medium">{user?.name}</span>
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <span className="text-slate-500 font-medium">Full Name</span>
+              <span className="text-slate-900 font-bold">{user?.name}</span>
             </div>
 
-            <div className="flex justify-between py-1 border-b border-slate-800/60">
-              <span className="text-slate-400">Email Address</span>
-              <span className="text-slate-200 font-medium">{user?.email}</span>
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <span className="text-slate-500 font-medium">Email Address</span>
+              <span className="text-slate-900 font-bold">{user?.email}</span>
             </div>
 
-            <div className="flex justify-between py-1 border-b border-slate-800/60">
-              <span className="text-slate-400">Assigned Role</span>
-              <span className="text-teal-400 font-semibold uppercase text-xs font-mono">{user?.role}</span>
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <span className="text-slate-500 font-medium">Assigned Role</span>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${roleMeta.color}`}>
+                {user?.role?.toUpperCase()}
+              </span>
             </div>
 
-            <div className="flex justify-between py-1 border-b border-slate-800/60">
-              <span className="text-slate-400">Member Since</span>
-              <span className="text-slate-200 font-medium">
-                {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Today'}
+            <div className="flex justify-between py-1.5">
+              <span className="text-slate-500 font-medium">Member Since</span>
+              <span className="text-slate-900 font-semibold">
+                {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Active Member'}
               </span>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="glass-panel p-6 rounded-2xl border border-slate-800 bg-slate-900/40 space-y-4">
-          <div className="flex items-center space-x-3 pb-3 border-b border-slate-800">
-            <div className="p-2 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
-              <Shield className="w-4 h-4" />
+        <Card className="p-6">
+          <div className="flex items-center space-x-3 pb-3 border-b border-slate-200 mb-4">
+            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <ShieldCheck className="w-4 h-4" />
             </div>
-            <h3 className="text-base font-semibold text-white">Security & Token State</h3>
+            <h3 className="text-base font-bold text-slate-900 font-heading">Security & Token State</h3>
           </div>
 
           <div className="space-y-3 text-sm">
-            <div className="flex justify-between py-1 border-b border-slate-800/60">
-              <span className="text-slate-400">Account Status</span>
-              <span className="text-emerald-400 font-medium flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <span className="text-slate-500 font-medium">Account Status</span>
+              <span className="text-emerald-700 font-bold flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 Active Verified
               </span>
             </div>
 
-            <div className="flex justify-between py-1 border-b border-slate-800/60">
-              <span className="text-slate-400">RBAC Status</span>
-              <span className="text-teal-400 font-medium">Enforced in Middleware</span>
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <span className="text-slate-500 font-medium">RBAC Security</span>
+              <span className="text-brand-700 font-semibold">Enforced in Middleware</span>
             </div>
 
-            <div className="flex justify-between py-1 border-b border-slate-800/60">
-              <span className="text-slate-400">Active Queue</span>
-              <span className="text-teal-400 font-medium">Queue 2: Roles & Permissions</span>
+            <div className="flex justify-between py-1.5">
+              <span className="text-slate-500 font-medium">Real-Time Sync</span>
+              <span className="text-civic-700 font-semibold">Socket.IO Bidirectional</span>
             </div>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

@@ -85,7 +85,8 @@ Both `server` and `client` have `.env.example` templates pre-configured for loca
 ```env
 PORT=5000
 NODE_ENV=development
-MONGODB_URI=mongodb://localhost:27017/civicresolve
+# MongoDB Atlas Cloud Database URI
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>.mongodb.net/civicresolve?retryWrites=true&w=majority
 CLIENT_URL=http://localhost:5173
 UPLOAD_DIR=uploads
 MAX_FILE_SIZE_MB=5
@@ -95,6 +96,8 @@ MAX_FILE_SIZE_MB=5
 ```env
 VITE_API_BASE_URL=http://localhost:5000/api
 VITE_APP_NAME=CivicResolve
+# Google Maps API Key (Maps JavaScript API + Places API + Geocoding API)
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 ```
 
 ### 3. Run Development Servers
@@ -146,7 +149,7 @@ Development follows strict vertical slice rules across 3 comprehensive phases de
 - [x] **Queue 2**: Role-Based Access Control (Citizen, Field Worker, Admin, Super Admin)
 - [x] **Queue 3**: Config catalogs (Categories, Departments, Pilot Service Areas, Seeders)
 - [x] **Queue 4**: Citizen Issue Creation with ticket generator (`CIVIC-YYYY-XXXXXX`)
-- [x] **Queue 5**: Leaflet Pin-drop GPS Location & Address Picker
+- [x] **Queue 5**: Google Maps Pin-drop GPS Location, Places Autocomplete & Geocoder Picker
 - [x] **Queue 6**: Secure Multer Evidence Upload pipeline
 - [x] **Queue 7**: Citizen My-Reports Dashboard & Interactive Issue Timeline
 - [x] **Queue 8**: Administrator Review Queue & Triage Metrics

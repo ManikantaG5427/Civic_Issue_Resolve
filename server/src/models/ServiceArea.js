@@ -41,7 +41,7 @@ const serviceAreaSchema = new mongoose.Schema(
       },
       coordinates: {
         type: [Number], // [longitude, latitude]
-        default: [78.3967, 17.4849], // Kukatpally coordinates
+        default: [78.3967, 17.4849], // Default center coordinates
       },
     },
     description: {

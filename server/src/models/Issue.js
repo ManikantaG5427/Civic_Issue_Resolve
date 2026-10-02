@@ -13,7 +13,7 @@ const timelineEntrySchema = new mongoose.Schema(
     performedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: false,
     },
     note: {
       type: String,
@@ -136,7 +136,13 @@ const issueSchema = new mongoose.Schema(
     reporter: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'Reporter reference is required'],
+      required: false,
+      default: null,
+    },
+    guestReporter: {
+      name: { type: String, trim: true, default: 'Citizen' },
+      phone: { type: String, trim: true, default: '' },
+      email: { type: String, trim: true, default: '' },
     },
     status: {
       type: String,
@@ -152,6 +158,7 @@ const issueSchema = new mongoose.Schema(
         'resolved_verification_pending',
         'closed',
         'reopened',
+        'withdrawn',
       ],
       default: 'submitted',
     },
@@ -164,7 +171,7 @@ const issueSchema = new mongoose.Schema(
       address: {
         type: String,
         trim: true,
-        default: 'Kukatpally, Hyderabad',
+        default: 'Municipal Zone, Hyderabad',
       },
       landmark: {
         type: String,
@@ -189,12 +196,46 @@ const issueSchema = new mongoose.Schema(
         filename: String,
         fileSize: Number,
         mimeType: String,
+        geoTag: {
+          type: mongoose.Schema.Types.Mixed,
+          default: null,
+        },
         stage: {
           type: String,
-          enum: ['initial', 'progress', 'resolution', 'reopen'],
+          enum: ['initial', 'starting', 'during', 'progress', 'resolution', 'completion', 'reopen'],
           default: 'initial',
         },
         uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
+    isGpsVerified: {
+      type: Boolean,
+      default: false,
+    },
+    // Multi-Worker Assignment Roster
+    assignedWorkers: [
+      {
+        worker: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        assignedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        assignedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        role: {
+          type: String,
+          default: 'Lead Field Specialist',
+        },
+        note: {
+          type: String,
+          default: '',
+        },
       },
     ],
     assignedWorker: {
@@ -205,6 +246,48 @@ const issueSchema = new mongoose.Schema(
     assignedAt: {
       type: Date,
       default: null,
+    },
+    // 3-Phase Work Execution Proof (Starting, During, Completion with Geo-Tagged Evidence)
+    executionPhases: {
+      startingPhase: {
+        images: [
+          {
+            url: String,
+            filename: String,
+            geoTag: mongoose.Schema.Types.Mixed,
+            uploadedAt: { type: Date, default: Date.now },
+          },
+        ],
+        note: { type: String, default: '' },
+        startedAt: { type: Date, default: null },
+        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      },
+      duringPhase: {
+        images: [
+          {
+            url: String,
+            filename: String,
+            geoTag: mongoose.Schema.Types.Mixed,
+            uploadedAt: { type: Date, default: Date.now },
+          },
+        ],
+        note: { type: String, default: '' },
+        inProgressAt: { type: Date, default: null },
+        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      },
+      completionPhase: {
+        images: [
+          {
+            url: String,
+            filename: String,
+            geoTag: mongoose.Schema.Types.Mixed,
+            uploadedAt: { type: Date, default: Date.now },
+          },
+        ],
+        note: { type: String, default: '' },
+        completedAt: { type: Date, default: null },
+        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      },
     },
     slaDeadline: {
       type: Date,

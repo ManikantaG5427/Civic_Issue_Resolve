@@ -6,6 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import routes from './routes/index.js';
+import healthRoutes from './routes/healthRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { notFoundHandler } from './middlewares/notFoundHandler.js';
 
@@ -61,6 +62,23 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Static files for evidence uploads
 app.use('/uploads', express.static(uploadDir));
+
+// Friendly root route
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'CivicResolve Backend API is running.',
+    version: '1.0.0',
+    endpoints: {
+      frontend: process.env.CLIENT_URL || 'http://localhost:5173',
+      health: '/api/health',
+      docs: '/api/docs',
+    },
+  });
+});
+
+// Direct /health route alias
+app.use('/health', healthRoutes);
 
 // Mount main API routes
 app.use('/api', routes);

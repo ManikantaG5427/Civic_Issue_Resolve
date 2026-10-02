@@ -92,7 +92,7 @@ describe('Comments & Internal Notes Subsystem (Queue 17)', () => {
     };
 
     // Mock Issue.findOne
-    Issue.findOne = (query) => {
+    Issue.findOne = (_query) => {
       const mockQuery = {
         populate: function () { return this; },
         select: function () { return this; },
@@ -100,6 +100,16 @@ describe('Comments & Internal Notes Subsystem (Queue 17)', () => {
       };
       return mockQuery;
     };
+  });
+
+  test('POST /api/issues/:id/comments returns 403 for non-reporter citizen', async () => {
+    const res = await request(app)
+      .post(`/api/issues/${testIssue._id}/comments`)
+      .set('Authorization', `Bearer ${otherCitizenToken}`)
+      .send({ content: 'Unauthorized citizen comment' });
+
+    assert.equal(res.status, 403);
+    assert.equal(res.body.success, false);
   });
 
   test('POST /api/issues/:id/comments requires authentication with 401', async () => {

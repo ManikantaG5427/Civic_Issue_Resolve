@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { workerAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import StatusBadge from '../components/common/StatusBadge';
+import PriorityBadge from '../components/common/PriorityBadge';
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active Operational Tasks (Assigned + In Progress)' },
@@ -40,34 +42,6 @@ const PRIORITY_OPTIONS = [
   { value: 'low', label: 'ℹ️ Low Priority' },
 ];
 
-const getStatusBadge = (status) => {
-  switch (status) {
-    case 'assigned':
-      return { label: 'Assigned', color: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30' };
-    case 'in_progress':
-      return { label: 'In Progress', color: 'bg-amber-500/10 text-amber-300 border-amber-500/30' };
-    case 'resolved_verification_pending':
-      return { label: 'Verification Pending', color: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' };
-    case 'closed':
-      return { label: 'Closed', color: 'bg-slate-800 text-slate-300 border-slate-700' };
-    default:
-      return { label: status, color: 'bg-slate-800 text-slate-300 border-slate-700' };
-  }
-};
-
-const getPriorityBadge = (priority) => {
-  switch (priority) {
-    case 'urgent':
-      return { label: 'Urgent', color: 'bg-rose-500/20 text-rose-300 border-rose-500/30' };
-    case 'high':
-      return { label: 'High', color: 'bg-orange-500/20 text-orange-300 border-orange-500/30' };
-    case 'medium':
-      return { label: 'Medium', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
-    default:
-      return { label: 'Low', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' };
-  }
-};
-
 const formatSlaCountdown = (deadlineStr) => {
   if (!deadlineStr) return null;
   const deadline = new Date(deadlineStr);
@@ -79,19 +53,19 @@ const formatSlaCountdown = (deadlineStr) => {
     return {
       text: `⚠️ OVERDUE by ${Math.abs(diffHours)} hour${Math.abs(diffHours) === 1 ? '' : 's'}`,
       isOverdue: true,
-      color: 'bg-rose-500/20 text-rose-300 border-rose-500/40 ring-1 ring-rose-500/30',
+      color: 'bg-red-50 text-red-700 border-red-200',
     };
   } else if (diffHours <= 6) {
     return {
       text: `⏳ Due in ${diffHours} hour${diffHours === 1 ? '' : 's'} (Critical)`,
       isOverdue: false,
-      color: 'bg-amber-500/20 text-amber-300 border-amber-500/40 ring-1 ring-amber-500/30',
+      color: 'bg-amber-50 text-amber-800 border-amber-200',
     };
   } else {
     return {
       text: `⏱️ Due in ${diffHours} hours`,
       isOverdue: false,
-      color: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30',
+      color: 'bg-brand-50 text-brand-700 border-brand-200',
     };
   }
 };
@@ -177,21 +151,21 @@ export default function WorkerDashboardPage() {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              Queue 11 · Field Worker Operations
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+              Field Operations
             </span>
-            <span className="text-xs text-slate-400">Live Repair Queue & Dispatch</span>
+            <span className="text-xs text-slate-500">Live Repair Queue & Dispatch</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <HardHat className="w-7 h-7 text-amber-400" />
-            Field Task Queue · {user?.name || 'Field Personnel'}
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5 font-heading">
+            <HardHat className="w-7 h-7 text-amber-600" />
+            Field Task Queue · {user?.name || 'Field Specialist'}
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-600 mt-1">
             Assigned civic repair tickets, SLA countdowns, GPS navigation routes, and live progress updates.
           </p>
         </div>
@@ -199,9 +173,9 @@ export default function WorkerDashboardPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={fetchTasks}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-200 transition"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-xs font-semibold text-slate-700 transition shadow-sm"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-amber-400' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-amber-600' : ''}`} />
             <span>Refresh Tasks</span>
           </button>
         </div>
@@ -217,16 +191,16 @@ export default function WorkerDashboardPage() {
           }}
           className={`p-4 rounded-2xl border text-left transition ${
             statusFilter === 'assigned'
-              ? 'bg-indigo-500/10 border-indigo-500/40 ring-2 ring-indigo-500/20'
-              : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+              ? 'bg-brand-50 border-brand-300 ring-2 ring-brand-100'
+              : 'bg-white border-slate-200 hover:border-slate-300 shadow-soft'
           }`}
         >
-          <div className="flex items-center justify-between text-xs text-indigo-400 font-semibold uppercase tracking-wider">
+          <div className="flex items-center justify-between text-xs text-brand-700 font-bold uppercase tracking-wider font-heading">
             <span>New Assigned</span>
-            <HardHat className="w-4 h-4" />
+            <HardHat className="w-4 h-4 text-brand-700" />
           </div>
-          <div className="text-2xl font-bold text-white mt-1">{metrics.assigned}</div>
-          <span className="text-[11px] text-slate-400">Awaiting Start</span>
+          <div className="text-2xl font-bold text-slate-900 mt-1 font-heading">{metrics.assigned}</div>
+          <span className="text-xs text-slate-500">Awaiting Start</span>
         </button>
 
         <button
@@ -237,16 +211,16 @@ export default function WorkerDashboardPage() {
           }}
           className={`p-4 rounded-2xl border text-left transition ${
             statusFilter === 'in_progress'
-              ? 'bg-amber-500/10 border-amber-500/40 ring-2 ring-amber-500/20'
-              : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+              ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-100'
+              : 'bg-white border-slate-200 hover:border-slate-300 shadow-soft'
           }`}
         >
-          <div className="flex items-center justify-between text-xs text-amber-400 font-semibold uppercase tracking-wider">
+          <div className="flex items-center justify-between text-xs text-amber-800 font-bold uppercase tracking-wider font-heading">
             <span>In Progress</span>
-            <Wrench className="w-4 h-4" />
+            <Wrench className="w-4 h-4 text-amber-700" />
           </div>
-          <div className="text-2xl font-bold text-white mt-1">{metrics.inProgress}</div>
-          <span className="text-[11px] text-slate-400">Active On Site</span>
+          <div className="text-2xl font-bold text-slate-900 mt-1 font-heading">{metrics.inProgress}</div>
+          <span className="text-xs text-slate-500">Active On Site</span>
         </button>
 
         <button
@@ -257,31 +231,31 @@ export default function WorkerDashboardPage() {
           }}
           className={`p-4 rounded-2xl border text-left transition ${
             priorityFilter === 'urgent'
-              ? 'bg-rose-500/10 border-rose-500/40 ring-2 ring-rose-500/20'
-              : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+              ? 'bg-red-50 border-red-300 ring-2 ring-red-100'
+              : 'bg-white border-slate-200 hover:border-slate-300 shadow-soft'
           }`}
         >
-          <div className="flex items-center justify-between text-xs text-rose-400 font-semibold uppercase tracking-wider">
+          <div className="flex items-center justify-between text-xs text-red-700 font-bold uppercase tracking-wider font-heading">
             <span>Urgent Hazards</span>
-            <Flame className="w-4 h-4" />
+            <Flame className="w-4 h-4 text-red-600" />
           </div>
-          <div className="text-2xl font-bold text-white mt-1">{metrics.urgent}</div>
-          <span className="text-[11px] text-slate-400">Top Priority</span>
+          <div className="text-2xl font-bold text-slate-900 mt-1 font-heading">{metrics.urgent}</div>
+          <span className="text-xs text-slate-500">Top Priority</span>
         </button>
 
         <div
           className={`p-4 rounded-2xl border text-left ${
             metrics.overdue > 0
-              ? 'bg-rose-500/10 border-rose-500/30'
-              : 'bg-slate-900/80 border-slate-800'
+              ? 'bg-red-50 border-red-200'
+              : 'bg-white border-slate-200 shadow-soft'
           }`}
         >
-          <div className="flex items-center justify-between text-xs text-rose-400 font-semibold uppercase tracking-wider">
+          <div className="flex items-center justify-between text-xs text-red-700 font-bold uppercase tracking-wider font-heading">
             <span>SLA Overdue</span>
-            <AlertTriangle className="w-4 h-4" />
+            <AlertTriangle className="w-4 h-4 text-red-600" />
           </div>
-          <div className="text-2xl font-bold text-white mt-1">{metrics.overdue}</div>
-          <span className="text-[11px] text-slate-400">
+          <div className="text-2xl font-bold text-slate-900 mt-1 font-heading">{metrics.overdue}</div>
+          <span className="text-xs text-slate-500">
             {metrics.overdue > 0 ? 'Urgent Attention' : 'All on Track'}
           </span>
         </div>
@@ -294,23 +268,23 @@ export default function WorkerDashboardPage() {
           }}
           className={`p-4 rounded-2xl border text-left col-span-2 sm:col-span-1 transition ${
             statusFilter === 'resolved_verification_pending'
-              ? 'bg-emerald-500/10 border-emerald-500/40 ring-2 ring-emerald-500/20'
-              : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+              ? 'bg-green-50 border-green-300 ring-2 ring-green-100'
+              : 'bg-white border-slate-200 hover:border-slate-300 shadow-soft'
           }`}
         >
-          <div className="flex items-center justify-between text-xs text-emerald-400 font-semibold uppercase tracking-wider">
+          <div className="flex items-center justify-between text-xs text-green-700 font-bold uppercase tracking-wider font-heading">
             <span>Completed</span>
-            <CheckCircle2 className="w-4 h-4" />
+            <CheckCircle2 className="w-4 h-4 text-green-600" />
           </div>
-          <div className="text-2xl font-bold text-white mt-1">
+          <div className="text-2xl font-bold text-slate-900 mt-1 font-heading">
             {metrics.resolvedVerificationPending}
           </div>
-          <span className="text-[11px] text-slate-400">Verification Pending</span>
+          <span className="text-xs text-slate-500">Verification Pending</span>
         </button>
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
+      <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-soft space-y-4">
         <form onSubmit={handleSearchSubmit} className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -319,7 +293,7 @@ export default function WorkerDashboardPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by ticket # (CIVIC-2026-...), title, landmark, or address..."
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+              className="w-full bg-white border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-brand-600 focus:ring-4 focus:ring-brand-100"
             />
           </div>
 
@@ -332,7 +306,7 @@ export default function WorkerDashboardPage() {
                 setPage(1);
               }}
               aria-label="Filter worker tasks by status"
-              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-amber-500"
+              className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-700 focus:outline-none focus:border-brand-600"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -349,7 +323,7 @@ export default function WorkerDashboardPage() {
                 setPage(1);
               }}
               aria-label="Filter worker tasks by priority"
-              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-amber-500"
+              className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-700 focus:outline-none focus:border-brand-600"
             >
               {PRIORITY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -360,7 +334,7 @@ export default function WorkerDashboardPage() {
 
             <button
               type="submit"
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-slate-950 text-sm font-semibold rounded-xl transition"
+              className="px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white text-sm font-semibold rounded-xl transition shadow-sm"
             >
               Filter
             </button>
@@ -375,7 +349,7 @@ export default function WorkerDashboardPage() {
                 setSortOrder('asc');
                 setPage(1);
               }}
-              className="p-2 text-slate-400 hover:text-slate-200 bg-slate-950 border border-slate-800 rounded-xl transition"
+              className="p-2 text-slate-500 hover:text-slate-800 bg-white border border-slate-300 rounded-xl transition shadow-sm"
               title="Reset Filters"
             >
               <RefreshCw className="w-4 h-4" />
@@ -383,12 +357,12 @@ export default function WorkerDashboardPage() {
           </div>
         </form>
 
-        <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+        <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
           <span>
-            Assigned tasks in queue: <strong className="text-slate-200">{totalCount}</strong>
+            Assigned tasks in queue: <strong className="text-slate-800 font-bold">{totalCount}</strong>
           </span>
           <div className="flex items-center gap-2">
-            <span className="text-slate-400">Sort:</span>
+            <span className="text-slate-500">Sort:</span>
             <select
               value={`${sortBy}_${sortOrder}`}
               onChange={(e) => {
@@ -398,7 +372,7 @@ export default function WorkerDashboardPage() {
                 setPage(1);
               }}
               aria-label="Sort worker tasks"
-              className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none"
+              className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none"
             >
               <option value="slaDeadline_asc">SLA Target (Urgent First)</option>
               <option value="priority_desc">Priority (Highest First)</option>
@@ -410,14 +384,14 @@ export default function WorkerDashboardPage() {
 
       {/* Action Success Alert */}
       {actionSuccess && (
-        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm flex items-center justify-between gap-3 shadow-lg shadow-emerald-500/5">
+        <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-800 text-sm flex items-center justify-between gap-3 shadow-sm">
           <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
             <span>{actionSuccess}</span>
           </div>
           <button
             onClick={() => setActionSuccess(null)}
-            className="text-xs text-emerald-400 hover:text-white font-semibold"
+            className="text-xs text-green-700 hover:text-green-900 font-semibold"
           >
             Dismiss
           </button>
@@ -426,12 +400,12 @@ export default function WorkerDashboardPage() {
 
       {/* Error State */}
       {error && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0 text-rose-400" />
-          <div className="flex-1">{error}</div>
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-600" />
+          <div className="flex-1 font-medium">{error}</div>
           <button
             onClick={fetchTasks}
-            className="px-3 py-1 bg-rose-500/20 hover:bg-rose-500/30 rounded-lg text-xs font-semibold text-rose-200 transition"
+            className="px-3 py-1 bg-red-100 hover:bg-red-200 rounded-lg text-xs font-semibold text-red-800 transition"
           >
             Retry
           </button>
@@ -444,32 +418,30 @@ export default function WorkerDashboardPage() {
           {[1, 2, 3].map((n) => (
             <div
               key={n}
-              className="p-5 rounded-2xl bg-slate-900/50 border border-slate-800 animate-pulse space-y-3"
+              className="p-5 rounded-2xl bg-white border border-slate-200 shadow-soft animate-pulse space-y-3"
             >
               <div className="flex justify-between">
-                <div className="h-5 w-32 bg-slate-800 rounded"></div>
-                <div className="h-5 w-24 bg-slate-800 rounded-full"></div>
+                <div className="h-5 w-32 bg-slate-200 rounded"></div>
+                <div className="h-5 w-24 bg-slate-200 rounded-full"></div>
               </div>
-              <div className="h-6 w-1/2 bg-slate-800 rounded"></div>
-              <div className="h-4 w-1/3 bg-slate-800 rounded"></div>
+              <div className="h-6 w-1/2 bg-slate-200 rounded"></div>
+              <div className="h-4 w-1/3 bg-slate-200 rounded"></div>
             </div>
           ))}
         </div>
       ) : tasks.length === 0 ? (
-        <div className="text-center py-16 px-4 rounded-3xl bg-slate-900/40 border border-slate-800/80 space-y-3">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+        <div className="text-center py-16 px-4 rounded-2xl bg-white border border-slate-200 shadow-soft space-y-3">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-civic-50 text-civic-700 flex items-center justify-center border border-civic-200">
             <CheckCircle2 className="w-7 h-7" />
           </div>
-          <h3 className="text-lg font-semibold text-white">No active field tasks in your queue</h3>
-          <p className="text-sm text-slate-400 max-w-md mx-auto">
+          <h3 className="text-lg font-bold text-slate-900 font-heading">No active field tasks in your queue</h3>
+          <p className="text-sm text-slate-500 max-w-md mx-auto">
             You are all caught up! New dispatch tickets assigned by municipal administrators will appear here in real-time.
           </p>
         </div>
       ) : (
         <div className="space-y-4">
           {tasks.map((task) => {
-            const statusBadge = getStatusBadge(task.status);
-            const priorityBadge = getPriorityBadge(task.priority);
             const slaStatus = formatSlaCountdown(task.slaDeadline);
             const [lng, lat] = task.location?.coordinates || [78.3967, 17.4849];
             const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
@@ -477,28 +449,20 @@ export default function WorkerDashboardPage() {
             return (
               <div
                 key={task._id}
-                className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 shadow-sm"
+                className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 hover:shadow-card transition flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 shadow-soft"
               >
                 {/* Left: Metadata, SLA, Title */}
                 <div className="space-y-2 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                    <span className="font-mono text-xs font-bold text-brand-700 bg-brand-50 px-2.5 py-1 rounded-lg border border-brand-200">
                       {task.issueNumber}
                     </span>
-                    <span
-                      className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${priorityBadge.color}`}
-                    >
-                      {priorityBadge.label}
-                    </span>
-                    <span
-                      className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${statusBadge.color}`}
-                    >
-                      {statusBadge.label}
-                    </span>
+                    <PriorityBadge priority={task.priority} />
+                    <StatusBadge status={task.status} />
 
                     {slaStatus && (
                       <span
-                        className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${slaStatus.color}`}
+                        className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${slaStatus.color}`}
                       >
                         {slaStatus.text}
                       </span>
@@ -506,41 +470,41 @@ export default function WorkerDashboardPage() {
                   </div>
 
                   <div>
-                    <h3 className="text-base font-semibold text-white hover:text-amber-300 transition">
+                    <h3 className="text-base font-bold text-slate-900 hover:text-brand-700 transition font-heading">
                       <Link to={`/issues/${task.issueNumber || task._id}`}>
                         {task.title}
                       </Link>
                     </h3>
-                    <p className="text-xs text-slate-400 line-clamp-2 mt-0.5 leading-relaxed">
+                    <p className="text-xs text-slate-600 line-clamp-2 mt-0.5 leading-relaxed">
                       {task.description}
                     </p>
                   </div>
 
                   {/* Context Info Pills */}
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 pt-1">
-                    <span className="flex items-center gap-1 text-slate-300">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 pt-1">
+                    <span className="flex items-center gap-1 text-slate-700 font-medium">
                       📂 {task.category?.name || 'General Civic'}
                     </span>
 
-                    <span className="flex items-center gap-1 text-slate-400">
-                      <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="flex items-center gap-1 text-slate-500">
+                      <Building2 className="w-3.5 h-3.5 text-slate-400" />
                       {task.department?.name || 'Department'}
                     </span>
 
-                    <span className="flex items-center gap-1 text-slate-400">
-                      <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="flex items-center gap-1 text-slate-500">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
                       {task.location?.landmark ? `${task.location.landmark} · ` : ''}
-                      {task.serviceArea?.name || 'Kukatpally'}
+                      {task.location?.address || task.serviceArea?.name || 'Municipal Zone'}
                     </span>
 
                     {task.reporter && (
-                      <span className="flex items-center gap-1 text-slate-400">
-                        <User className="w-3.5 h-3.5 text-slate-500" />
+                      <span className="flex items-center gap-1 text-slate-500">
+                        <User className="w-3.5 h-3.5 text-slate-400" />
                         {task.reporter.name}
                         {task.reporter.phone && (
                           <a
                             href={`tel:${task.reporter.phone}`}
-                            className="text-amber-400 hover:underline ml-1"
+                            className="text-brand-700 hover:underline ml-1 font-semibold"
                           >
                             ({task.reporter.phone})
                           </a>
@@ -549,7 +513,7 @@ export default function WorkerDashboardPage() {
                     )}
 
                     {task.evidence && task.evidence.length > 0 && (
-                      <span className="inline-flex items-center gap-1 text-teal-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-[11px]">
+                      <span className="inline-flex items-center gap-1 text-civic-700 bg-civic-50 px-2 py-0.5 rounded border border-civic-200 text-xs font-semibold">
                         <ImageIcon className="w-3 h-3" />
                         {task.evidence.length} Photo{task.evidence.length > 1 ? 's' : ''}
                       </span>
@@ -558,15 +522,15 @@ export default function WorkerDashboardPage() {
                 </div>
 
                 {/* Right: GPS Navigation & Direct Action */}
-                <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800/80">
+                <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
                   <a
                     href={mapsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200 transition"
                     title="Open Route Navigation in Maps"
                   >
-                    <Navigation className="w-3.5 h-3.5 text-teal-400" />
+                    <Navigation className="w-3.5 h-3.5 text-civic-700" />
                     <span>Navigate</span>
                   </a>
 
@@ -575,7 +539,7 @@ export default function WorkerDashboardPage() {
                       type="button"
                       disabled={startingTaskId === task._id}
                       onClick={() => handleQuickStartWork(task._id, task.issueNumber)}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 transition disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-sm transition disabled:opacity-50"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
                       <span>{startingTaskId === task._id ? 'Starting...' : 'Start Work'}</span>
@@ -584,9 +548,9 @@ export default function WorkerDashboardPage() {
 
                   <Link
                     to={`/issues/${task.issueNumber || task._id}`}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition"
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-brand-700 hover:bg-brand-800 text-white font-semibold text-xs shadow-sm transition"
                   >
-                    <Wrench className="w-3.5 h-3.5 text-amber-400" />
+                    <Wrench className="w-3.5 h-3.5" />
                     <span>View / Log</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
@@ -599,25 +563,25 @@ export default function WorkerDashboardPage() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+        <div className="flex items-center justify-between pt-4 border-t border-slate-200">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1 || loading}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm"
           >
             <ChevronLeft className="w-4 h-4" />
             Previous
           </button>
 
-          <span className="text-xs text-slate-400">
-            Page <strong className="text-slate-200">{page}</strong> of{' '}
-            <strong className="text-slate-200">{totalPages}</strong>
+          <span className="text-xs text-slate-500">
+            Page <strong className="text-slate-800">{page}</strong> of{' '}
+            <strong className="text-slate-800">{totalPages}</strong>
           </span>
 
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages || loading}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm"
           >
             Next
             <ChevronRight className="w-4 h-4" />

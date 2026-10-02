@@ -1,32 +1,182 @@
-@import 'leaflet/dist/leaflet.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --apple-bg: #F5F5F7;
+    --apple-surface: #FFFFFF;
+    --apple-text-primary: #1D1D1F;
+    --apple-text-secondary: #86868B;
+    --apple-text-tertiary: #6E6E73;
+    --apple-accent: #0071E3;
+    --apple-accent-hover: #0077ED;
+    --apple-border: #E5E5E7;
+    --apple-border-subtle: rgba(0, 0, 0, 0.08);
+  }
+
+  html {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    letter-spacing: -0.01em;
+    background-color: var(--apple-bg);
+    color: var(--apple-text-primary);
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: #F5F5F7;
+    color: #1D1D1F;
+    min-height: 100vh;
+    margin: 0;
   }
 
-  code, pre {
-    font-family: 'JetBrains Mono', monospace;
+  ::selection {
+    background-color: #D2E3FC;
+    color: #003366;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1D1D1F;
+    letter-spacing: -0.025em;
+    font-weight: 600;
   }
 }
 
-/* Custom Glassmorphism & Glow Utilities */
-.glass-panel {
-  background: rgba(30, 41, 59, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
-.glow-teal {
-  box-shadow: 0 0 25px -5px rgba(20, 184, 166, 0.3);
+/* Apple-Restrained UI utility classes */
+.apple-panel {
+  background-color: #FFFFFF;
+  border: 1px solid #E5E5E7;
+  border-radius: 1.125rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
-.gradient-text {
-  background: linear-gradient(135deg, #2dd4bf 0%, #38bdf8 50%, #818cf8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.apple-panel-interactive {
+  background-color: #FFFFFF;
+  border: 1px solid #E5E5E7;
+  border-radius: 1.125rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.apple-panel-interactive:hover {
+  border-color: #D2D2D7;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.apple-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #0071E3;
+  color: #FFFFFF;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 9999px;
+  transition: background-color 0.15s ease;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.apple-btn-primary:hover {
+  background-color: #0077ED;
+}
+
+.apple-btn-primary:active {
+  background-color: #005BB5;
+}
+
+.apple-btn-dark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #1D1D1F;
+  color: #FFFFFF;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 9999px;
+  transition: background-color 0.15s ease;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.apple-btn-dark:hover {
+  background-color: #333336;
+}
+
+.apple-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #E8E8ED;
+  color: #1D1D1F;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 9999px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.apple-btn-secondary:hover {
+  background-color: #DEDEE3;
+}
+
+.apple-btn-secondary:active {
+  background-color: #D2D2D7;
+}
+
+.apple-link {
+  color: #0071E3;
+  font-weight: 500;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: opacity 0.15s ease;
+}
+
+.apple-link:hover {
+  text-decoration: underline;
+}
+
+.apple-input {
+  background-color: #FFFFFF;
+  border: 1px solid #D2D2D7;
+  color: #1D1D1F;
+  border-radius: 0.625rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.9375rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.apple-input:focus {
+  border-color: #0071E3;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+}
+
+.apple-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  background-color: #E8E8ED;
+  color: #1D1D1F;
 }

@@ -17,41 +17,48 @@ export const getAssignedTasks = async (req, res, next) => {
       limit = 10,
     } = req.query;
 
-    const query = {};
-
     // Scope to authenticated field worker (unless super_admin passes a specific query)
-    if (req.user.role === 'field_worker') {
-      query.assignedWorker = req.user._id;
-    } else if (req.query.workerId) {
-      query.assignedWorker = req.query.workerId;
+    const workerFilter = req.user.role === 'field_worker'
+      ? { $or: [{ assignedWorker: req.user._id }, { 'assignedWorkers.worker': req.user._id }] }
+      : req.query.workerId
+      ? { $or: [{ assignedWorker: req.query.workerId }, { 'assignedWorkers.worker': req.query.workerId }] }
+      : {};
+
+    const conditions = [];
+    if (Object.keys(workerFilter).length > 0) {
+      conditions.push(workerFilter);
     }
 
     // Status filtering
     if (status === 'active') {
-      query.status = { $in: ['assigned', 'in_progress'] };
+      conditions.push({ status: { $in: ['assigned', 'in_progress'] } });
     } else if (status && status !== 'all') {
       if (status.includes(',')) {
-        query.status = { $in: status.split(',').map((s) => s.trim()) };
+        conditions.push({ status: { $in: status.split(',').map((s) => s.trim()) } });
       } else {
-        query.status = status;
+        conditions.push({ status });
       }
     }
 
     // Priority filtering
     if (priority && priority !== 'all') {
-      query.priority = priority;
+      conditions.push({ priority });
     }
 
     // Search keyword
     if (search && search.trim()) {
       const searchRegex = new RegExp(search.trim(), 'i');
-      query.$or = [
-        { issueNumber: searchRegex },
-        { title: searchRegex },
-        { 'location.landmark': searchRegex },
-        { 'location.address': searchRegex },
-      ];
+      conditions.push({
+        $or: [
+          { issueNumber: searchRegex },
+          { title: searchRegex },
+          { 'location.landmark': searchRegex },
+          { 'location.address': searchRegex },
+        ],
+      });
     }
+
+    const query = conditions.length > 0 ? { $and: conditions } : {};
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 10));
@@ -62,7 +69,7 @@ export const getAssignedTasks = async (req, res, next) => {
     sortOptions[sortBy] = direction;
 
     const now = new Date();
-    const workerScope = req.user.role === 'field_worker' ? { assignedWorker: req.user._id } : {};
+    const workerScope = workerFilter;
 
     // Parallel execution for metrics and list
     const [
@@ -138,11 +145,15 @@ export const startWork = async (req, res, next) => {
       });
     }
 
+    const isWorkerAssigned =
+      issue.assignedWorker?.toString() === req.user._id.toString() ||
+      (Array.isArray(issue.assignedWorkers) &&
+        issue.assignedWorkers.some(
+          (w) => (w.worker?._id || w.worker)?.toString() === req.user._id.toString()
+        ));
+
     // RBAC: Verify worker assignment (Super Admin / Admin bypass)
-    if (
-      req.user.role === 'field_worker' &&
-      (!issue.assignedWorker || issue.assignedWorker.toString() !== req.user._id.toString())
-    ) {
+    if (req.user.role === 'field_worker' && !isWorkerAssigned) {
       return res.status(403).json({
         success: false,
         message: 'Forbidden: You are not assigned to work on this issue',
@@ -225,11 +236,15 @@ export const addProgressUpdate = async (req, res, next) => {
       });
     }
 
+    const isWorkerAssigned =
+      issue.assignedWorker?.toString() === req.user._id.toString() ||
+      (Array.isArray(issue.assignedWorkers) &&
+        issue.assignedWorkers.some(
+          (w) => (w.worker?._id || w.worker)?.toString() === req.user._id.toString()
+        ));
+
     // RBAC: Verify worker assignment (Super Admin / Admin bypass)
-    if (
-      req.user.role === 'field_worker' &&
-      (!issue.assignedWorker || issue.assignedWorker.toString() !== req.user._id.toString())
-    ) {
+    if (req.user.role === 'field_worker' && !isWorkerAssigned) {
       return res.status(403).json({
         success: false,
         message: 'Forbidden: You are not assigned to work on this issue',
@@ -350,11 +365,15 @@ export const resolveTask = async (req, res, next) => {
       });
     }
 
+    const isWorkerAssigned =
+      issue.assignedWorker?.toString() === req.user._id.toString() ||
+      (Array.isArray(issue.assignedWorkers) &&
+        issue.assignedWorkers.some(
+          (w) => (w.worker?._id || w.worker)?.toString() === req.user._id.toString()
+        ));
+
     // RBAC: Verify worker assignment (Super Admin / Admin bypass)
-    if (
-      req.user.role === 'field_worker' &&
-      (!issue.assignedWorker || issue.assignedWorker.toString() !== req.user._id.toString())
-    ) {
+    if (req.user.role === 'field_worker' && !isWorkerAssigned) {
       return res.status(403).json({
         success: false,
         message: 'Forbidden: You are not assigned to work on this issue',

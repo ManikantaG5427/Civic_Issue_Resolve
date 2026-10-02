@@ -17,6 +17,22 @@ export const loginLimiter = rateLimit({
 });
 
 /**
+ * Rate limiter specifically for registration to prevent mass account creation
+ */
+export const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // Limit each IP to 10 registrations per hour
+  message: {
+    success: false,
+    status: 'fail',
+    message: 'Too many accounts registered from this IP, please try again after an hour',
+    timestamp: new Date().toISOString(),
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
  * General API rate limiter
  */
 export const apiLimiter = rateLimit({

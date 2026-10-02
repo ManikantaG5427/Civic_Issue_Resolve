@@ -1,8 +1,6 @@
 import mongoose from 'mongoose';
 import Issue from '../models/Issue.js';
 import Department from '../models/Department.js';
-import ServiceArea from '../models/ServiceArea.js';
-import IssueCategory from '../models/IssueCategory.js';
 import User from '../models/User.js';
 
 /**
@@ -42,12 +40,16 @@ export const getAdminAnalytics = async (req, res) => {
     const statusCounts = {
       submitted: 0,
       in_review: 0,
+      under_review: 0,
+      info_requested: 0,
+      verified: 0,
       assigned: 0,
       in_progress: 0,
       resolved_verification_pending: 0,
       closed: 0,
       rejected: 0,
       reopened: 0,
+      withdrawn: 0,
     };
 
     let totalReported = 0;
@@ -58,7 +60,7 @@ export const getAdminAnalytics = async (req, res) => {
       totalReported += item.count;
     });
 
-    const totalResolved = statusCounts.resolved_verification_pending + statusCounts.closed;
+    const totalResolved = (statusCounts.resolved_verification_pending || 0) + (statusCounts.closed || 0);
     const resolutionRate = totalReported > 0 ? Math.round((totalResolved / totalReported) * 100) : 0;
 
     // 4. SLA & Escalation Metrics
@@ -162,11 +164,14 @@ export const getAdminAnalytics = async (req, res) => {
     // 7. Field Worker Leaderboard
     const workers = await User.find({ role: 'field_worker', isActive: true }).select('name email');
     const workerLeaderboard = await Promise.all(
-      workers.map(async (worker) => {
-        const workerTasks = await Issue.find({
-          ...filter,
-          assignedWorker: worker._id,
-        }).select('status feedback');
+       workers.map(async (worker) => {
+         const workerTasks = await Issue.find({
+           ...filter,
+           $or: [
+             { assignedWorker: worker._id },
+             { 'assignedWorkers.worker': worker._id },
+           ],
+         }).select('status feedback');
 
         const assigned = workerTasks.length;
         const completed = workerTasks.filter((t) =>
@@ -189,7 +194,7 @@ export const getAdminAnalytics = async (req, res) => {
           totalAssigned: assigned,
           totalCompleted: completed,
           rating: ratingCount > 0 ? (ratingSum / ratingCount).toFixed(1) : '5.0',
-          completionRate: assigned > 0 ? Math.round((completed / assigned) * 100) : 100,
+          completionRate: assigned > 0 ? Math.round((completed / assigned) * 100) : 0,
         };
       })
     );
@@ -202,8 +207,16 @@ export const getAdminAnalytics = async (req, res) => {
       kpis: {
         totalReported,
         totalResolved,
-        pendingTriage: statusCounts.submitted,
-        inProgress: statusCounts.in_progress + statusCounts.assigned,
+        pendingTriage:
+          (statusCounts.submitted || 0) +
+          (statusCounts.in_review || 0) +
+          (statusCounts.under_review || 0) +
+          (statusCounts.info_requested || 0) +
+          (statusCounts.reopened || 0),
+        inProgress:
+          (statusCounts.in_progress || 0) +
+          (statusCounts.assigned || 0) +
+          (statusCounts.verified || 0),
         resolutionRate,
         avgResolutionTimeHours: parseFloat(avgResolutionTimeHours),
         slaComplianceRate,

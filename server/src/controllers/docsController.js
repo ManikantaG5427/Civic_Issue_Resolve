@@ -371,7 +371,7 @@ export const getDocsHtml = (req, res) => {
         <span class="path">/api/issues/public-map</span>
         <span class="auth-tag">Public</span>
       </div>
-      <div class="summary">Retrieve anonymized geo-tagged markers for the public interactive Leaflet map.</div>
+      <div class="summary">Retrieve anonymized geo-tagged markers for the public interactive Google Maps explorer.</div>
     </div>
 
     <div class="section-title">💬 Comments & Internal Notes</div>

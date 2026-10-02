@@ -1,5 +1,10 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import dns from 'dns';
+
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch { }
 import ServiceArea from '../models/ServiceArea.js';
 import Department from '../models/Department.js';
 import IssueCategory from '../models/IssueCategory.js';
@@ -15,26 +20,106 @@ export const seedDatabase = async () => {
   console.info('[Seed] Connected successfully.');
 
   try {
-    // 1. Seed Pilot Service Area
-    console.info('[Seed] Seeding Pilot Service Area...');
-    let pilotArea = await ServiceArea.findOne({ code: 'HYD-KPK' });
-    if (!pilotArea) {
-      pilotArea = await ServiceArea.create({
-        name: 'Kukatpally Pilot Area',
+    // 1. Seed Service Areas (Multiple Zones & Municipalities)
+    console.info('[Seed] Seeding Civic Service Areas...');
+    const serviceAreasData = [
+      {
+        name: 'Kukatpally Zone',
         code: 'HYD-KPK',
         city: 'Hyderabad',
         state: 'Telangana',
         pincodes: ['500072', '500085', '500090'],
-        centerLocation: {
-          type: 'Point',
-          coordinates: [78.3967, 17.4849], // [Lng, Lat]
-        },
-        description: 'Designated initial pilot service area for CivicResolve rollout in Greater Hyderabad.',
+        centerLocation: { type: 'Point', coordinates: [78.3967, 17.4849] },
+        description: 'Kukatpally, KPHB Colony, and surrounding residential corridors.',
         isActive: true,
-      });
-      console.info(`[Seed] Created Service Area: ${pilotArea.name}`);
-    } else {
-      console.info(`[Seed] Service Area already exists: ${pilotArea.name}`);
+      },
+      {
+        name: 'Hitec City & Madhapur Zone',
+        code: 'HYD-HTC',
+        city: 'Hyderabad',
+        state: 'Telangana',
+        pincodes: ['500081', '500084'],
+        centerLocation: { type: 'Point', coordinates: [78.3814, 17.4474] },
+        description: 'IT Corridor, Cyber Towers, Madhapur, and Kondapur.',
+        isActive: true,
+      },
+      {
+        name: 'Banjara Hills & Jubilee Hills Zone',
+        code: 'HYD-BNJ',
+        city: 'Hyderabad',
+        state: 'Telangana',
+        pincodes: ['500034', '500033'],
+        centerLocation: { type: 'Point', coordinates: [78.4354, 17.4156] },
+        description: 'Banjara Hills, Jubilee Hills, and Panjagutta area.',
+        isActive: true,
+      },
+      {
+        name: 'Gachibowli & Financial District Zone',
+        code: 'HYD-GCB',
+        city: 'Hyderabad',
+        state: 'Telangana',
+        pincodes: ['500032', '500075'],
+        centerLocation: { type: 'Point', coordinates: [78.3489, 17.4401] },
+        description: 'Gachibowli, Nanakramguda, Financial District, and Tellapur.',
+        isActive: true,
+      },
+      {
+        name: 'Secunderabad & Cantonment Zone',
+        code: 'HYD-SEC',
+        city: 'Hyderabad',
+        state: 'Telangana',
+        pincodes: ['500003', '500009', '500015'],
+        centerLocation: { type: 'Point', coordinates: [78.4983, 17.4399] },
+        description: 'Secunderabad Junction, Paradise, Begumpet, and Marredpally.',
+        isActive: true,
+      },
+      {
+        name: 'Charminar & Old City Zone',
+        code: 'HYD-CHR',
+        city: 'Hyderabad',
+        state: 'Telangana',
+        pincodes: ['500002', '500065'],
+        centerLocation: { type: 'Point', coordinates: [78.4747, 17.3616] },
+        description: 'Historic Old City, Charminar, Falaknuma, and Bahadurpura.',
+        isActive: true,
+      },
+      {
+        name: 'Greater Central Municipal Zone',
+        code: 'HYD-GEN',
+        city: 'Hyderabad',
+        state: 'Telangana',
+        pincodes: ['500001', '500004', '500028'],
+        centerLocation: { type: 'Point', coordinates: [78.4867, 17.3850] },
+        description: 'Central Hyderabad, Abids, Nampally, Lakdikapul, and general municipality.',
+        isActive: true,
+      },
+      {
+        name: 'Global & International Zone',
+        code: 'GLB-WORLD',
+        city: 'Worldwide',
+        state: 'Global',
+        pincodes: ['000000'],
+        centerLocation: { type: 'Point', coordinates: [0.0, 20.0] },
+        description: 'Worldwide open civic and community issue reporting zone for any location on Earth.',
+        isActive: true,
+      },
+    ];
+
+    let pilotArea = null;
+    for (const area of serviceAreasData) {
+      let existingArea = await ServiceArea.findOne({ code: area.code });
+      if (!existingArea) {
+        existingArea = await ServiceArea.create(area);
+        console.info(`[Seed] Created Service Area: ${existingArea.name}`);
+      } else {
+        // Update to make sure it is active
+        existingArea.name = area.name;
+        existingArea.description = area.description;
+        await existingArea.save();
+      }
+      if (area.code === 'HYD-KPK' || !pilotArea) {
+        pilotArea = existingArea;
+      }
     }
 
     // 2. Seed Initial 6 Departments
@@ -190,16 +275,16 @@ export const seedDatabase = async () => {
     const demoUsers = [
       {
         name: 'Suresh Citizen',
-        email: 'citizen@civicresolve.org',
-        password: 'Password123!',
+        email: 'citize@civicresolve.org',
+        password: 'MANIKANTAG5427',
         phone: '+91 98765 11111',
         role: 'citizen',
         serviceArea: pilotArea._id,
       },
       {
         name: 'Ramesh Field Worker',
-        email: 'worker@civicresolve.org',
-        password: 'Password123!',
+        email: 'worke@civicresolve.org',
+        password: 'MANIKANTAG5427',
         phone: '+91 98765 22222',
         role: 'field_worker',
         serviceArea: pilotArea._id,
@@ -207,16 +292,16 @@ export const seedDatabase = async () => {
       },
       {
         name: 'Ananya Administrator',
-        email: 'admin@civicresolve.org',
-        password: 'Password123!',
+        email: 'admi@civicresolve.org',
+        password: 'MANIKANTAG5427',
         phone: '+91 98765 33333',
         role: 'administrator',
         serviceArea: pilotArea._id,
       },
       {
         name: 'Vikram Super Admin',
-        email: 'superadmin@civicresolve.org',
-        password: 'Password123!',
+        email: 'superadmi@civicresolve.org',
+        password: 'MANIKANTAG5427',
         phone: '+91 98765 44444',
         role: 'super_admin',
         serviceArea: pilotArea._id,

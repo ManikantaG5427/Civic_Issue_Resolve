@@ -1,7 +1,5 @@
 import mongoose from 'mongoose';
 import Issue from '../models/Issue.js';
-import ServiceArea from '../models/ServiceArea.js';
-import IssueCategory from '../models/IssueCategory.js';
 
 /**
  * @desc    Get all public verified civic issues for map visualization (reporter anonymized)
@@ -63,7 +61,7 @@ export const getPublicMapIssues = async (req, res) => {
         status: issueObj.status,
         priority: issueObj.priority,
         location: {
-          address: issueObj.location?.address || 'Kukatpally, Hyderabad',
+          address: issueObj.location?.address || (issueObj.serviceArea?.name ? `${issueObj.serviceArea.name}, ${issueObj.serviceArea.city || 'Hyderabad'}` : 'Municipal Area, Hyderabad'),
           landmark: issueObj.location?.landmark || '',
           coordinates: issueObj.location?.coordinates || [78.3967, 17.4849],
         },

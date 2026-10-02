@@ -7,7 +7,6 @@ import {
   Wrench,
   XCircle,
   RotateCcw,
-  MessageSquare,
   HelpCircle,
   User,
   Shield,
@@ -17,57 +16,63 @@ import {
 const STATUS_CONFIG = {
   submitted: {
     label: 'Submitted',
-    color: 'text-sky-400',
-    bg: 'bg-sky-500/10 border-sky-500/30',
+    color: 'text-sky-700',
+    bg: 'bg-sky-50 border-sky-200',
     icon: Clock,
   },
   in_review: {
     label: 'Under Review',
-    color: 'text-purple-400',
-    bg: 'bg-purple-500/10 border-purple-500/30',
+    color: 'text-violet-700',
+    bg: 'bg-violet-50 border-violet-200',
     icon: FileCheck2,
   },
   assigned: {
     label: 'Worker Assigned',
-    color: 'text-indigo-400',
-    bg: 'bg-indigo-500/10 border-indigo-500/30',
+    color: 'text-teal-700',
+    bg: 'bg-teal-50 border-teal-200',
     icon: HardHat,
   },
   in_progress: {
     label: 'In Progress',
-    color: 'text-amber-400',
-    bg: 'bg-amber-500/10 border-amber-500/30',
+    color: 'text-cyan-700',
+    bg: 'bg-cyan-50 border-cyan-200',
     icon: Wrench,
   },
   resolved_verification_pending: {
     label: 'Resolved (Pending Verification)',
-    color: 'text-emerald-400',
-    bg: 'bg-emerald-500/10 border-emerald-500/30',
+    color: 'text-green-700',
+    bg: 'bg-green-50 border-green-200',
     icon: CheckCircle2,
   },
   closed: {
     label: 'Closed & Confirmed',
-    color: 'text-slate-300',
-    bg: 'bg-slate-800 border-slate-700',
+    color: 'text-slate-600',
+    bg: 'bg-slate-100 border-slate-200',
     icon: CheckCircle2,
   },
   rejected: {
     label: 'Rejected',
-    color: 'text-rose-400',
-    bg: 'bg-rose-500/10 border-rose-500/30',
+    color: 'text-red-700',
+    bg: 'bg-red-50 border-red-200',
     icon: XCircle,
   },
   reopened: {
     label: 'Reopened',
-    color: 'text-orange-400',
-    bg: 'bg-orange-500/10 border-orange-500/30',
+    color: 'text-rose-700',
+    bg: 'bg-rose-50 border-rose-200',
     icon: RotateCcw,
   },
   info_requested: {
     label: 'Info Requested',
-    color: 'text-yellow-400',
-    bg: 'bg-yellow-500/10 border-yellow-500/30',
+    color: 'text-amber-800',
+    bg: 'bg-amber-50 border-amber-200',
     icon: HelpCircle,
+  },
+  withdrawn: {
+    label: 'Withdrawn',
+    color: 'text-slate-700',
+    bg: 'bg-slate-100 border-slate-300',
+    icon: XCircle,
   },
 };
 
@@ -86,8 +91,8 @@ const getActorRoleIcon = (role) => {
 export default function Timeline({ items = [] }) {
   if (!items || items.length === 0) {
     return (
-      <div className="p-6 text-center text-slate-400 bg-slate-900/50 rounded-2xl border border-slate-800">
-        <Clock className="w-8 h-8 text-slate-500 mx-auto mb-2 opacity-50" />
+      <div className="p-6 text-center text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+        <Clock className="w-8 h-8 text-slate-400 mx-auto mb-2" />
         <p className="text-sm">No timeline events recorded yet.</p>
       </div>
     );
@@ -99,12 +104,12 @@ export default function Timeline({ items = [] }) {
   );
 
   return (
-    <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-gradient-to-b before:from-teal-500 before:via-slate-700 before:to-slate-800">
+    <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
       {sortedItems.map((event, index) => {
         const statusConfig = STATUS_CONFIG[event.status] || {
           label: event.action || 'Activity',
-          color: 'text-slate-300',
-          bg: 'bg-slate-800 border-slate-700',
+          color: 'text-slate-700',
+          bg: 'bg-slate-100 border-slate-200',
           icon: Clock,
         };
         const StatusIcon = statusConfig.icon;
@@ -117,15 +122,15 @@ export default function Timeline({ items = [] }) {
             <div
               className={`absolute -left-[30px] sm:-left-[38px] top-1 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center border-2 transition-transform duration-200 group-hover:scale-110 ${
                 isLatest
-                  ? 'bg-teal-500 border-teal-300 text-slate-950 shadow-lg shadow-teal-500/40 ring-4 ring-teal-500/20'
-                  : 'bg-slate-900 border-slate-700 text-slate-300'
+                  ? 'bg-brand-700 border-brand-200 text-white shadow-sm ring-4 ring-brand-100'
+                  : 'bg-white border-slate-300 text-slate-600'
               }`}
             >
               <StatusIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             </div>
 
             {/* Event Card */}
-            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800/80 hover:border-slate-700/80 transition shadow-sm space-y-2">
+            <div className="p-4 rounded-xl bg-white border border-slate-200 hover:border-slate-300 transition shadow-soft space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span
@@ -134,13 +139,13 @@ export default function Timeline({ items = [] }) {
                     <StatusIcon className="w-3 h-3" />
                     {statusConfig.label}
                   </span>
-                  <span className="text-sm font-medium text-slate-200">
+                  <span className="text-sm font-semibold text-slate-900">
                     {event.action}
                   </span>
                 </div>
 
-                <div className="text-xs text-slate-400 flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-slate-500" />
+                <div className="text-xs text-slate-500 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-slate-400" />
                   {event.timestamp
                     ? new Date(event.timestamp).toLocaleString(undefined, {
                         dateStyle: 'medium',
@@ -152,22 +157,22 @@ export default function Timeline({ items = [] }) {
 
               {/* Note Content */}
               {event.note && (
-                <p className="text-sm text-slate-300 bg-slate-950/60 p-3 rounded-xl border border-slate-800/60 leading-relaxed">
+                <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-200 leading-relaxed">
                   {event.note}
                 </p>
               )}
 
               {/* Performed By Info */}
               {event.performedBy && (
-                <div className="flex items-center gap-2 pt-1 text-xs text-slate-400">
-                  <ActorIcon className="w-3.5 h-3.5 text-teal-400" />
+                <div className="flex items-center gap-2 pt-1 text-xs text-slate-500">
+                  <ActorIcon className="w-3.5 h-3.5 text-civic-700" />
                   <span>
                     Action by{' '}
-                    <strong className="text-slate-200">
+                    <strong className="text-slate-800">
                       {event.performedBy.name || 'System'}
                     </strong>
                     {event.performedBy.role && (
-                      <span className="ml-1 text-[11px] text-slate-400 uppercase">
+                      <span className="ml-1 text-[11px] text-slate-400 uppercase font-semibold">
                         ({event.performedBy.role.replace('_', ' ')})
                       </span>
                     )}

@@ -56,7 +56,7 @@ describe('Administrator Analytics & Operational Intelligence (Queue 20)', () => 
         ]),
     });
 
-    Issue.aggregate = (pipeline) => {
+    Issue.aggregate = (_pipeline) => {
       return Promise.resolve([
         { _id: 'submitted', count: 5 },
         { _id: 'in_progress', count: 3 },

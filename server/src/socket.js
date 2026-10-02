@@ -39,7 +39,7 @@ export const initSocket = (httpServer) => {
         socket.user = null;
       }
       next();
-    } catch (err) {
+    } catch {
       socket.user = null;
       next();
     }

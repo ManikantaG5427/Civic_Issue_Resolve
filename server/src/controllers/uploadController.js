@@ -1,5 +1,6 @@
 import { successResponse } from '../utils/apiResponse.js';
 import { AppError } from '../utils/appError.js';
+import { storeEvidenceFile } from '../services/storageService.js';
 
 /**
  * Handle civic issue evidence photo uploads (single or multiple, max 3)
@@ -13,15 +14,10 @@ export const uploadEvidence = async (req, res, next) => {
       return next(new AppError('No image files provided for upload', 400));
     }
 
-    const uploadedEvidence = files.map((file) => ({
-      url: `/uploads/evidence/${file.filename}`,
-      filename: file.filename,
-      originalName: file.originalname,
-      fileSize: file.size,
-      mimeType: file.mimetype,
-      stage: req.body.stage || 'initial',
-      uploadedAt: new Date(),
-    }));
+    const stage = req.body.stage || 'initial';
+    const uploadedEvidence = await Promise.all(
+      files.map((file) => storeEvidenceFile(file, stage))
+    );
 
     return successResponse(
       res,

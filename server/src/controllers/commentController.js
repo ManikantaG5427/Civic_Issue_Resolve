@@ -50,10 +50,6 @@ export const addComment = async (req, res) => {
       issue.reporter &&
       (issue.reporter._id.toString() === req.user._id.toString() ||
         issue.reporter.toString() === req.user._id.toString());
-    const isAssigned =
-      issue.assignedWorker &&
-      (issue.assignedWorker._id.toString() === req.user._id.toString() ||
-        issue.assignedWorker.toString() === req.user._id.toString());
 
     // Authorization check
     if (!isStaff && !isReporter) {

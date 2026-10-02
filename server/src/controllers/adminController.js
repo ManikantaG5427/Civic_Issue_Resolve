@@ -1,6 +1,8 @@
 import Issue from '../models/Issue.js';
 import User from '../models/User.js';
 import { successResponse } from '../utils/apiResponse.js';
+import { emitIssueEvent } from '../socket.js';
+import { sendNotification } from '../services/notificationService.js';
 
 /**
  * Get administrator review queue with triage metrics, filters, and pagination
@@ -25,15 +27,19 @@ export const getReviewQueue = async (req, res, next) => {
     // 1. Service Area Scoping
     if (serviceArea && serviceArea !== 'all') {
       query.serviceArea = serviceArea;
-    } else if (req.user.role === 'administrator' && req.user.serviceArea) {
-      // Scoped automatically to the administrator's assigned operational zone
+    } else if (req.user.role === 'administrator' && req.user.serviceArea && serviceArea !== 'all' && req.query.serviceArea === undefined) {
+      // Scoped automatically to the administrator's assigned operational zone unless explicitly requested as all
       query.serviceArea = req.user.serviceArea;
     }
 
     // 2. Status Filtering
     if (status === 'triage') {
       // Actionable administrative triage queue
-      query.status = { $in: ['submitted', 'in_review', 'info_requested', 'reopened'] };
+      query.status = { $in: ['submitted', 'in_review', 'under_review', 'info_requested', 'reopened'] };
+    } else if (status === 'active') {
+      query.status = { $in: ['assigned', 'in_progress', 'verified'] };
+    } else if (status === 'resolved') {
+      query.status = { $in: ['resolved_verification_pending', 'closed'] };
     } else if (status && status !== 'all') {
       if (status.includes(',')) {
         query.status = { $in: status.split(',').map((s) => s.trim()) };
@@ -100,25 +106,25 @@ export const getReviewQueue = async (req, res, next) => {
         .limit(limitNum),
       Issue.countDocuments({
         ...baseMetricsQuery,
-        status: { $in: ['submitted', 'in_review', 'reopened', 'info_requested'] },
+        status: { $in: ['submitted', 'in_review', 'under_review', 'reopened', 'info_requested'] },
       }),
       Issue.countDocuments({
         ...baseMetricsQuery,
         priority: 'urgent',
-        status: { $nin: ['closed', 'rejected'] },
+        status: { $nin: ['closed', 'rejected', 'withdrawn'] },
       }),
       Issue.countDocuments({
         ...baseMetricsQuery,
         priority: 'high',
-        status: { $nin: ['closed', 'rejected'] },
+        status: { $nin: ['closed', 'rejected', 'withdrawn'] },
       }),
       Issue.countDocuments({
         ...baseMetricsQuery,
-        status: 'in_progress',
+        status: { $in: ['assigned', 'in_progress', 'verified'] },
       }),
       Issue.countDocuments({
         ...baseMetricsQuery,
-        status: 'resolved_verification_pending',
+        status: { $in: ['resolved_verification_pending', 'closed'] },
       }),
     ]);
 
@@ -483,6 +489,295 @@ export const assignIssue = async (req, res, next) => {
       .populate('timeline.performedBy', 'name role');
 
     return successResponse(res, 'Civic issue assigned successfully', populated, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Add an additional field worker to the issue work team roster
+ * POST /api/admin/issues/:id/workers
+ */
+export const addWorkerToRoster = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { workerId, role = 'Field Specialist', note = '' } = req.body;
+
+    if (!workerId) {
+      return res.status(400).json({ success: false, message: 'Worker ID is required' });
+    }
+
+    const worker = await User.findOne({ _id: workerId, role: 'field_worker', isActive: true });
+    if (!worker) {
+      return res.status(404).json({ success: false, message: 'Active field worker not found' });
+    }
+
+    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Civic issue not found' });
+    }
+
+    // Check if worker already on roster
+    const alreadyAssigned = issue.assignedWorkers.some(
+      (w) => w.worker.toString() === workerId.toString()
+    );
+
+    if (alreadyAssigned) {
+      return res.status(400).json({ success: false, message: 'Worker is already assigned to this issue' });
+    }
+
+    // Add to multi-worker roster
+    issue.assignedWorkers.push({
+      worker: worker._id,
+      role: role.trim(),
+      note: note.trim(),
+      assignedBy: req.user._id,
+      assignedAt: new Date(),
+    });
+
+    // If primary assignedWorker not set, set as primary
+    if (!issue.assignedWorker) {
+      issue.assignedWorker = worker._id;
+      issue.assignedAt = new Date();
+    }
+
+    if (issue.status === 'submitted' || issue.status === 'in_review' || issue.status === 'verified') {
+      issue.status = 'assigned';
+    }
+
+    issue.timeline.push({
+      status: issue.status,
+      action: 'Worker Added to Team',
+      performedBy: req.user._id,
+      note: `Added ${worker.name} (${role}) to the dispatch roster. ${note}`.trim(),
+      visibility: 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: 'WORKER_ROSTER_ADDED',
+      performedBy: req.user._id,
+      newState: { workerId: worker._id, workerName: worker.name, role, note },
+      ipAddress: req.ip,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    // Send in-app notification to the worker
+    sendNotification({
+      recipient: worker._id,
+      title: `📋 Assigned to Issue: ${issue.issueNumber}`,
+      message: `You were assigned as ${role} for "${issue.title}".`,
+      type: 'issue_assigned',
+      linkUrl: `/issues/${issue.issueNumber || issue._id}`,
+    });
+
+    const populated = await Issue.findById(issue._id)
+      .populate('category', 'name code icon')
+      .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code')
+      .populate('reporter', 'name email phone')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('assignedWorkers.worker', 'name email phone department role')
+      .populate('timeline.performedBy', 'name role');
+
+    emitIssueEvent('issue:updated', populated);
+
+    return successResponse(res, 'Worker assigned to issue roster successfully', populated, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Remove a field worker from the issue work team roster
+ * DELETE /api/admin/issues/:id/workers/:workerId
+ */
+export const removeWorkerFromRoster = async (req, res, next) => {
+  try {
+    const { id, workerId } = req.params;
+
+    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Civic issue not found' });
+    }
+
+    const workerIndex = issue.assignedWorkers.findIndex(
+      (w) => w.worker.toString() === workerId.toString()
+    );
+
+    if (workerIndex === -1 && issue.assignedWorker?.toString() !== workerId.toString()) {
+      return res.status(404).json({ success: false, message: 'Worker is not assigned to this issue' });
+    }
+
+    const workerObj = await User.findById(workerId);
+    const workerName = workerObj ? workerObj.name : 'Field Worker';
+
+    if (workerIndex !== -1) {
+      issue.assignedWorkers.splice(workerIndex, 1);
+    }
+
+    // If removing primary assignedWorker, assign next worker or set null
+    if (issue.assignedWorker?.toString() === workerId.toString()) {
+      issue.assignedWorker = issue.assignedWorkers.length > 0 ? issue.assignedWorkers[0].worker : null;
+    }
+
+    issue.timeline.push({
+      status: issue.status,
+      action: 'Worker Removed from Team',
+      performedBy: req.user._id,
+      note: `Removed ${workerName} from dispatch team.`,
+      visibility: 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: 'WORKER_ROSTER_REMOVED',
+      performedBy: req.user._id,
+      newState: { workerId, workerName },
+      ipAddress: req.ip,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    const populated = await Issue.findById(issue._id)
+      .populate('category', 'name code icon')
+      .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code')
+      .populate('reporter', 'name email phone')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('assignedWorkers.worker', 'name email phone department role')
+      .populate('timeline.performedBy', 'name role');
+
+    emitIssueEvent('issue:updated', populated);
+
+    return successResponse(res, 'Worker removed from issue roster successfully', populated, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Submit 3-Phase Work Execution Proof (Starting, During, Completion Phase) with Geo-Tagged Evidence
+ * POST /api/admin/issues/:id/phase-proof
+ */
+export const submitPhaseProof = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { phase, images, note = '', geoTag = null } = req.body;
+
+    if (!['starting', 'during', 'completion'].includes(phase)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid phase. Must be one of: starting, during, completion',
+      });
+    }
+
+    if (!Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: `At least one verified geo-tagged photograph is required for the ${phase} phase`,
+      });
+    }
+
+    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Civic issue not found' });
+    }
+
+    if (!issue.executionPhases) {
+      issue.executionPhases = { startingPhase: {}, duringPhase: {}, completionPhase: {} };
+    }
+
+    const formattedImages = images.map((img) => ({
+      url: typeof img === 'string' ? img : img.url,
+      filename: img.filename || '',
+      geoTag: img.geoTag || geoTag || null,
+      uploadedAt: new Date(),
+    }));
+
+    // Add to global evidence with phase stage
+    formattedImages.forEach((img) => {
+      issue.evidence.push({
+        url: img.url,
+        filename: img.filename,
+        geoTag: img.geoTag,
+        stage: phase,
+        uploadedAt: new Date(),
+      });
+    });
+
+    const now = new Date();
+    let actionLabel = '';
+
+    if (phase === 'starting') {
+      issue.executionPhases.startingPhase = {
+        images: formattedImages,
+        note: note.trim(),
+        startedAt: now,
+        updatedBy: req.user._id,
+      };
+      if (issue.status === 'assigned') issue.status = 'in_progress';
+      actionLabel = 'Phase 1: Starting Work (Site Arrival)';
+    } else if (phase === 'during') {
+      issue.executionPhases.duringPhase = {
+        images: formattedImages,
+        note: note.trim(),
+        inProgressAt: now,
+        updatedBy: req.user._id,
+      };
+      issue.status = 'in_progress';
+      actionLabel = 'Phase 2: During Execution (Work in Progress)';
+    } else if (phase === 'completion') {
+      issue.executionPhases.completionPhase = {
+        images: formattedImages,
+        note: note.trim(),
+        completedAt: now,
+        updatedBy: req.user._id,
+      };
+      issue.status = 'resolved_verification_pending';
+      actionLabel = 'Phase 3: Work Completed (Verification Pending)';
+    }
+
+    issue.timeline.push({
+      status: issue.status,
+      action: actionLabel,
+      performedBy: req.user._id,
+      note: note.trim() || `${actionLabel} submitted with ${formattedImages.length} geo-tagged photos.`,
+      visibility: 'public',
+      timestamp: now,
+    });
+
+    issue.auditLogs.push({
+      action: `PHASE_PROOF_${phase.toUpperCase()}`,
+      performedBy: req.user._id,
+      newState: { phase, photoCount: formattedImages.length, status: issue.status, note },
+      ipAddress: req.ip,
+      timestamp: now,
+    });
+
+    await issue.save();
+
+    const populated = await Issue.findById(issue._id)
+      .populate('category', 'name code icon')
+      .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code')
+      .populate('reporter', 'name email phone')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('assignedWorkers.worker', 'name email phone department role')
+      .populate('timeline.performedBy', 'name role');
+
+    emitIssueEvent('issue:updated', populated);
+
+    return successResponse(res, `${actionLabel} recorded successfully`, populated, 200);
   } catch (error) {
     next(error);
   }

@@ -222,6 +222,99 @@ export const logout = async (req, res, next) => {
 };
 
 /**
+ * Request password reset token
+ * POST /api/auth/forgot-password
+ */
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return next(new AppError('Please provide your registered email address', 400));
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) {
+      // Return safe success message to prevent user enumeration
+      return successResponse(
+        res,
+        'If an account exists with that email, a password reset link has been prepared.',
+        null,
+        200
+      );
+    }
+
+    // Generate random 32-byte hex token and 1-hour expiration
+    const { randomBytes, createHash } = await import('crypto');
+    const resetToken = randomBytes(32).toString('hex');
+    const hashedToken = createHash('sha256').update(resetToken).digest('hex');
+
+    user.passwordResetToken = hashedToken;
+    user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await user.save({ validateBeforeSave: false });
+
+    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+
+    const { sendPasswordResetEmail } = await import('../services/emailService.js');
+    await sendPasswordResetEmail(user.email, user.name, resetUrl);
+
+    return successResponse(
+      res,
+      'If an account exists with that email, a password reset link has been dispatched.',
+      null,
+      200
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Reset password using signed reset token
+ * POST /api/auth/reset-password/:token
+ */
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password || password.length < 6) {
+      return next(new AppError('Password must be at least 6 characters long', 400));
+    }
+
+    const { createHash } = await import('crypto');
+    const hashedToken = createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return next(new AppError('Password reset link is invalid or has expired', 400));
+    }
+
+    // Set new password (will be automatically hashed by pre-save hook)
+    user.password = password;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null;
+    await user.save();
+
+    console.info(`[Password Reset Completed] User: ${user.email} successfully updated password.`);
+
+    return successResponse(
+      res,
+      'Password reset successfully. You can now log in with your new password.',
+      null,
+      200
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get current logged in user details
  * GET /api/auth/me
  */
@@ -233,3 +326,4 @@ export const getMe = async (req, res) => {
     200
   );
 };
+

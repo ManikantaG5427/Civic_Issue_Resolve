@@ -42,7 +42,7 @@ const fileFilter = (_req, file, cb) => {
   }
 };
 
-const maxFileSizeMB = parseInt(process.env.MAX_FILE_SIZE_MB || '5', 10);
+const maxFileSizeMB = parseInt(process.env.MAX_FILE_SIZE_MB || '25', 10);
 
 export const uploadEvidenceMiddleware = multer({
   storage,

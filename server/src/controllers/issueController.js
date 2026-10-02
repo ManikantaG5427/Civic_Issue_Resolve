@@ -1,9 +1,12 @@
+import mongoose from 'mongoose';
 import Issue from '../models/Issue.js';
 import IssueCategory from '../models/IssueCategory.js';
 import ServiceArea from '../models/ServiceArea.js';
 import { generateIssueNumber } from '../utils/issueNumberGenerator.js';
 import { successResponse } from '../utils/apiResponse.js';
 import { AppError } from '../utils/appError.js';
+import { notifyAdminsOnNewIssue } from '../services/notificationService.js';
+import { emitIssueEvent } from '../socket.js';
 
 /**
  * Create a new civic issue report
@@ -20,6 +23,10 @@ export const createIssue = async (req, res, next) => {
       address,
       coordinates,
       evidence,
+      city,
+      district,
+      state,
+      pincode,
     } = req.body;
 
     // 1. Validate Category
@@ -28,20 +35,76 @@ export const createIssue = async (req, res, next) => {
       return next(new AppError('The selected civic category does not exist or is inactive', 400));
     }
 
-    // 2. Resolve Service Area (fallback to default pilot area if unassigned)
+    // 2. Resolve or Dynamically Create Service Area Zone for ANY City / District / State in India
     let serviceArea = null;
-    if (serviceAreaId) {
+    if (serviceAreaId && mongoose.Types.ObjectId.isValid(serviceAreaId)) {
       serviceArea = await ServiceArea.findById(serviceAreaId);
     }
-    if (!serviceArea) {
-      serviceArea = await ServiceArea.findOne({ code: 'HYD-KPK' });
+
+    const cityName = city || district || (address ? address.split(',').slice(-3, -2)[0]?.trim() : '') || 'Local District';
+    const stateName = state || (address ? address.split(',').slice(-2, -1)[0]?.trim() : '') || 'India';
+
+    if (!serviceArea && cityName && cityName !== 'Local District') {
+      serviceArea = await ServiceArea.findOne({
+        $or: [
+          { city: new RegExp(`^${cityName}$`, 'i') },
+          { name: new RegExp(`^${cityName}`, 'i') },
+        ],
+        isActive: true,
+      });
+
+      if (!serviceArea) {
+        const safeCode = `IND-${cityName.slice(0, 4).toUpperCase().replace(/[^A-Z]/g, 'X')}-${Math.floor(100 + Math.random() * 900)}`;
+        serviceArea = await ServiceArea.create({
+          name: `${cityName} Municipal Zone`,
+          code: safeCode,
+          city: cityName,
+          state: stateName,
+          pincodes: pincode ? [pincode] : ['000000'],
+          centerLocation: {
+            type: 'Point',
+            coordinates: coordinates && coordinates.length === 2 ? coordinates : [78.9629, 20.5937],
+          },
+          description: `Municipal civic jurisdiction zone for ${cityName}, ${stateName}.`,
+          isActive: true,
+        });
+      }
     }
+
+    // Fallback: match nearest existing service area
+    if (!serviceArea && coordinates && Array.isArray(coordinates) && coordinates.length === 2) {
+      try {
+        serviceArea = await ServiceArea.findOne({
+          centerLocation: {
+            $near: {
+              $geometry: {
+                type: 'Point',
+                coordinates: coordinates,
+              },
+            },
+          },
+          isActive: true,
+        });
+      } catch {
+        // Fallback
+      }
+    }
+
     if (!serviceArea) {
       serviceArea = await ServiceArea.findOne({ isActive: true });
     }
 
     if (!serviceArea) {
-      return next(new AppError('No active service area configured for civic reporting', 500));
+      serviceArea = await ServiceArea.create({
+        name: 'National Civic Zone',
+        code: 'IND-NAT',
+        city: 'All India',
+        state: 'India',
+        pincodes: ['000000'],
+        centerLocation: { type: 'Point', coordinates: [78.9629, 20.5937] },
+        description: 'Pan-India civic issue resolution jurisdiction.',
+        isActive: true,
+      });
     }
 
     // 3. Generate Unique Human-Readable Issue Number
@@ -51,15 +114,16 @@ export const createIssue = async (req, res, next) => {
     const issueCoordinates =
       coordinates && Array.isArray(coordinates) && coordinates.length === 2
         ? coordinates
-        : serviceArea.centerLocation?.coordinates || [78.3967, 17.4849];
+        : serviceArea.centerLocation?.coordinates || [78.9629, 20.5937];
 
     // 5. Build Initial Timeline and Audit Logs
+    const reporterName = req.user?.name || req.body.guestName || 'Citizen';
     const initialTimeline = [
       {
         status: 'submitted',
         action: 'Issue Reported',
-        performedBy: req.user._id,
-        note: `Reported by citizen ${req.user.name} under ${category.name}`,
+        performedBy: req.user?._id || null,
+        note: `Reported by ${reporterName} under ${category.name}`,
         visibility: 'public',
         timestamp: new Date(),
       },
@@ -68,7 +132,7 @@ export const createIssue = async (req, res, next) => {
     const initialAudit = [
       {
         action: 'ISSUE_CREATED',
-        performedBy: req.user._id,
+        performedBy: req.user?._id || null,
         newState: {
           issueNumber,
           status: 'submitted',
@@ -89,7 +153,12 @@ export const createIssue = async (req, res, next) => {
       category: category._id,
       serviceArea: serviceArea._id,
       department: category.defaultDepartment || null,
-      reporter: req.user._id,
+      reporter: req.user?._id || null,
+      guestReporter: {
+        name: req.body.guestName?.trim() || (req.user ? req.user.name : 'Citizen'),
+        phone: req.body.guestPhone?.trim() || (req.user ? req.user.phone || '' : ''),
+        email: req.body.guestEmail?.trim() || (req.user ? req.user.email || '' : ''),
+      },
       status: 'submitted',
       priority: category.defaultPriority || 'medium',
       location: {
@@ -99,6 +168,7 @@ export const createIssue = async (req, res, next) => {
         coordinates: issueCoordinates,
       },
       evidence: Array.isArray(evidence) ? evidence : [],
+      isGpsVerified: req.body.isGpsVerified || (Array.isArray(evidence) && evidence.some((e) => e.geoTag?.isCameraGpsVerified)) || false,
       timeline: initialTimeline,
       auditLogs: initialAudit,
     });
@@ -112,9 +182,9 @@ export const createIssue = async (req, res, next) => {
       .populate('department', 'name code contactEmail defaultSlaHours')
       .populate('reporter', 'name email phone');
 
-    console.info(
-      `[Civic Report Created] Issue ${issueNumber} submitted by ${req.user.email} in ${serviceArea.name}`
-    );
+    // 8. Real-time updates for All Admin and SuperAdmin Roles
+    notifyAdminsOnNewIssue(newIssue, reporterName);
+    emitIssueEvent('issue:created', populatedIssue);
 
     return successResponse(
       res,
@@ -137,17 +207,14 @@ export const getMyReports = async (req, res, next) => {
 
     const query = { reporter: req.user._id };
 
-    // Filter by status if provided
     if (status && status !== 'all') {
       query.status = status;
     }
 
-    // Filter by category if provided
     if (category && category !== 'all') {
       query.category = category;
     }
 
-    // Search by issue number or title
     if (search && search.trim()) {
       const searchRegex = new RegExp(search.trim(), 'i');
       query.$or = [{ title: searchRegex }, { issueNumber: searchRegex }, { 'location.landmark': searchRegex }];
@@ -168,7 +235,6 @@ export const getMyReports = async (req, res, next) => {
         .limit(limitNum),
     ]);
 
-    // Sanitize timeline visibility for citizen view
     const sanitizedIssues = issues.map((issue) => {
       const issueObj = issue.toObject();
       if (issueObj.timeline) {
@@ -197,7 +263,14 @@ export const getIssueById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    let query;
+    if (id.startsWith('CIVIC-')) {
+      query = { issueNumber: id };
+    } else if (mongoose.Types.ObjectId.isValid(id)) {
+      query = { _id: id };
+    } else {
+      return next(new AppError('Civic issue not found', 404));
+    }
 
     const issue = await Issue.findOne(query)
       .populate('category', 'name code icon defaultPriority estimatedSlaHours')
@@ -211,20 +284,38 @@ export const getIssueById = async (req, res, next) => {
       return next(new AppError('Civic issue not found', 404));
     }
 
-    // Role-based privacy: Citizens can only inspect their own reports
-    if (
-      req.user.role === 'citizen' &&
-      issue.reporter._id.toString() !== req.user._id.toString()
-    ) {
-      return next(
-        new AppError('Access forbidden: You do not have permission to view another citizen\'s private issue report', 403)
-      );
-    }
+    const isReporter =
+      req.user &&
+      issue.reporter &&
+      issue.reporter._id &&
+      issue.reporter._id.toString() === req.user._id.toString();
+
+    const isPrivilegedStaff =
+      req.user &&
+      (req.user.role === 'administrator' ||
+        req.user.role === 'super_admin' ||
+        (req.user.role === 'field_worker' &&
+          issue.assignedWorker &&
+          issue.assignedWorker._id &&
+          issue.assignedWorker._id.toString() === req.user._id.toString()));
 
     const issueObj = issue.toObject();
 
-    // Hide internal administrative notes & internal comments from citizens
-    if (req.user.role === 'citizen') {
+    // Sanitize sensitive personal contact info for public view
+    if (!isReporter && !isPrivilegedStaff) {
+      if (issueObj.reporter) {
+        issueObj.reporter = {
+          _id: issueObj.reporter._id,
+          name: issueObj.reporter.name || 'Citizen',
+        };
+      }
+      if (issueObj.timeline) {
+        issueObj.timeline = issueObj.timeline.filter((t) => t.visibility === 'public');
+      }
+      if (issueObj.comments) {
+        issueObj.comments = issueObj.comments.filter((c) => !c.isInternal);
+      }
+    } else if (req.user?.role === 'citizen') {
       if (issueObj.timeline) {
         issueObj.timeline = issueObj.timeline.filter((t) => t.visibility === 'public');
       }
@@ -262,7 +353,6 @@ export const provideRequestedInfo = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Civic issue not found' });
     }
 
-    // Only reporter or admin can provide info
     if (
       req.user.role === 'citizen' &&
       issue.reporter.toString() !== req.user._id.toString()
@@ -334,7 +424,6 @@ export const confirmResolution = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Civic issue not found' });
     }
 
-    // RBAC: Only reporting citizen or admin can confirm closure
     if (
       req.user.role === 'citizen' &&
       issue.reporter.toString() !== req.user._id.toString()
@@ -400,7 +489,7 @@ export const confirmResolution = async (req, res, next) => {
 };
 
 /**
- * Citizen or Admin reopens issue if repair was incomplete or defective
+ * Citizen or Admin reopens issue
  * POST /api/issues/:id/reopen
  */
 export const reopenIssue = async (req, res, next) => {
@@ -422,7 +511,6 @@ export const reopenIssue = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Civic issue not found' });
     }
 
-    // RBAC: Only reporting citizen or admin can reopen
     if (
       req.user.role === 'citizen' &&
       issue.reporter.toString() !== req.user._id.toString()
@@ -444,7 +532,6 @@ export const reopenIssue = async (req, res, next) => {
     const previousStatus = issue.status;
     issue.status = 'reopened';
 
-    // Attach reopen defect photos if provided
     if (Array.isArray(reopenPhotos) && reopenPhotos.length > 0) {
       reopenPhotos.forEach((photo) => {
         if (typeof photo === 'string') {
@@ -500,3 +587,117 @@ export const reopenIssue = async (req, res, next) => {
   }
 };
 
+/**
+ * Citizen or Admin withdraws / cancels an issue
+ * POST /api/issues/:id/withdraw
+ */
+export const withdrawIssue = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Civic issue not found' });
+    }
+
+    const isReporter =
+      req.user &&
+      issue.reporter &&
+      issue.reporter.toString() === req.user._id.toString();
+    const isAdmin =
+      req.user &&
+      (req.user.role === 'administrator' || req.user.role === 'super_admin');
+
+    if (!isReporter && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You can only withdraw your own reported issues',
+      });
+    }
+
+    if (['closed', 'rejected', 'withdrawn'].includes(issue.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot withdraw issue that is already '${issue.status}'`,
+      });
+    }
+
+    const previousStatus = issue.status;
+    issue.status = 'withdrawn';
+
+    const withdrawalNote = reason?.trim()
+      ? `Issue withdrawn by citizen: "${reason.trim()}"`
+      : 'Issue withdrawn by citizen';
+
+    issue.timeline.push({
+      status: 'withdrawn',
+      action: 'Issue Withdrawn by Citizen',
+      performedBy: req.user._id,
+      note: withdrawalNote,
+      visibility: 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: 'ISSUE_WITHDRAWN',
+      performedBy: req.user._id,
+      previousState: { status: previousStatus },
+      newState: { status: 'withdrawn', reason: reason?.trim() || '' },
+      ipAddress: req.ip || req.connection?.remoteAddress,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    const populated = await Issue.findById(issue._id)
+      .populate('category', 'name code icon defaultPriority estimatedSlaHours')
+      .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code defaultSlaHours')
+      .populate('reporter', 'name email phone')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('timeline.performedBy', 'name role');
+
+    return successResponse(res, 'Civic issue withdrawn successfully', populated, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Permanently delete an untriaged or withdrawn issue
+ * DELETE /api/issues/:id
+ */
+export const deleteIssue = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Civic issue not found' });
+    }
+
+    const isReporter =
+      req.user &&
+      issue.reporter &&
+      issue.reporter.toString() === req.user._id.toString();
+    const isSuperAdmin = req.user && req.user.role === 'super_admin';
+
+    if (!isReporter && !isSuperAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You can only delete your own reported issues',
+      });
+    }
+
+    await Issue.deleteOne({ _id: issue._id });
+
+    return successResponse(res, 'Civic issue report permanently removed', { id: issue._id, issueNumber: issue.issueNumber }, 200);
+  } catch (error) {
+    next(error);
+  }
+};

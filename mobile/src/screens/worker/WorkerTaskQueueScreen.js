@@ -168,7 +168,7 @@ const WorkerTaskQueueScreen = ({ navigation }) => {
                   <View style={styles.metaItem}>
                     <MapPin size={13} color={colors.textSecondary} />
                     <Text style={styles.metaText} numberOfLines={1}>
-                      {item.location?.address || 'Kukatpally Field Area'}
+                      {item.location?.address || item.serviceArea?.name || 'Municipal Area'}
                     </Text>
                   </View>
 

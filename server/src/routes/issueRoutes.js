@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import {
   createIssue,
   getIssueById,
@@ -6,6 +7,8 @@ import {
   provideRequestedInfo,
   confirmResolution,
   reopenIssue,
+  withdrawIssue,
+  deleteIssue,
 } from '../controllers/issueController.js';
 import { addComment, getComments } from '../controllers/commentController.js';
 import {
@@ -14,53 +17,42 @@ import {
   toggleFollow,
 } from '../controllers/duplicateController.js';
 import { getPublicMapIssues } from '../controllers/publicMapController.js';
-import { protect } from '../middlewares/authMiddleware.js';
+import { protect, optionalProtect } from '../middlewares/authMiddleware.js';
 import { validateCreateIssue } from '../middlewares/issueValidation.js';
 
 const router = express.Router();
 
-// Public Civic Map Explorer (Queue 21 - Open Public Access)
+// 1. Static Public Routes (MUST come before dynamic `/:id` param route)
 // GET /api/issues/public-map -> Retrieve anonymized geo-tagged issues
 router.get('/public-map', getPublicMapIssues);
 
-// All issue management actions require authentication
-router.use(protect);
-
-// Geospatial Duplicate Detection (Queue 18)
-// GET /api/issues/nearby-duplicates -> Find active issues within proximity radius
-router.get('/nearby-duplicates', getNearbyDuplicates);
-
+// 2. Static Authenticated Routes (MUST come before dynamic `/:id` param route)
 // GET /api/issues/my-reports -> List authenticated citizen's submitted reports
-router.get('/my-reports', getMyReports);
+router.get('/my-reports', protect, getMyReports);
 
-// POST /api/issues -> Create a new civic issue report
-router.post('/', validateCreateIssue, createIssue);
+// GET /api/issues/nearby-duplicates -> Find active issues within proximity radius
+router.get('/nearby-duplicates', optionalProtect, getNearbyDuplicates);
 
-// Social Support & Follow Subsystem (Queue 18)
-// POST /api/issues/:id/upvote -> Upvote or withdraw support
-router.post('/:id/upvote', toggleUpvote);
+// POST /api/issues -> Create a new civic issue report (accessible by both guest and authenticated citizens)
+router.post('/', optionalProtect, validateCreateIssue, createIssue);
 
-// POST /api/issues/:id/follow -> Follow / unfollow notifications
-router.post('/:id/follow', toggleFollow);
-
-// Comments Subsystem (Queue 17)
-// POST /api/issues/:id/comments -> Add public comment or staff internal note
-router.post('/:id/comments', addComment);
-
-// GET /api/issues/:id/comments -> Retrieve sanitized comments list
-router.get('/:id/comments', getComments);
-
-// POST /api/issues/:id/provide-info -> Citizen provides clarification/requested info
-router.post('/:id/provide-info', provideRequestedInfo);
-
-// POST /api/issues/:id/confirm-resolution -> Citizen confirms resolution, rates, and closes
-router.post('/:id/confirm-resolution', confirmResolution);
-
-// POST /api/issues/:id/reopen -> Citizen or admin reopens issue
-router.post('/:id/reopen', reopenIssue);
-
+// 3. Dynamic Issue-Specific Param Routes (Publicly trackable or authenticated actions)
 // GET /api/issues/:id -> Get issue by ID or CIVIC-YYYY-XXXXXX number
-router.get('/:id', getIssueById);
+router.get('/:id', optionalProtect, getIssueById);
+
+// DELETE /api/issues/:id -> Delete newly submitted/withdrawn issue
+router.delete('/:id', protect, deleteIssue);
+
+// GET /api/issues/:id/comments -> Public comments reading
+router.get('/:id/comments', optionalProtect, getComments);
+
+// Mutating issue actions requiring authentication
+router.post('/:id/upvote', protect, toggleUpvote);
+router.post('/:id/follow', protect, toggleFollow);
+router.post('/:id/comments', protect, addComment);
+router.post('/:id/provide-info', protect, provideRequestedInfo);
+router.post('/:id/confirm-resolution', protect, confirmResolution);
+router.post('/:id/reopen', protect, reopenIssue);
+router.post('/:id/withdraw', protect, withdrawIssue);
 
 export default router;
-

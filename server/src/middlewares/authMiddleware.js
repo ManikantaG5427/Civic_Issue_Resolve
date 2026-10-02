@@ -57,3 +57,39 @@ export const protect = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Middleware for optional authentication.
+ * Attaches req.user if a valid token is provided, but does NOT block unauthenticated requests.
+ */
+export const optionalProtect = async (req, res, next) => {
+  try {
+    let token = null;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    } else if (req.cookies?.accessToken) {
+      token = req.cookies.accessToken;
+    }
+
+    if (!token) {
+      req.user = null;
+      return next();
+    }
+
+    try {
+      const decoded = verifyAccessToken(token);
+      const currentUser = await User.findById(decoded.id);
+      if (currentUser && currentUser.isActive) {
+        req.user = currentUser;
+      } else {
+        req.user = null;
+      }
+    } catch {
+      req.user = null;
+    }
+    next();
+  } catch {
+    req.user = null;
+    next();
+  }
+};

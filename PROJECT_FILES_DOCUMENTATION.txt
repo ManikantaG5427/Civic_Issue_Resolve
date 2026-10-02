@@ -1,0 +1,804 @@
+================================================================================
+CIVIC ISSUE RESOLUTION PLATFORM (CIRP / CIVICRESOLVE)
+COMPLETE COMPREHENSIVE PROJECT FILES DIRECTORY & INTERNAL WORKINGS GUIDE
+================================================================================
+Generated for: System Architecture, Codebase Walkthrough & Internal Logic Guide
+Format: Universal Plain Text (.txt) - Compatible with Android, iOS, Windows, Mac, Linux
+================================================================================
+
+
+TABLE OF CONTENTS:
+--------------------------------------------------------------------------------
+1. SYSTEM ARCHITECTURE & DATA FLOW OVERVIEW
+2. ROOT PROJECT DIRECTORY FILES
+3. BACKEND (SERVER) ARCHITECTURE & INTERNAL LOGIC
+   3.1 Root Server Configuration Files
+   3.2 Server Core & Socket Layer (server/src/)
+   3.3 Database Models & Schemas (server/src/models/)
+   3.4 API Controllers & Business Logic (server/src/controllers/)
+   3.5 Security & Validation Middlewares (server/src/middlewares/)
+   3.6 API Routes Definition (server/src/routes/)
+   3.7 Background Services & Automation (server/src/services/)
+   3.8 Helper Utilities & Database Seeder (server/src/utils/ & server/src/seeds/)
+4. FRONTEND (CLIENT) ARCHITECTURE & INTERNAL LOGIC
+   4.1 Client Configuration & Build Files
+   4.2 Core Application Root & Global Styles (client/src/)
+   4.3 Global State & Context Providers (client/src/context/)
+   4.4 API & Google Maps & EXIF Services (client/src/services/ & client/src/utils/)
+   4.5 Application Pages & Views (client/src/pages/)
+   4.6 Interactive Components & UI Library (client/src/components/)
+5. MOBILE APPLICATION ARCHITECTURE (mobile/)
+6. STEP-BY-STEP COMPLETE ISSUE LIFECYCLE & INTERNAL MECHANICS
+
+
+================================================================================
+1. SYSTEM ARCHITECTURE & DATA FLOW OVERVIEW
+================================================================================
+
+Civic Issue Resolution Platform (CIRP) is an enterprise-grade municipal governance and issue resolution system. It connects four distinct stakeholders:
+1. Citizens (reporting issues, tracking tickets, verifying fixes, rating service)
+2. Municipal Administrators & SuperAdmins (triaging, assigning crews, setting SLAs)
+3. Department Officers (routing, monitoring department performance)
+4. Field Workers / Crews (executing on-site 3-phase repair work with geo-tag proofs)
+
+CORE TECHNICAL PILLARS:
+- Frontend: React 18, Vite, React Router DOM, Tailwind CSS, Lucide React icons.
+- Backend: Node.js (ES Modules), Express.js REST API, Socket.IO WebSockets.
+- Database: MongoDB Atlas (Mongoose ODM) with 2dsphere Geospatial indexing.
+- Geolocation & Mapping: 100% Google Maps JavaScript SDK, Google Places Autocomplete API, Google Geocoding API.
+- Photo Integrity: Binary EXIF parser (exifReader.js) extracting camera GPS tags (Latitude, Longitude, Altitude, Timestamp, GPS Camera App signature).
+- SLA Automation: Node-cron background service evaluating deadlines every 15 minutes.
+
+
+================================================================================
+2. ROOT PROJECT DIRECTORY FILES
+================================================================================
+
+1. package.json
+   - What it is: The root Node.js project manifest and script runner.
+   - Why it is used: Manages global development dependencies and orchestrates both client and server from a single terminal command.
+   - How it works inside:
+     * Defines "scripts.dev" which executes "concurrently \"npm run dev:server\" \"npm run dev:client\"".
+     * "dev:server" enters the server directory and launches nodemon for hot-reloading.
+     * "dev:client" enters the client directory and launches the Vite development server.
+     * Keeps root dependency trees clean while facilitating monorepo orchestration.
+
+2. package-lock.json
+   - What it is: Exact dependency tree lockfile.
+   - Why it is used: Guarantees deterministic, reproducible dependency installations across all operating systems and CI/CD pipelines.
+   - How it works inside:
+     * Records exact SHA-512 hashes and resolved URLs of every sub-dependency installed by npm.
+     * When "npm install" runs, npm compares package-lock.json to avoid version drift.
+
+3. .gitignore
+   - What it is: Git version control exclusion rules.
+   - Why it is used: Prevents sensitive keys, local caches, build artifacts, and heavy node_modules from being pushed to Git repositories.
+   - How it works inside:
+     * Tells the Git engine to ignore matching patterns: .env, node_modules/, dist/, build/, .DS_Store, uploads/*.
+
+4. README.md
+   - What it is: Primary project documentation in markdown format.
+   - Why it is used: Explains installation, setup, architecture, and feature capabilities.
+   - How it works inside:
+     * Rendered on GitHub or code viewers as structured documentation with setup commands and architecture diagrams.
+
+5. FEATURE_QUEUE.md
+   - What it is: Feature tracking backlog and technical roadmap.
+   - Why it is used: Documents roadmap items such as WhatsApp notification bots, drone survey uploads, and offline field worker sync.
+   - How it works inside:
+     * Organizes planned enhancements and testing checklists.
+
+
+================================================================================
+3. BACKEND (SERVER) ARCHITECTURE & INTERNAL LOGIC
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 Root Server Configuration Files
+--------------------------------------------------------------------------------
+
+6. server/.env
+   - What it is: Server environment variables configuration file.
+   - Why it is used: Securely holds environment credentials without hardcoding them into source code.
+   - How it works inside:
+     * Read into process.env at server startup:
+       - PORT=5000
+       - MONGODB_URI=mongodb+srv://.../Civic_Issue?appName=Cluster0
+       - JWT_SECRET & JWT_EXPIRES_IN (15m access tokens)
+       - JWT_REFRESH_SECRET & JWT_REFRESH_EXPIRES_IN (7d refresh tokens)
+       - CLIENT_URL=http://localhost:5173
+
+7. server/.env.example
+   - What it is: Template for environment variables.
+   - Why it is used: Provides new developers with a reference of required variables.
+   - How it works inside:
+     * Lists all required key names with placeholder values.
+
+8. server/package.json
+   - What it is: Backend Node.js package manifest with "type": "module".
+   - Why it is used: Configures ES Module imports (import/export), lists backend dependencies (Express, Mongoose, Socket.IO, Multer, Bcryptjs, Cors, Node-cron), and defines start scripts.
+   - How it works inside:
+     * Contains "scripts.start": "node src/server.js", "scripts.dev": "nodemon src/server.js", and "scripts.seed": "node src/seeds/seedData.js".
+
+9. server/eslint.config.js
+   - What it is: ESLint linting configuration for backend code.
+   - Why it is used: Enforces code standards and detects syntax/runtime issues.
+   - How it works inside:
+     * Analyzes JavaScript AST (Abstract Syntax Tree) to flag unused variables, missing error handles, and syntax inconsistencies.
+
+10. server/.prettierrc
+    - What it is: Backend Prettier formatting rules.
+    - Why it is used: Formats backend code consistently (single quotes, trailing commas, 2-space indentation).
+
+
+--------------------------------------------------------------------------------
+3.2 Server Core & Socket Layer (server/src/)
+--------------------------------------------------------------------------------
+
+11. server/src/server.js
+    - What it is: The master entry point of the backend Node.js application.
+    - Why it is used: Boots up the HTTP server, connects to MongoDB, attaches Socket.IO, and starts the SLA cron service.
+    - How it works inside:
+      * Invokes "import 'dotenv/config'" first to ensure environment variables are populated before other modules load.
+      * Calls "connectDB()" from config/db.js to establish MongoDB Atlas connection.
+      * Wraps the Express app in an http.createServer(app) instance.
+      * Initializes WebSockets by calling "initSocket(httpServer)".
+      * Starts SLA background monitoring via "initSlaCron()".
+      * Listens on process.env.PORT (5000) and logs server readiness.
+
+12. server/src/app.js
+    - What it is: Express application configurator and middleware pipeline.
+    - Why it is used: Sets up security, request parsing, static asset serving, routing, and error handlers.
+    - How it works inside:
+      * Attaches CORS middleware to accept requests from http://localhost:5173 with credentials.
+      * Attaches express.json({ limit: '10mb' }) and express.urlencoded({ extended: true }).
+      * Serves uploaded evidence photos statically via "app.use('/uploads', express.static(path.join(__dirname, '../uploads')))".
+      * Mounts the master API router at "/api" and "/health".
+      * Attaches "notFoundHandler" for unmatched paths and "errorHandler" as the final error-catching middleware.
+
+13. server/src/socket.js
+    - What it is: Real-time bidirectional WebSocket manager using Socket.IO.
+    - Why it is used: Powers instant updates across client browsers without polling.
+    - How it works inside:
+      * Creates a Socket.IO Server instance attached to the HTTP server with CORS configuration.
+      * Authenticates socket connections using JWT tokens passed in auth headers/handshake query.
+      * Manages room subscriptions:
+        - "join_issue": Clients join a room specific to an issue ID (e.g. room `issue_${id}`) to receive real-time comments and phase updates.
+        - "leave_issue": Clients leave the room when navigating away.
+      * Exposes helper methods:
+        - "emitToIssue(issueId, event, data)": Emits data only to users viewing that specific ticket.
+        - "emitToAdmins(event, data)": Emits real-time alerts to all connected administrators and super admins.
+        - "emitToUser(userId, event, data)": Direct notifications to a specific user.
+
+14. server/src/config/db.js
+    - What it is: MongoDB Atlas database connection manager using Mongoose.
+    - Why it is used: Establishes and manages the connection to MongoDB Atlas.
+    - How it works inside:
+      * Reads process.env.MONGODB_URI.
+      * Calls "mongoose.connect(uri, { autoIndex: true })".
+      * Listens for connection events ('connected', 'error', 'disconnected') and outputs color-coded terminal status logs.
+      * Ensures geospatial 2dsphere indexes on the Issue collection are created.
+
+
+--------------------------------------------------------------------------------
+3.3 Database Models & Schemas (server/src/models/)
+--------------------------------------------------------------------------------
+
+15. server/src/models/User.js
+    - What it is: Mongoose schema representing system user accounts.
+    - Why it is used: Defines citizen, field worker, department officer, administrator, and super admin accounts.
+    - How it works inside:
+      * Fields: name, email (unique, lowercase), password (select: false), phone, role (enum: ['citizen', 'field_worker', 'administrator', 'super_admin']), department (ref: Department), serviceArea (ref: ServiceArea), isActive, avatar.
+      * Pre-save Hook: If password is modified, generates salt with bcrypt.genSalt(10) and hashes password with bcrypt.hash().
+      * Method "comparePassword(candidatePassword)": Uses bcrypt.compare() to check login attempts against the stored hash.
+
+16. server/src/models/Issue.js
+    - What it is: Mongoose schema representing civic issues and tickets.
+    - Why it is used: The central data repository for every reported civic problem.
+    - How it works inside:
+      * Core Fields: issueNumber (unique indexed ticket ID e.g. HYD-2026-0001), title, description, category (ref: IssueCategory), priority (urgent, high, medium, low), status (submitted, verified, assigned, in_progress, resolved_verification_pending, closed, rejected, reopened, withdrawn).
+      * Geospatial Location: GeoJSON Point schema ({ type: 'Point', coordinates: [lng, lat] }) with a 2dsphere index for spatial proximity queries; landmark, address, serviceArea (ref: ServiceArea).
+      * Anti-Fake Verification: "isGpsVerified: Boolean" flag indicating if the issue coordinates match camera EXIF metadata.
+      * Evidence Array: Contains photo URLs, stage (initial, progress, resolution, reopen), and "geoTag" object (extracted latitude, longitude, altitude, timestamp, camera app).
+      * Multi-Worker Team Roster: "assignedWorkers: [{ worker: ref: User, role: String, note: String, assignedAt: Date }]".
+      * 3-Phase Work Execution: "executionPhases: { startingPhase: { startedAt, note, images: [{ url, geoTag }] }, duringPhase: { inProgressAt, note, images: [{ url, geoTag }] }, completionPhase: { completedAt, note, images: [{ url, geoTag }] } }".
+      * SLA Tracking: slaDeadline, slaHours, isEscalated, escalatedAt.
+      * Timeline & Audit Logs: Array of events recording every status change, worker assignment, note, performedBy user ID, and timestamp.
+      * Citizen Feedback: rating (1-5 stars), comment, closedAt.
+
+17. server/src/models/Department.js
+    - What it is: Mongoose schema for municipal departments.
+    - Why it is used: Structures municipal departments responsible for resolving specific issue categories.
+    - How it works inside:
+      * Fields: name (e.g. Roads & Infrastructure), code (e.g. ROADS), email, phone, headOfficer (ref: User), defaultSlaHours (e.g. 48), isActive.
+
+18. server/src/models/ServiceArea.js
+    - What it is: Mongoose schema for municipal wards and geographical jurisdictions.
+    - Why it is used: Groups issues by geographic zones/wards for regional governance.
+    - How it works inside:
+      * Fields: name (e.g. Cyberabad Zone 4), code (e.g. CYB-04), city, state, centerLocation (GeoJSON Point), boundaries (GeoJSON Polygon).
+
+19. server/src/models/IssueCategory.js
+    - What it is: Mongoose schema for civic issue categories.
+    - Why it is used: Catalogs the types of issues citizens can report.
+    - How it works inside:
+      * Fields: name (e.g. Potholes & Road Cratering), code (e.g. POTHOLE), department (ref: Department), defaultPriority, estimatedSlaHours, icon, isActive.
+
+20. server/src/models/Notification.js
+    - What it is: Mongoose schema for user in-app notification alerts.
+    - Why it is used: Stores real-time alert history for citizens, field workers, and admins.
+    - How it works inside:
+      * Fields: recipient (ref: User), title, message, type (enum: ['status_change', 'assignment', 'sla_warning', 'comment', 'system']), issue (ref: Issue), isRead (default false), link, createdAt.
+
+
+--------------------------------------------------------------------------------
+3.4 API Controllers & Business Logic (server/src/controllers/)
+--------------------------------------------------------------------------------
+
+21. server/src/controllers/adminController.js
+    - What it is: Business logic for Municipal Administrators and SuperAdmins.
+    - Why it is used: Handles verification, rejection, routing, team assignments, and phase proof reviews.
+    - How it works inside:
+      * "verifyIssue(req, res)": Transitions issue status from 'submitted' to 'verified', records timeline entry, and notifies the citizen.
+      * "rejectIssue(req, res)": Validates rejection category and explanation, transitions status to 'rejected', and updates audit trail.
+      * "assignDepartmentAndWorker(req, res)": Assigns department, primary worker, recalculates slaDeadline (now + slaHours), sets status to 'assigned', and emits real-time alert to the worker.
+      * "addWorkerToRoster(req, res)": Appends worker ID, specialized role (e.g., Heavy Equipment Operator), and dispatch instructions into issue.assignedWorkers; creates audit log and notifies the worker.
+      * "removeWorkerFromRoster(req, res)": Filters out a worker from issue.assignedWorkers and logs the removal to timeline.
+      * "submitPhaseProof(req, res)": Accepts phase ('starting', 'during', 'completion'), saves geo-tagged photos and notes into issue.executionPhases, appends photos to evidence, updates timeline, and emits socket event.
+
+22. server/src/controllers/issueController.js
+    - What it is: Controller for citizen-facing issue operations.
+    - Why it is used: Handles issue creation, searching, upvoting, confirmation, reopening, and withdrawal.
+    - How it works inside:
+      * "createIssue(req, res)": Generates unique issue number via issueNumberGenerator.js, stores GeoJSON coordinates and EXIF GPS verification flag, pushes initial photo evidence, invokes "notifyAdminsOnNewIssue()", and emits real-time "issue:created" event to all administrators.
+      * "getIssues(req, res)": Parses query parameters (status, category, search, priority, page, limit), builds Mongoose filter, executes paginated find() with populate(), and returns items with total page count.
+      * "toggleUpvote(req, res)": Atomically adds or removes user ID from issue.upvotes array and returns updated count.
+      * "toggleFollow(req, res)": Adds/removes user ID from issue.followers array.
+      * "confirmResolution(req, res)": Citizen rates resolution (1-5 stars), adds feedback note, transitions status to 'closed', and marks ticket resolved.
+      * "reopenIssue(req, res)": Validates citizen's reopen explanation and defect photos, transitions status back to 'reopened', resets SLA timer, and notifies administrators for re-dispatch.
+      * "withdrawIssue(req, res)": Allows reporter to cancel a ticket, transitioning status to 'withdrawn'.
+      * "deleteIssue(req, res)": Permanently removes unverified/withdrawn reports.
+
+23. server/src/controllers/workerController.js
+    - What it is: Business logic for field workers.
+    - Why it is used: Powers the field worker portal, task queues, and repair status submissions.
+    - How it works inside:
+      * "getAssignedTasks(req, res)": Queries issues where the user is either the primary assignedWorker OR listed in assignedWorkers team roster; calculates active, in_progress, and overdue task metrics.
+      * "startWork(req, res)": Verifies user is assigned to the ticket, transitions status to 'in_progress', logs startWork timestamp and notes to timeline.
+      * "addProgressUpdate(req, res)": Appends stage progress photos, logs materials used (e.g. 50kg asphalt), and records timeline entry.
+      * "resolveTask(req, res)": Validates mandatory resolution proof photos and summary, sets status to 'resolved_verification_pending', records repair cost, and triggers notification to the citizen for closure.
+
+24. server/src/controllers/authController.js
+    - What it is: Controller for authentication and token sessions.
+    - Why it is used: Securely registers and authenticates users.
+    - How it works inside:
+      * "register(req, res)": Validates input, checks duplicate email, hashes password, saves User, and generates JWT access/refresh tokens.
+      * "login(req, res)": Looks up User by email (including password), calls user.comparePassword(), and returns tokens with user profile.
+      * "refreshToken(req, res)": Verifies refresh token signature, finds User, and issues a fresh 15-minute access token.
+      * "getMe(req, res)": Returns the authenticated user's profile and preferences.
+
+25. server/src/controllers/analyticsController.js
+    - What it is: Executive reporting and metrics aggregator.
+    - Why it is used: Computes performance analytics for administrative dashboards.
+    - How it works inside:
+      * Uses Mongoose aggregate pipelines ($match, $group, $project) to compute:
+        - Total issues reported vs. resolved.
+        - SLA compliance rate percentage.
+        - Average resolution time in hours per department.
+        - Geographic heat distribution of civic issues.
+        - Monthly trend lines.
+
+26. server/src/controllers/commentController.js
+    - What it is: Controller for ticket discussion threads.
+    - Why it is used: Allows citizens, workers, and admins to communicate on issues.
+    - How it works inside:
+      * "addComment(req, res)": Appends comment object { author, content, isInternal, createdAt } to issue.comments array, notifies followers, and emits "comment:added" socket event.
+
+27. server/src/controllers/duplicateController.js
+    - What it is: Geospatial and text duplicate detector.
+    - Why it is used: Prevents multiple citizens from cluttering the database with duplicate reports for the same incident.
+    - How it works inside:
+      * Executes MongoDB "$near" geospatial query within a 50-meter radius of the submitted coordinates.
+      * Filters for active issues in the same category and computes text similarity.
+
+28. server/src/controllers/configController.js
+    - What it is: Master catalog CRUD controller.
+    - Why it is used: Provides endpoints to fetch and manage departments, service areas, and categories.
+    - How it works inside:
+      * Queries Department, ServiceArea, and IssueCategory collections and returns active records.
+
+29. server/src/controllers/healthController.js
+    - What it is: Server and database health monitoring controller.
+    - Why it is used: Supplies uptime and connection state to monitoring tools.
+    - How it works inside:
+      * Checks mongoose.connection.readyState (1 = connected), measures memory usage and server uptime, returning a 200 OK JSON status.
+
+30. server/src/controllers/notificationController.js
+    - What it is: Controller for user notification feeds.
+    - Why it is used: Serves notification lists and handles mark-as-read actions.
+    - How it works inside:
+      * Queries Notification collection for recipient: req.user._id, sorts by createdAt desc, and updates isRead flags.
+
+31. server/src/controllers/publicMapController.js
+    - What it is: Public map data streaming controller.
+    - Why it is used: Delivers lightweight issue data to render map pins efficiently.
+    - How it works inside:
+      * Queries non-closed issues, projecting only essential fields (coordinates, issueNumber, title, status, category, priority, primary photo) for fast rendering.
+
+32. server/src/controllers/slaController.js
+    - What it is: SLA audit and escalation controller.
+    - Why it is used: Allows admins to audit SLA performance and manually trigger escalation routines.
+    - How it works inside:
+      * Filters active issues where slaDeadline < new Date() and isEscalated is false, triggering escalation notifications.
+
+33. server/src/controllers/uploadController.js
+    - What it is: Image upload handling controller.
+    - Why it is used: Processes uploaded evidence and photo files.
+    - How it works inside:
+      * Multer saves the uploaded file to server/uploads/, generates a public URL (e.g. "/uploads/img-1727756891234.jpg"), and returns the URL to the client.
+
+34. server/src/controllers/docsController.js
+    - What it is: API documentation controller.
+    - Why it is used: Serves interactive API endpoint specifications and JSON schemas.
+
+
+--------------------------------------------------------------------------------
+3.5 Security & Validation Middlewares (server/src/middlewares/)
+--------------------------------------------------------------------------------
+
+35. server/src/middlewares/authMiddleware.js
+    - What it is: JWT authentication verification middleware.
+    - Why it is used: Ensures only requests with a valid token can access protected routes.
+    - How it works inside:
+      * Reads "Authorization: Bearer <token>" header.
+      * Invokes "jwt.verify(token, process.env.JWT_SECRET)".
+      * Fetches user from database and attaches to req.user. If invalid or expired, returns 401 Unauthorized.
+
+36. server/src/middlewares/roleMiddleware.js
+    - What it is: Role-Based Access Control (RBAC) middleware generator.
+    - Why it is used: Restricts endpoints to specific roles (e.g. authorizeRoles('administrator', 'super_admin')).
+    - How it works inside:
+      * Returns a middleware function that checks if allowedRoles.includes(req.user.role). If not, returns 403 Forbidden.
+
+37. server/src/middlewares/authValidation.js
+    - What it is: Authentication input validator.
+    - Why it is used: Validates email format, minimum 6-character passwords, and required registration fields before controllers execute.
+
+38. server/src/middlewares/issueValidation.js
+    - What it is: Issue submission input validator.
+    - Why it is used: Validates title length (5-100 chars), category ID existence, and valid GeoJSON coordinate pairs ([lng, lat]).
+
+39. server/src/middlewares/uploadMiddleware.js
+    - What it is: Multer file upload configuration middleware.
+    - Why it is used: Configures disk storage, generates timestamped filenames, checks 10MB limits, and filters MIME types to images only.
+
+40. server/src/middlewares/rateLimiter.js
+    - What it is: Rate limiting security middleware.
+    - Why it is used: Prevents brute-force attacks by limiting requests per IP address per time window (e.g., max 100 requests per 15 minutes).
+
+41. server/src/middlewares/errorHandler.js
+    - What it is: Centralized Express error-handling middleware.
+    - Why it is used: Catches all errors thrown in controllers and formats standardized JSON error responses.
+    - How it works inside:
+      * Detects Mongoose ValidationError (returns 400 with field messages), CastError (invalid ObjectId), and AppError instances.
+
+42. server/src/middlewares/notFoundHandler.js
+    - What it is: 404 Route Not Found middleware.
+    - Why it is used: Handles requests to unregistered endpoints gracefully.
+
+
+--------------------------------------------------------------------------------
+3.6 API Routes Definition (server/src/routes/)
+--------------------------------------------------------------------------------
+
+43. server/src/routes/index.js
+    - What it is: Master API router aggregator.
+    - Why it is used: Connects all sub-routers to the "/api" base path.
+    - How it works inside:
+      * Mounts authRoutes at /api/auth, issueRoutes at /api/issues, adminRoutes at /api/admin, workerRoutes at /api/worker, configRoutes at /api/config, notificationRoutes at /api/notifications, uploadRoutes at /api/upload.
+
+44. server/src/routes/authRoutes.js
+    - Endpoints: POST /register, POST /login, POST /refresh, GET /me, POST /logout.
+
+45. server/src/routes/issueRoutes.js
+    - Endpoints: GET / (filter & paginate), POST / (create with GPS verification), GET /:id, POST /:id/upvote, POST /:id/follow, POST /:id/confirm, POST /:id/reopen, POST /:id/withdraw, DELETE /:id.
+
+46. server/src/routes/adminRoutes.js
+    - Endpoints: POST /verify, POST /reject, POST /assign, POST /issues/:id/workers (add team worker), DELETE /issues/:id/workers/:workerId (remove team worker), POST /issues/:id/phase-proof (submit 3-phase proof).
+
+47. server/src/routes/workerRoutes.js
+    - Endpoints: GET /tasks (worker queue), POST /issues/:id/start-work, POST /issues/:id/progress-update, POST /issues/:id/resolve.
+
+48. server/src/routes/configRoutes.js
+    - Endpoints: GET /departments, GET /categories, GET /service-areas, POST /departments, POST /categories.
+
+49. server/src/routes/notificationRoutes.js
+    - Endpoints: GET /, GET /unread-count, PATCH /:id/read, PATCH /read-all.
+
+50. server/src/routes/rbacRoutes.js
+    - Endpoints: GET /users, PATCH /users/:id/role, PATCH /users/:id/status.
+
+51. server/src/routes/uploadRoutes.js
+    - Endpoints: POST /image, POST /multiple.
+
+52. server/src/routes/healthRoutes.js
+    - Endpoints: GET /health, GET /api/health.
+
+53. server/src/routes/docsRoutes.js
+    - Endpoints: GET /docs.
+
+
+--------------------------------------------------------------------------------
+3.7 Background Services & Automation (server/src/services/)
+--------------------------------------------------------------------------------
+
+54. server/src/services/notificationService.js
+    - What it is: Automated multi-channel notification dispatcher.
+    - Why it is used: Dispatches notifications to database and triggers real-time socket events.
+    - How it works inside:
+      * "notifyAdminsOnNewIssue(issue)": Queries all users with role 'administrator' or 'super_admin', creates Notification documents for each, and emits socket event "notification:new" to their active sessions.
+      * "notifyWorkerAssignment(workerId, issue)": Creates an assignment alert for the dispatched field worker.
+      * "notifyCitizenStatusUpdate(citizenId, issue, status)": Alerts the citizen when their issue moves to Verified, In Progress, or Resolved.
+
+55. server/src/services/slaCronService.js
+    - What it is: Background automated SLA monitoring cron job.
+    - Why it is used: Enforces municipal service-level agreements and escalates overdue tickets.
+    - How it works inside:
+      * Runs every 15 minutes using node-cron ("*/15 * * * *").
+      * Queries active issues (status: 'assigned' or 'in_progress') where slaDeadline < new Date() and isEscalated is false.
+      * Sets "isEscalated = true", upgrades priority to 'urgent', appends an escalation event to the timeline, and notifies administrators of the breach.
+
+
+--------------------------------------------------------------------------------
+3.8 Helper Utilities & Database Seeder (server/src/utils/ & server/src/seeds/)
+--------------------------------------------------------------------------------
+
+56. server/src/utils/apiResponse.js
+    - What it is: Standardized API response builder.
+    - Why it is used: Ensures every endpoint returns uniform JSON: { success: true, message, data, timestamp }.
+
+57. server/src/utils/appError.js
+    - What it is: Operational Error class extending JavaScript Error.
+    - Why it is used: Allows throwing errors with custom HTTP status codes (e.g. new AppError('Resource not found', 404)).
+
+58. server/src/utils/tokenUtils.js
+    - What it is: JWT token generation and verification helper.
+    - Why it is used: Generates signed access tokens (jwt.sign(payload, secret, { expiresIn: '15m' })) and refresh tokens.
+
+59. server/src/utils/issueNumberGenerator.js
+    - What it is: Sequential ticket identifier generator.
+    - Why it is used: Creates clean municipal ticket IDs (e.g. HYD-2026-0001).
+    - How it works inside:
+      * Checks the current year, counts existing tickets created in that year, and formats a sequential padded string (e.g., HYD-2026-0023).
+
+60. server/src/seeds/seedData.js
+    - What it is: Database initialization and seeding script.
+    - Why it is used: Populates a fresh MongoDB database with standard municipal data for instant testing.
+    - How it works inside:
+      * Connects to MongoDB, clears test collections, inserts standard Departments (Roads, Water, Electricity, Sanitation), Service Areas (Hyderabad, Bengaluru, Delhi, Mumbai zones), Categories (Pothole, Water Leak, Streetlight, Garbage), and demo user accounts.
+
+
+================================================================================
+4. FRONTEND (CLIENT) ARCHITECTURE & INTERNAL LOGIC
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1 Client Configuration & Build Files
+--------------------------------------------------------------------------------
+
+61. client/.env
+    - What it is: Client environment variables.
+    - Why it is used: Provides Vite with backend URLs and the Google Maps API key.
+    - How it works inside:
+      * VITE_API_URL=http://localhost:5000/api
+      * VITE_SOCKET_URL=http://localhost:5000
+      * VITE_GOOGLE_MAPS_API_KEY=<Google_Maps_Key>
+
+62. client/.env.example
+    - What it is: Client environment template.
+
+63. client/package.json
+    - What it is: Frontend npm manifest.
+    - Why it is used: Manages frontend libraries (React, React Router DOM, Axios, Socket.IO Client, Tailwind CSS, Lucide React icons).
+
+64. client/vite.config.js
+    - What it is: Vite bundler configuration.
+    - Why it is used: Compiles React JSX with Hot Module Replacement (HMR) and bundles production assets.
+
+65. client/tailwind.config.js
+    - What it is: Tailwind CSS design system configuration.
+    - Why it is used: Configures brand color schemes, typography, border radiuses, and shadow elevations.
+
+66. client/postcss.config.js
+    - What it is: PostCSS configuration compiling Tailwind CSS utility classes.
+
+67. client/index.html
+    - What it is: Root Single Page Application HTML file.
+    - Why it is used: Hosts the #root DOM element and Google Fonts links.
+
+68. client/eslint.config.js & client/.prettierrc
+    - What they are: Client code quality and formatting configurations.
+
+
+--------------------------------------------------------------------------------
+4.2 Core Application Root & Global Styles (client/src/)
+--------------------------------------------------------------------------------
+
+70. client/src/main.jsx
+    - What it is: React entry point.
+    - Why it is used: Boots up the React application into the index.html DOM.
+    - How it works inside:
+      * Imports ReactDOM.createRoot(), wraps <App /> with <BrowserRouter>, <AuthProvider>, and <SocketProvider>, and mounts to document.getElementById('root').
+
+71. client/src/App.jsx
+    - What it is: Master React Application Router.
+    - Why it is used: Defines all page routes and global navigation shell.
+    - How it works inside:
+      * Sets up React Router <Routes>:
+        - Public routes: "/", "/map", "/login", "/register", "/issues/:id".
+        - Protected citizen routes: "/report", "/dashboard", "/my-reports".
+        - Protected admin routes (RoleRoute: administrator, super_admin): "/admin/review", "/admin/analytics", "/admin/config".
+        - Protected worker routes (RoleRoute: field_worker): "/worker/dashboard".
+      * Renders persistent <Navbar /> on top and <Footer /> at bottom.
+
+72. client/src/index.css
+    - What it is: Global CSS stylesheet.
+    - Why it is used: Configures Tailwind layers, smooth scrolling, custom scrollbars, and Google Maps styling.
+
+
+--------------------------------------------------------------------------------
+4.3 Global State & Context Providers (client/src/context/)
+--------------------------------------------------------------------------------
+
+73. client/src/context/AuthContext.jsx
+    - What it is: Global Authentication state provider.
+    - Why it is used: Provides user session, login, register, and logout capabilities to all components.
+    - How it works inside:
+      * Manages state: user, token, loading.
+      * On component mount, checks localStorage for saved token, calls authAPI.getMe() to validate the session.
+      * Provides helper methods: login(credentials), register(data), logout() (clears localStorage and resets state).
+
+74. client/src/context/SocketContext.jsx
+    - What it is: Global WebSocket connection provider.
+    - Why it is used: Maintains a singleton Socket.IO connection for real-time events.
+    - How it works inside:
+      * Instantiates io(VITE_SOCKET_URL, { auth: { token } }).
+      * Exposes "joinIssue(issueId)" (emits 'join_issue') and "leaveIssue(issueId)".
+      * Exposes "subscribeToEvent(event, callback)" which attaches an event listener and returns a cleanup unsubscribe function.
+
+
+--------------------------------------------------------------------------------
+4.4 API & Google Maps & EXIF Services (client/src/services/ & client/src/utils/)
+--------------------------------------------------------------------------------
+
+75. client/src/services/api.js
+    - What it is: Axios HTTP API client module.
+    - Why it is used: Centralizes all backend network requests with automatic JWT Bearer token attachment and 401 token refresh interception.
+    - How it works inside:
+      * Creates an Axios instance pointing to VITE_API_URL.
+      * Request Interceptor: Injects "Authorization: Bearer <token>" from localStorage.
+      * Response Interceptor: If a 401 error occurs, attempts to call "/auth/refresh" to obtain a new token and retries the original request.
+      * Exports structured modules: authAPI, issueAPI, adminAPI, workerAPI, configAPI, uploadAPI.
+
+76. client/src/services/googleMapsLoader.js
+    - What it is: Singleton Google Maps JavaScript SDK loader.
+    - Why it is used: Loads Google Maps dynamically with Places and Geocoding libraries.
+    - How it works inside:
+      * "loadGoogleMaps()": Injects script tag "https://maps.googleapis.com/maps/api/js?key=...&libraries=places" once and returns a cached Promise.
+      * "searchGooglePlaces(query)": Uses Google Places AutocompleteService to return location suggestions.
+      * "getPlaceDetails(placeId)": Resolves placeId to exact lat/lng coordinates and formatted address.
+      * "reverseGeocode(lat, lng)": Uses google.maps.Geocoder to resolve coordinates to Indian street addresses.
+
+77. client/src/utils/exifReader.js
+    - What it is: Pure JavaScript binary EXIF parser.
+    - Why it is used: Extracts GPS metadata directly from camera photos without third-party server dependencies.
+    - How it works inside:
+      * Reads File into an ArrayBuffer using FileReader.
+      * Inspects JPEG markers: looks for Start of Image (0xFFD8) and APP1 EXIF marker (0xFFE1).
+      * Parses TIFF header (Endianness: II / MM).
+      * Locates GPS IFD pointer and extracts:
+        - GPSLatitude & GPSLatitudeRef (N/S) -> converts degrees/minutes/seconds rational values to decimal latitude.
+        - GPSLongitude & GPSLongitudeRef (E/W) -> converts degrees/minutes/seconds rational values to decimal longitude.
+        - GPSAltitude, GPSTimeStamp, and Software (e.g., GPS Map Camera).
+      * Returns { hasGeoTag: true, latitude, longitude, altitude, timestamp, software }.
+
+
+--------------------------------------------------------------------------------
+4.5 Application Pages & Views (client/src/pages/)
+--------------------------------------------------------------------------------
+
+78. client/src/pages/HomePage.jsx
+    - What it is: Public landing page.
+    - Why it is used: Welcomes citizens, displays live stats (total resolved issues, average SLA resolution time), and provides quick entry points to report issues or explore the public map.
+
+79. client/src/pages/ReportIssuePage.jsx
+    - What it is: Citizen issue reporting wizard.
+    - Why it is used: Allows citizens to report issues with verified coordinates.
+    - How it works inside:
+      * Photo Attachment & EXIF Extraction: When the citizen attaches photos, it immediately calls extractExifGpsData(file).
+      * If EXIF GPS is detected, it automatically centers the Google Map, sets latitude/longitude, and displays an "EXIF Camera GPS Verified" badge.
+      * If no EXIF GPS is found, citizen can pick the location on the interactive Google Map (LocationPickerMap.jsx) or use GPS "Locate Me".
+      * Submits issue via issueAPI.createIssue() with isGpsVerified flag and photo geoTags.
+
+80. client/src/pages/IssueDetailPage.jsx
+    - What it is: Full-featured issue details and action hub.
+    - Why it is used: Single page supporting citizens, workers, and admins with all operations.
+    - How it works inside:
+      * Subscribes to Socket.IO room for live real-time updates.
+      * Displays issue header with StatusBadge, PriorityBadge, ticket ID copy button, and upvote/follow counters.
+      * Left Column: Renders issue description, photo gallery, 3-Phase Work Execution Card (Starting, During, Completion photos and notes), Google Map preview, and CommentSection.
+      * Right Column: Renders Department Card, Service Area, Dispatched Multi-Worker Team Roster Card (displaying assigned workers, roles, and "+ Add Worker" / "Remove" buttons for admins), and resolution audit Timeline.
+      * Modals:
+        - Triage Modal (Verify, Reject with category, Assign Department & Worker).
+        - Add Worker to Roster Modal (Select worker, input role, add dispatch instructions).
+        - 3-Phase Work Execution Proof Upload Modal (Extracts camera EXIF GPS on photo attachment and submits phase proof).
+        - Worker Progress & Resolution Modals.
+        - Citizen Confirmation & 5-Star Rating Modal / Reopen Modal.
+
+81. client/src/pages/PublicCivicMapPage.jsx
+    - What it is: Fullscreen interactive civic issue map powered 100% by Google Maps.
+    - Why it is used: Visualizes all civic issues across cities.
+    - How it works inside:
+      * Loads Google Maps JS SDK via googleMapsLoader.js.
+      * Places custom colored markers for each issue based on status.
+      * Attaches Google InfoWindow to markers showing issue photo, title, category, and link.
+      * Features city quick-jump presets (Hyderabad, Bengaluru, Delhi NCR, Mumbai, Chennai, Kolkata, Pune), category filters, and Google Places live search.
+
+82. client/src/pages/DashboardPage.jsx
+    - What it is: Citizen dashboard showing summary of submitted and upvoted reports.
+
+83. client/src/pages/MyReportsPage.jsx
+    - What it is: Citizen reports management page with status filters and quick links.
+
+84. client/src/pages/AdminReviewQueuePage.jsx
+    - What it is: Municipal administrator review and triage queue.
+    - Why it is used: Allows admins to filter incoming reports by status, verify tickets, assign departments, set SLA targets, and dispatch field crews.
+
+85. client/src/pages/AdminAnalyticsPage.jsx
+    - What it is: Municipal business intelligence and KPI analytics page.
+    - Why it is used: Visualizes resolution rates, SLA compliance percentages, department response velocities, and monthly trends.
+
+86. client/src/pages/WorkerDashboardPage.jsx
+    - What it is: Field worker task portal.
+    - Why it is used: Lists assigned tasks with color-coded SLA countdown clocks (Critical, Overdue, Safe), location maps, and quick action buttons to start work or log progress.
+
+87. client/src/pages/ConfigCatalogPage.jsx
+    - What it is: Master configuration manager for SuperAdmins to create and edit departments, service areas, and categories.
+
+88. client/src/pages/LoginPage.jsx & 89. client/src/pages/RegisterPage.jsx
+    - What they are: Authentication portals for logging in and citizen registration.
+
+90. client/src/pages/ForbiddenPage.jsx & 91. client/src/pages/NotFoundPage.jsx
+    - What they are: Standard 403 Forbidden and 404 Not Found error screens.
+
+
+--------------------------------------------------------------------------------
+4.6 Interactive Components & UI Library (client/src/components/)
+--------------------------------------------------------------------------------
+
+92. client/src/components/LocationPickerMap.jsx
+    - What it is: Interactive Google Maps location selector.
+    - Why it is used: Allows picking exact coordinates on Google Maps.
+    - How it works inside:
+      * Initializes Google Map centered at coordinates.
+      * Creates a draggable google.maps.Marker; on "dragend", reads marker.getPosition() and calls reverseGeocode() to update address.
+      * Integrates Google Places Autocomplete dropdown.
+      * GPS "Locate Me" button triggers navigator.geolocation.getCurrentPosition() to pan the map to device location.
+
+93. client/src/components/MapPreview.jsx
+    - What it is: Compact read-only Google Map preview.
+    - Why it is used: Displays an embedded Google Map centered at latitude/longitude with a marker pin.
+
+94. client/src/components/Timeline.jsx
+    - What it is: Audit history timeline component.
+    - Why it is used: Renders vertical step-by-step milestones (Submitted -> Verified -> Assigned -> Phase 1 -> Phase 2 -> Phase 3 -> Resolved -> Closed).
+
+95. client/src/components/CommentSection.jsx
+    - What it is: Interactive discussion board component.
+    - Why it is used: Renders public comments and official municipal notices; allows posting new comments with real-time socket updates.
+
+96. client/src/components/BeforeAfterComparison.jsx
+    - What it is: Interactive photo comparison slider.
+    - Why it is used: Visually compares initial problem photos against final resolution photos.
+
+97. client/src/components/Navbar.jsx
+    - What it is: Application top navigation header.
+    - Why it is used: Displays branding, navigation links, role-based menu items, in-app notification bell, and user profile avatar.
+
+98. client/src/components/Footer.jsx
+    - What it is: Application footer with copyright, helpline contacts, and quick links.
+
+99. client/src/components/NotificationPopover.jsx
+    - What it is: Notification dropdown menu.
+    - Why it is used: Previews unread alerts, allows one-click mark as read, and navigates to issues.
+
+100. client/src/components/ProtectedRoute.jsx & 101. client/src/components/RoleRoute.jsx
+     - What they are: React Router route protection guards.
+     - Why they are used: Prevent unauthenticated users or unauthorized roles from accessing sensitive pages.
+
+102. client/src/components/common/StatusBadge.jsx & 103. client/src/components/common/PriorityBadge.jsx
+     - What they are: Color-coded status and priority visual badge components.
+
+104. client/src/components/common/PageHeader.jsx & 105. client/src/components/common/ErrorBoundary.jsx
+     - What they are: Layout headers and React error boundary fallback wrappers.
+
+106. client/src/components/ui/Button.jsx, 107. Card.jsx, 108. Input.jsx, 109. EmptyState.jsx
+     - What they are: Reusable UI design system atoms and feedback components.
+
+
+================================================================================
+5. MOBILE APPLICATION ARCHITECTURE (mobile/)
+================================================================================
+
+110. mobile/package.json
+     - What it is: React Native / Expo package configuration.
+     - Why it is used: Manages mobile dependencies for iOS and Android builds.
+
+111. mobile/app.json
+     - What it is: Expo configuration file.
+     - Why it is used: Configures app bundle identifiers, camera permissions, and splash screens.
+
+112. mobile/App.js
+     - What it is: Root entry component for mobile devices.
+     - Why it is used: Sets up React Navigation containers and mobile screens.
+
+113. mobile/README.md
+     - What it is: Instructions for running the mobile app via Expo Go.
+
+
+================================================================================
+6. STEP-BY-STEP COMPLETE ISSUE LIFECYCLE & INTERNAL MECHANICS
+================================================================================
+
+PHASE 1: CITIZEN REPORTING & EXIF AUTO-LOCK
+--------------------------------------------------------------------------------
+1. Citizen opens ReportIssuePage.jsx and attaches a site photograph.
+2. exifReader.js parses JPEG binary markers, extracts GPS coordinates and camera app signature.
+3. If GPS tags exist:
+   - Google Map automatically centers on the photo coordinates.
+   - Sets isGpsVerified = true.
+   - Displays "EXIF Camera GPS Verified" badge.
+4. Citizen chooses Category (e.g. Roads), adds description & landmark, and clicks Submit.
+5. POST /api/issues sends payload to backend. issueController.js generates unique ID (HYD-2026-0001) and saves record in MongoDB Atlas.
+6. notificationService.js immediately broadcasts "issue:created" via Socket.IO to all Administrators and SuperAdmins.
+
+PHASE 2: MUNICIPAL REVIEW & MULTI-WORKER ROSTER DISPATCH
+--------------------------------------------------------------------------------
+1. Administrator opens AdminReviewQueuePage.jsx and reviews ticket details and photo geo-tags.
+2. Admin clicks "Verify Issue": transitions status to 'verified'.
+3. Admin clicks "Dispatch & Assign":
+   - Selects Department (e.g. Roads Dept).
+   - Selects Primary Worker and sets SLA target (e.g. 48 hours).
+   - Status updates to 'assigned', and worker receives instant alert.
+4. For complex repairs, Admin opens IssueDetailPage.jsx -> "Field Response Team" card -> "+ Add Worker":
+   - Adds specialized workers (e.g. Excavator Operator, Safety Specialist) with dispatch notes.
+   - POST /api/admin/issues/:id/workers appends crew members into assignedWorkers array.
+
+PHASE 3: 3-PHASE FIELD WORK EXECUTION & PROOF SUBMISSION
+--------------------------------------------------------------------------------
+1. Field worker logs in to WorkerDashboardPage.jsx, sees task with active SLA countdown.
+2. Worker clicks "Start Work": status transitions to 'in_progress'.
+3. Phase 1 (Starting Phase):
+   - Worker arrives at site, opens IssueDetailPage.jsx, clicks "+ Phase 1 (Starting)".
+   - Uploads site arrival photo (EXIF GPS verified) with arrival note.
+   - Saved to issue.executionPhases.startingPhase.
+4. Phase 2 (During Phase):
+   - Worker conducts repairs (excavation, asphalt laying), clicks "+ Phase 2 (During)".
+   - Uploads in-progress photo with note on materials used.
+   - Saved to issue.executionPhases.duringPhase.
+5. Phase 3 (Completion Phase):
+   - Worker finishes repair, clicks "+ Phase 3 (Complete)".
+   - Uploads final completion photo and repair summary.
+   - Saved to issue.executionPhases.completionPhase.
+6. Worker clicks "Submit Resolution Proof": status updates to 'resolved_verification_pending', and citizen is notified.
+
+PHASE 4: CITIZEN VERIFICATION & CLOSURE
+--------------------------------------------------------------------------------
+1. Citizen receives real-time alert and opens IssueDetailPage.jsx.
+2. Citizen reviews Before/After comparison slider and 3-Phase photo proofs.
+3. If satisfied: Citizen rates service (1 to 5 stars), adds feedback, and clicks "Confirm Closure". Status updates to 'closed'.
+4. If defective: Citizen clicks "Reopen Ticket", specifies defect reason and attaches defect photo. Status transitions back to 'reopened' for municipal re-dispatch.
+
+================================================================================
+END OF DOCUMENTATION FILE
+================================================================================

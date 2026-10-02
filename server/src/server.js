@@ -1,11 +1,15 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
+import dns from 'dns';
+
+// Fix Windows DNS querySrv ECONNREFUSED with MongoDB Atlas
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch {}
+
 import app from './app.js';
 import { connectDB } from './config/db.js';
 import { initSocket } from './socket.js';
 import { initSlaCron, stopSlaCron } from './services/slaCronService.js';
-
-// Load environment variables
-dotenv.config();
 
 const PORT = process.env.PORT || 5000;
 

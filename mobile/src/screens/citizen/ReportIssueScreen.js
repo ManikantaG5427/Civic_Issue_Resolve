@@ -50,7 +50,7 @@ const ReportIssueScreen = ({ navigation }) => {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState(CATEGORIES[0].name);
   const [priority, setPriority] = useState('medium');
-  const [address, setAddress] = useState('Kukatpally Main Rd, Hyderabad');
+  const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState(17.485);
   const [longitude, setLongitude] = useState(78.3968);
   const [imageUri, setImageUri] = useState(null);

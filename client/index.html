@@ -2,17 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="CivicResolve - Local-first Civic Issue Resolution Platform" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta name="theme-color" content="#F5F5F7" />
+    <meta name="description" content="CivicResolve — Real-Time Civic Issue Reporting, Field Worker Dispatch, and Transparent Citizen Verification Platform." />
+    <meta property="og:title" content="CivicResolve — Civic Issue Resolution Platform" />
+    <meta property="og:description" content="Report local municipal defects, track field worker dispatch with GPS verification, and follow real-time public repair status." />
+    <meta property="og:type" content="website" />
+    <link rel="manifest" href="/manifest.json" />
     <title>CivicResolve — Civic Issue Resolution Platform</title>
-    <!-- Modern Typography -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   </head>
-  <body class="bg-slate-950 text-slate-100 antialiased selection:bg-teal-500 selection:text-white">
+  <body class="bg-[#F5F5F7] text-[#1D1D1F] antialiased selection:bg-[#D2E3FC] selection:text-[#003366]">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      if ('serviceWorker' in navigator && window.location.protocol === 'https:' || window.location.hostname === 'localhost') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch((err) => {
+            console.warn('[PWA] ServiceWorker registration notice:', err.message);
+          });
+        });
+      }
+    </script>
   </body>
 </html>

@@ -14,7 +14,14 @@ export default [
     },
     rules: {
       'no-console': ['warn', { allow: ['log', 'info', 'warn', 'error'] }],
-      'no-unused-vars': ['error', { argsIgnorePattern: '^(next|_)' }],
+      'no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^(next|_)',
+          varsIgnorePattern: '^_',
+          caughtErrors: 'none',
+        },
+      ],
       'prefer-const': 'error',
     },
   },

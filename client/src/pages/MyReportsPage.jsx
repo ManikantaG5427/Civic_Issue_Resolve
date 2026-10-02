@@ -3,65 +3,36 @@ import { Link } from 'react-router-dom';
 import {
   FileText,
   Search,
-  Filter,
   PlusCircle,
   Clock,
   MapPin,
-  AlertTriangle,
   ChevronRight,
   ChevronLeft,
   RefreshCw,
   ImageIcon,
-  CheckCircle2,
-  AlertCircle,
   Eye,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { issueAPI, configAPI } from '../services/api';
+import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import PageHeader from '../components/common/PageHeader';
+import StatusBadge from '../components/common/StatusBadge';
+import PriorityBadge from '../components/common/PriorityBadge';
+import EmptyState from '../components/feedback/EmptyState';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Statuses' },
   { value: 'submitted', label: 'Submitted' },
-  { value: 'in_review', label: 'Under Review' },
+  { value: 'under_review', label: 'Under Review' },
   { value: 'assigned', label: 'Worker Assigned' },
   { value: 'in_progress', label: 'In Progress' },
   { value: 'resolved_verification_pending', label: 'Verification Pending' },
   { value: 'closed', label: 'Resolved & Closed' },
+  { value: 'withdrawn', label: 'Withdrawn' },
   { value: 'rejected', label: 'Rejected' },
 ];
-
-const getStatusBadge = (status) => {
-  switch (status) {
-    case 'submitted':
-      return { label: 'Submitted', color: 'bg-sky-500/10 text-sky-300 border-sky-500/30' };
-    case 'in_review':
-      return { label: 'Under Review', color: 'bg-purple-500/10 text-purple-300 border-purple-500/30' };
-    case 'assigned':
-      return { label: 'Assigned', color: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30' };
-    case 'in_progress':
-      return { label: 'In Progress', color: 'bg-amber-500/10 text-amber-300 border-amber-500/30' };
-    case 'resolved_verification_pending':
-      return { label: 'Verification Pending', color: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' };
-    case 'closed':
-      return { label: 'Closed', color: 'bg-slate-800 text-slate-300 border-slate-700' };
-    case 'rejected':
-      return { label: 'Rejected', color: 'bg-rose-500/10 text-rose-300 border-rose-500/30' };
-    default:
-      return { label: status, color: 'bg-slate-800 text-slate-300 border-slate-700' };
-  }
-};
-
-const getPriorityBadge = (priority) => {
-  switch (priority) {
-    case 'urgent':
-      return { label: 'Urgent', color: 'bg-rose-500/20 text-rose-300 border-rose-500/30' };
-    case 'high':
-      return { label: 'High', color: 'bg-orange-500/20 text-orange-300 border-orange-500/30' };
-    case 'medium':
-      return { label: 'Medium', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
-    default:
-      return { label: 'Low', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' };
-  }
-};
 
 export default function MyReportsPage() {
   const [issues, setIssues] = useState([]);
@@ -77,7 +48,10 @@ export default function MyReportsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Fetch Categories for Filter Dropdown
+  // Delete State
+  const [issueToDelete, setIssueToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
   useEffect(() => {
     async function loadCategories() {
       try {
@@ -90,7 +64,6 @@ export default function MyReportsPage() {
     loadCategories();
   }, []);
 
-  // Fetch Reports Callback
   const fetchReports = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -125,37 +98,52 @@ export default function MyReportsPage() {
     fetchReports();
   };
 
+  const handleDeleteReport = async () => {
+    if (!issueToDelete) return;
+    setDeleting(true);
+    try {
+      await issueAPI.deleteIssue(issueToDelete.issueNumber || issueToDelete._id);
+      setIssues((prev) =>
+        prev.filter(
+          (i) => i._id !== issueToDelete._id && i.issueNumber !== issueToDelete.issueNumber
+        )
+      );
+      setTotalCount((c) => Math.max(0, c - 1));
+      setIssueToDelete(null);
+    } catch (err) {
+      setError(err.message || 'Failed to delete issue report');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-slate-800">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-400 border border-teal-500/20">
-              Queue 7 · Citizen Tracking
-            </span>
-            <span className="text-xs text-slate-400">Live Timeline & Audit Trail</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <FileText className="w-7 h-7 text-teal-400" />
-            My Civic Reports
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Track real-time progress, worker dispatches, and full resolution timelines for your submitted issues.
-          </p>
+      <PageHeader
+        title="My Civic Reports"
+        description="Track real-time progress, worker dispatches, and full resolution timelines for your submitted issues."
+        action={
+          <Link to="/report-issue">
+            <Button icon={PlusCircle}>Report New Issue</Button>
+          </Link>
+        }
+      />
+
+      {error && (
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="text-xs font-bold text-red-700 hover:text-red-900"
+          >
+            Dismiss
+          </button>
         </div>
+      )}
 
-        <Link
-          to="/report-issue"
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold text-sm transition shadow-lg shadow-teal-500/20"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>Report New Issue</span>
-        </Link>
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
+      {/* Filter and Search Card */}
+      <Card className="p-4 sm:p-5">
         <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -164,7 +152,7 @@ export default function MyReportsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by ticket # (CIVIC-2026-...), title, or landmark..."
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              className="w-full rounded-xl border border-slate-300 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-100"
             />
           </div>
 
@@ -177,7 +165,7 @@ export default function MyReportsPage() {
                 setPage(1);
               }}
               aria-label="Filter reports by status"
-              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-teal-500"
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs sm:text-sm text-slate-700 font-semibold focus:border-brand-600 focus:ring-4 focus:ring-brand-100 outline-none"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -194,7 +182,7 @@ export default function MyReportsPage() {
                 setPage(1);
               }}
               aria-label="Filter reports by civic category"
-              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-teal-500"
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs sm:text-sm text-slate-700 font-semibold focus:border-brand-600 focus:ring-4 focus:ring-brand-100 outline-none"
             >
               <option value="all">All Categories</option>
               {categories.map((cat) => (
@@ -204,12 +192,9 @@ export default function MyReportsPage() {
               ))}
             </select>
 
-            <button
-              type="submit"
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-xl border border-slate-700 transition"
-            >
+            <Button type="submit" variant="secondary" size="md">
               Filter
-            </button>
+            </Button>
 
             <button
               type="button"
@@ -219,7 +204,7 @@ export default function MyReportsPage() {
                 setCategoryFilter('all');
                 setPage(1);
               }}
-              className="p-2 text-slate-400 hover:text-slate-200 bg-slate-950 border border-slate-800 rounded-xl transition"
+              className="p-2.5 text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl transition"
               title="Reset Filters"
             >
               <RefreshCw className="w-4 h-4" />
@@ -227,191 +212,216 @@ export default function MyReportsPage() {
           </div>
         </form>
 
-        <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+        <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 mt-3">
           <span>
-            Found <strong className="text-slate-200">{totalCount}</strong> submitted issue{totalCount === 1 ? '' : 's'}
+            Found <strong className="text-slate-900 font-bold">{totalCount}</strong> submitted issue{totalCount === 1 ? '' : 's'}
           </span>
-          {loading && <span className="text-teal-400 flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin" /> Updating...</span>}
+          {loading && (
+            <span className="text-brand-700 font-medium flex items-center gap-1">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Updating...
+            </span>
+          )}
         </div>
-      </div>
+      </Card>
 
-      {/* Error Message */}
-      {error && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0 text-rose-400" />
-          <div className="flex-1">{error}</div>
-          <button
-            onClick={fetchReports}
-            className="px-3 py-1 bg-rose-500/20 hover:bg-rose-500/30 rounded-lg text-xs font-semibold text-rose-200 transition"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* Issue Cards Grid */}
+      {/* Reports Grid */}
       {loading && issues.length === 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((n) => (
-            <div
-              key={n}
-              className="p-5 rounded-2xl bg-slate-900/50 border border-slate-800 animate-pulse space-y-4"
-            >
+            <Card key={n} className="p-6 animate-pulse space-y-4">
               <div className="flex justify-between items-center">
-                <div className="h-5 w-28 bg-slate-800 rounded-md"></div>
-                <div className="h-5 w-20 bg-slate-800 rounded-full"></div>
+                <div className="h-5 w-28 bg-slate-200 rounded-md"></div>
+                <div className="h-5 w-20 bg-slate-200 rounded-full"></div>
               </div>
-              <div className="h-6 w-3/4 bg-slate-800 rounded"></div>
-              <div className="h-4 w-1/2 bg-slate-800 rounded"></div>
-              <div className="h-8 w-full bg-slate-800/60 rounded-xl"></div>
-            </div>
+              <div className="h-6 w-3/4 bg-slate-200 rounded"></div>
+              <div className="h-4 w-1/2 bg-slate-200 rounded"></div>
+              <div className="h-8 w-full bg-slate-100 rounded-xl"></div>
+            </Card>
           ))}
         </div>
       ) : issues.length === 0 ? (
-        <div className="text-center py-16 px-4 rounded-3xl bg-slate-900/40 border border-slate-800/80 space-y-4">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-teal-500/10 text-teal-400 flex items-center justify-center border border-teal-500/20 shadow-lg shadow-teal-500/10">
-            <FileText className="w-7 h-7" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-lg font-semibold text-white">No civic issues found</h3>
-            <p className="text-sm text-slate-400 max-w-md mx-auto">
-              {search || statusFilter !== 'all' || categoryFilter !== 'all'
-                ? 'No reports match your selected search or filter criteria. Try adjusting your filters.'
-                : "You haven't reported any civic issues yet. Spot an issue in your locality? Report it now."}
-            </p>
-          </div>
-          <div className="pt-2">
-            <Link
-              to="/report-issue"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold text-sm transition shadow-lg shadow-teal-500/20"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Report First Issue</span>
-            </Link>
-          </div>
-        </div>
+        <EmptyState
+          icon={FileText}
+          title="No Civic Issues Found"
+          description={
+            search || statusFilter !== 'all' || categoryFilter !== 'all'
+              ? 'No reports match your selected search or filter criteria. Try adjusting your filters.'
+              : "You haven't reported any civic issues yet. Spot an issue in your locality? File a report now."
+          }
+          actionText="Report Your First Issue"
+          onAction={() => (window.location.href = '/report-issue')}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {issues.map((issue) => {
-            const statusBadge = getStatusBadge(issue.status);
-            const priorityBadge = getPriorityBadge(issue.priority);
-
-            return (
-              <div
-                key={issue._id}
-                className="group relative rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 p-5 transition duration-200 hover:shadow-xl hover:shadow-teal-500/5 flex flex-col justify-between space-y-4"
-              >
-                {/* Card Top: Badges & Ticket Number */}
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-teal-400 bg-teal-500/10 px-2.5 py-1 rounded-lg border border-teal-500/20">
-                        {issue.issueNumber}
-                      </span>
-                      <span
-                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${priorityBadge.color}`}
-                      >
-                        {priorityBadge.label}
-                      </span>
-                    </div>
-
-                    <span
-                      className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${statusBadge.color}`}
-                    >
-                      {statusBadge.label}
+          {issues.map((issue) => (
+            <Card
+              key={issue._id}
+              hover
+              className="p-5 flex flex-col justify-between space-y-4"
+            >
+              {/* Card Top */}
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-bold text-brand-800 bg-brand-50 px-2.5 py-1 rounded-lg border border-brand-200">
+                      {issue.issueNumber}
                     </span>
+                    <PriorityBadge priority={issue.priority} size="sm" short />
                   </div>
 
-                  {/* Title & Description */}
-                  <div>
-                    <h3 className="text-base font-semibold text-white group-hover:text-teal-300 transition line-clamp-1">
-                      {issue.title}
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">
-                      {issue.description}
-                    </p>
-                  </div>
+                  <StatusBadge status={issue.status} size="sm" />
                 </div>
 
-                {/* Card Middle: Category, Location, Photos */}
-                <div className="space-y-2 pt-2 border-t border-slate-800/80 text-xs text-slate-400">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-slate-300 font-medium truncate">
-                      📂 {issue.category?.name || 'General Civic'}
-                    </span>
-                    {issue.evidence && issue.evidence.length > 0 && (
-                      <span className="inline-flex items-center gap-1 text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-[11px]">
-                        <ImageIcon className="w-3 h-3 text-teal-400" />
-                        {issue.evidence.length} photo{issue.evidence.length > 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 font-heading line-clamp-1">
+                    {issue.title}
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed">
+                    {issue.description}
+                  </p>
+                </div>
+              </div>
 
-                  <div className="flex items-center gap-1.5 text-slate-400">
-                    <MapPin className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-                    <span className="truncate">
-                      {issue.location?.landmark ? `${issue.location.landmark} · ` : ''}
-                      {issue.location?.address || 'Kukatpally, Hyderabad'}
+              {/* Card Middle */}
+              <div className="space-y-2 pt-3 border-t border-slate-100 text-xs text-slate-600">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-slate-700 truncate">
+                    📂 {issue.category?.name || 'General Civic'}
+                  </span>
+                  {issue.evidence && issue.evidence.length > 0 && (
+                    <span className="inline-flex items-center gap-1 text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 text-[11px] font-medium">
+                      <ImageIcon className="w-3 h-3 text-brand-700" />
+                      {issue.evidence.length} photo{issue.evidence.length > 1 ? 's' : ''}
                     </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Reported {new Date(issue.createdAt).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </span>
-                    {issue.department?.name && (
-                      <span className="text-slate-400 font-medium">
-                        {issue.department.name}
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </div>
 
-                {/* Card Action Link */}
+                <div className="flex items-center gap-1.5 text-slate-500">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                  <span className="truncate">
+                    {issue.location?.landmark ? `${issue.location.landmark} · ` : ''}
+                    {issue.location?.address || issue.serviceArea?.name || 'Hyderabad'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Reported {new Date(issue.createdAt).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </span>
+                  {issue.department?.name && (
+                    <span className="text-slate-600 font-semibold">
+                      {issue.department.name}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Card Bottom Links & Actions */}
+              <div className="flex items-center gap-2 pt-1">
                 <Link
                   to={`/issues/${issue.issueNumber || issue._id}`}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-teal-500 hover:text-slate-950 text-slate-200 text-xs font-semibold transition border border-slate-700/60 shadow-sm"
+                  className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-50 hover:bg-brand-700 hover:text-white text-slate-700 text-xs font-bold transition border border-slate-200 shadow-soft"
                 >
                   <Eye className="w-3.5 h-3.5" />
                   <span>View Timeline & Details</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </Link>
+
+                <button
+                  type="button"
+                  onClick={() => setIssueToDelete(issue)}
+                  className="p-2.5 rounded-xl bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-700 border border-slate-200 hover:border-red-300 transition shadow-soft"
+                  title="Delete this issue report"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-            );
-          })}
+            </Card>
+          ))}
         </div>
       )}
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-4 border-t border-slate-800">
-          <button
+        <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1 || loading}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+            icon={ChevronLeft}
           >
-            <ChevronLeft className="w-4 h-4" />
             Previous
-          </button>
+          </Button>
 
-          <span className="text-xs text-slate-400">
-            Page <strong className="text-slate-200">{page}</strong> of{' '}
-            <strong className="text-slate-200">{totalPages}</strong>
+          <span className="text-xs text-slate-500">
+            Page <strong className="text-slate-900 font-bold">{page}</strong> of{' '}
+            <strong className="text-slate-900 font-bold">{totalPages}</strong>
           </span>
 
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages || loading}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
           >
-            Next
+            <span>Next</span>
             <ChevronRight className="w-4 h-4" />
-          </button>
+          </Button>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {issueToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-elevated">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 font-heading">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+                Delete Civic Report
+              </h3>
+              <button
+                onClick={() => setIssueToDelete(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                Are you sure you want to permanently delete ticket{' '}
+                <strong className="font-mono text-slate-900">{issueToDelete.issueNumber}</strong>: "
+                <span className="text-slate-800 font-medium">{issueToDelete.title}</span>"?
+              </p>
+              <p className="text-xs text-red-600 font-medium">
+                This report and all attached evidence will be removed from your civic dashboard immediately.
+              </p>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIssueToDelete(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteReport}
+                  disabled={deleting}
+                  className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition disabled:opacity-50"
+                >
+                  {deleting ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
