@@ -12,7 +12,9 @@ try {
  * Connect to MongoDB with robust event handling and retry logic
  */
 export const connectDB = async () => {
-  const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/civicresolve';
+  let uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/civicresolve';
+  // Strip surrounding quotes and whitespace if accidentally added in environment variables
+  uri = uri.trim().replace(/^["']|["']$/g, '');
 
   try {
     const conn = await mongoose.connect(uri, {

@@ -9,25 +9,44 @@ import RoleRoute from './components/RoleRoute';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { Loader2 } from 'lucide-react';
 
-// Code-split route pages via React.lazy for high performance
-const HomePage = lazy(() => import('./pages/HomePage'));
-const LoginPage = lazy(() => import('./pages/LoginPage'));
-const RegisterPage = lazy(() => import('./pages/RegisterPage'));
-const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
-const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const ReportIssuePage = lazy(() => import('./pages/ReportIssuePage'));
-const MyReportsPage = lazy(() => import('./pages/MyReportsPage'));
-const IssueDetailPage = lazy(() => import('./pages/IssueDetailPage'));
-const AdminReviewQueuePage = lazy(() => import('./pages/AdminReviewQueuePage'));
-const AdminAnalyticsPage = lazy(() => import('./pages/AdminAnalyticsPage'));
-const PublicCivicMapPage = lazy(() => import('./pages/PublicCivicMapPage'));
-const WorkerDashboardPage = lazy(() => import('./pages/WorkerDashboardPage'));
-const ConfigCatalogPage = lazy(() => import('./pages/ConfigCatalogPage'));
-const ForbiddenPage = lazy(() => import('./pages/ForbiddenPage'));
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
-const TermsPage = lazy(() => import('./pages/TermsPage'));
-const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+// Robust lazy import with automatic cache recovery on redeployment
+function lazyWithRetry(componentImport) {
+  return lazy(async () => {
+    const isRefreshed = sessionStorage.getItem('chunk_retry');
+    try {
+      const component = await componentImport();
+      sessionStorage.removeItem('chunk_retry');
+      return component;
+    } catch (error) {
+      if (!isRefreshed) {
+        sessionStorage.setItem('chunk_retry', 'true');
+        window.location.reload();
+        return;
+      }
+      throw error;
+    }
+  });
+}
+
+// Code-split route pages with auto-healing dynamic imports
+const HomePage = lazyWithRetry(() => import('./pages/HomePage'));
+const LoginPage = lazyWithRetry(() => import('./pages/LoginPage'));
+const RegisterPage = lazyWithRetry(() => import('./pages/RegisterPage'));
+const ForgotPasswordPage = lazyWithRetry(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazyWithRetry(() => import('./pages/ResetPasswordPage'));
+const DashboardPage = lazyWithRetry(() => import('./pages/DashboardPage'));
+const ReportIssuePage = lazyWithRetry(() => import('./pages/ReportIssuePage'));
+const MyReportsPage = lazyWithRetry(() => import('./pages/MyReportsPage'));
+const IssueDetailPage = lazyWithRetry(() => import('./pages/IssueDetailPage'));
+const AdminReviewQueuePage = lazyWithRetry(() => import('./pages/AdminReviewQueuePage'));
+const AdminAnalyticsPage = lazyWithRetry(() => import('./pages/AdminAnalyticsPage'));
+const PublicCivicMapPage = lazyWithRetry(() => import('./pages/PublicCivicMapPage'));
+const WorkerDashboardPage = lazyWithRetry(() => import('./pages/WorkerDashboardPage'));
+const ConfigCatalogPage = lazyWithRetry(() => import('./pages/ConfigCatalogPage'));
+const ForbiddenPage = lazyWithRetry(() => import('./pages/ForbiddenPage'));
+const NotFoundPage = lazyWithRetry(() => import('./pages/NotFoundPage'));
+const TermsPage = lazyWithRetry(() => import('./pages/TermsPage'));
+const PrivacyPage = lazyWithRetry(() => import('./pages/PrivacyPage'));
 
 function PageLoader() {
   return (

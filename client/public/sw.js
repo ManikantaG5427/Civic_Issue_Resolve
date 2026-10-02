@@ -32,11 +32,28 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only cache GET requests that are not API calls
+  // Only handle GET requests and skip API calls
   if (event.request.method !== 'GET' || event.request.url.includes('/api/')) {
     return;
   }
 
+  // Network-First for dynamic asset chunks (js/css) to avoid stale chunk errors
+  if (event.request.url.includes('/assets/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-First with Network fallback for static shell
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -53,7 +70,6 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // Fallback to offline index if html request
           if (event.request.headers.get('accept')?.includes('text/html')) {
             return caches.match('/index.html');
           }
