@@ -4,30 +4,40 @@ import { authAPI } from '../services/api';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
-import { KeyRound, Mail, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { KeyRound, Mail, AlertCircle, CheckCircle2, ArrowLeft, UserPlus } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [formError, setFormError] = useState('');
+  const [isNotRegistered, setIsNotRegistered] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successInfo, setSuccessInfo] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+    setIsNotRegistered(false);
     setSuccessInfo(null);
 
-    if (!email) {
+    if (!email || !email.trim()) {
       setFormError('Please enter your registered email address');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await authAPI.forgotPassword({ email });
-      setSuccessInfo(res.data || { message: res.message });
+      const res = await authAPI.forgotPassword({ email: email.trim() });
+      setSuccessInfo(res.message || 'A password reset link has been dispatched to your email address.');
     } catch (err) {
-      setFormError(err.message || 'Failed to process password reset request. Please try again.');
+      const errorMsg = err.message || 'Failed to process password reset request. Please try again.';
+      setFormError(errorMsg);
+      if (
+        errorMsg.toLowerCase().includes('register first') ||
+        errorMsg.toLowerCase().includes('no account found') ||
+        err.status === 404
+      ) {
+        setIsNotRegistered(true);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -50,9 +60,29 @@ export default function ForgotPasswordPage() {
 
         <Card elevated className="p-6 sm:p-8">
           {formError && (
-            <div className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 flex items-start space-x-3 text-xs sm:text-sm">
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <span>{formError}</span>
+            <div className="mb-5 p-4 rounded-xl bg-red-50 border border-red-200 text-red-900 text-xs sm:text-sm space-y-3">
+              <div className="flex items-start space-x-3">
+                <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold">{formError}</p>
+                  {isNotRegistered && (
+                    <p className="mt-1 text-xs text-red-700">
+                      You need to create a new CivicResolve account with this email address before you can sign in.
+                    </p>
+                  )}
+                </div>
+              </div>
+              {isNotRegistered && (
+                <div className="pt-2 border-t border-red-200">
+                  <Link
+                    to={`/register?email=${encodeURIComponent(email)}`}
+                    className="inline-flex items-center justify-center gap-2 w-full py-2 px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-xs shadow-sm transition"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Register an Account Now</span>
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 
@@ -61,14 +91,14 @@ export default function ForgotPasswordPage() {
               <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-900 space-y-2">
                 <div className="flex items-center gap-2 font-bold text-sm text-green-800">
                   <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  <span>Password Reset Instructions Sent</span>
+                  <span>Password Reset Link Dispatched</span>
                 </div>
                 <p className="text-xs text-green-700 leading-relaxed">
-                  If an account exists for <strong className="font-semibold">{email}</strong>, a secure reset link has been dispatched to your email address. Please check your inbox and spam folder.
+                  A secure password reset link has been dispatched to <strong className="font-semibold text-green-900">{email}</strong>. Please check your inbox (and spam folder) within the next hour.
                 </p>
               </div>
 
-              <div className="pt-3 text-center">
+              <div className="pt-3 text-center space-y-2">
                 <Link
                   to="/login"
                   className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 hover:text-slate-900 transition"
@@ -85,7 +115,11 @@ export default function ForgotPasswordPage() {
                 type="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (formError) setFormError('');
+                  if (isNotRegistered) setIsNotRegistered(false);
+                }}
                 placeholder="user@example.com"
                 icon={Mail}
               />
@@ -99,13 +133,20 @@ export default function ForgotPasswordPage() {
                 Send Reset Instructions
               </Button>
 
-              <div className="mt-6 pt-5 border-t border-slate-200 text-center">
+              <div className="mt-6 pt-5 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
                 <Link
                   to="/login"
-                  className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition"
+                  className="inline-flex items-center gap-1.5 font-semibold text-slate-600 hover:text-slate-900 transition"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Return to Sign In</span>
+                </Link>
+
+                <Link
+                  to="/register"
+                  className="font-semibold text-brand-700 hover:text-brand-800 transition"
+                >
+                  Need an account? Register
                 </Link>
               </div>
             </form>
@@ -115,3 +156,4 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
+

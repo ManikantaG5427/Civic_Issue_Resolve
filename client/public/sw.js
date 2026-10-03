@@ -1,5 +1,5 @@
 // CivicResolve Service Worker for offline asset caching
-const CACHE_NAME = 'civicresolve-v1';
+const CACHE_NAME = 'civicresolve-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -37,6 +37,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Handle HTML navigation (Single Page Application routing fallback)
+  if (event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            return networkResponse;
+          }
+          // If server returned 404 on deep link, fallback to cached /index.html shell
+          return caches.match('/index.html').then((cachedIndex) => cachedIndex || networkResponse);
+        })
+        .catch(() => {
+          return caches.match('/index.html');
+        })
+    );
+    return;
+  }
+
   // Network-First for dynamic asset chunks (js/css) to avoid stale chunk errors
   if (event.request.url.includes('/assets/')) {
     event.respondWith(
@@ -53,7 +71,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-First with Network fallback for static shell
+  // Cache-First with Network fallback for static assets
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -77,3 +95,4 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+

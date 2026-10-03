@@ -232,14 +232,16 @@ export const forgotPassword = async (req, res, next) => {
       return next(new AppError('Please provide your registered email address', 400));
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    // Check if user is present in database; if not, instruct them to register first
     if (!user) {
-      // Return safe success message to prevent user enumeration
-      return successResponse(
-        res,
-        'If an account exists with that email, a password reset link has been prepared.',
-        null,
-        200
+      return next(
+        new AppError(
+          'No account found with this email address. Please register first to create an account.',
+          404
+        )
       );
     }
 
@@ -252,14 +254,30 @@ export const forgotPassword = async (req, res, next) => {
     user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save({ validateBeforeSave: false });
 
-    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+    const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
     const { sendPasswordResetEmail } = await import('../services/emailService.js');
-    await sendPasswordResetEmail(user.email, user.name, resetUrl);
+    try {
+      await sendPasswordResetEmail(user.email, user.name, resetUrl);
+    } catch (emailError) {
+      // Rollback reset token if email delivery fails
+      user.passwordResetToken = undefined;
+      user.passwordResetExpires = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      console.error(`[Email Dispatch Failure] Error delivering reset email to ${user.email}:`, emailError.message);
+      return next(
+        new AppError(
+          `Unable to send password reset email (${emailError.message}). Please verify your server email credentials or contact support.`,
+          500
+        )
+      );
+    }
 
     return successResponse(
       res,
-      'If an account exists with that email, a password reset link has been dispatched.',
+      `A password reset link has been successfully dispatched to ${user.email}. Please check your inbox.`,
       null,
       200
     );
