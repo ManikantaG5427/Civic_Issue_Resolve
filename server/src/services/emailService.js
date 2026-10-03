@@ -1,16 +1,19 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+// Force DNS resolution to prefer IPv4 over IPv6 to prevent ENETUNREACH errors on SMTP connections
+if (dns && typeof dns.setDefaultResultOrder === 'function') {
+  try {
+    dns.setDefaultResultOrder('ipv4first');
+  } catch {
+    // Ignore if not supported in runtime
+  }
+}
 
 /**
- * Cached Transporter Instance
- * Reuses the transporter connection to avoid repeated setup overhead
+ * Create a robust, fast transporter forcing IPv4 with short connection timeouts
  */
-let cachedTransporter = null;
-
-const getTransporter = () => {
-  if (cachedTransporter) {
-    return cachedTransporter;
-  }
-
+const createTransporter = (port = 465, secure = true) => {
   const user = process.env.SMTP_USER ? process.env.SMTP_USER.trim() : '';
   const pass = process.env.SMTP_PASS ? process.env.SMTP_PASS.replace(/\s+/g, '') : '';
 
@@ -18,28 +21,41 @@ const getTransporter = () => {
     return null;
   }
 
-  if (user.endsWith('@gmail.com') || process.env.SMTP_SERVICE === 'gmail') {
-    cachedTransporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user,
-        pass,
-      },
-    });
-    return cachedTransporter;
-  }
-
-  cachedTransporter = nodemailer.createTransport({
+  return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
-    secure: process.env.SMTP_SECURE === 'true',
+    port,
+    secure,
+    family: 4, // Explicitly force IPv4 to avoid ENETUNREACH on IPv6
+    connectionTimeout: 8000, // 8 seconds max to connect
+    greetingTimeout: 8000,   // 8 seconds max for greeting
+    socketTimeout: 12000,    // 12 seconds max for data transfer
     auth: {
       user,
       pass,
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
+};
 
-  return cachedTransporter;
+let primaryTransporter = null;
+let fallbackTransporter = null;
+
+const getPrimaryTransporter = () => {
+  if (!primaryTransporter) {
+    // Port 465 (Direct SSL)
+    primaryTransporter = createTransporter(465, true);
+  }
+  return primaryTransporter;
+};
+
+const getFallbackTransporter = () => {
+  if (!fallbackTransporter) {
+    // Port 587 (STARTTLS)
+    fallbackTransporter = createTransporter(587, false);
+  }
+  return fallbackTransporter;
 };
 
 
@@ -98,29 +114,43 @@ export const sendPasswordResetEmail = async (toEmail, userName, resetUrl) => {
 
   const textContent = `CivicResolve — Password Reset Instructions\n\nHello ${userName || 'Citizen'},\n\nWe received a request to reset the password for your account (${toEmail}).\n\nPlease visit the link below to set a new password:\n${resetUrl}\n\nThis link is valid for 1 hour.\nIf you did not request this, please ignore this email.`;
 
-  const transporter = getTransporter();
-  if (!transporter) {
+  const primary = getPrimaryTransporter();
+  if (!primary) {
     console.warn(`[Dev Email Simulation] -> To: ${toEmail} | Subject: ${subject} | URL: ${resetUrl}`);
     return { success: true, simulated: true };
   }
 
+  const sender = process.env.EMAIL_FROM_ADDRESS || process.env.SMTP_USER.trim();
+  const senderName = process.env.EMAIL_FROM_NAME || 'CivicResolve Support';
+  const mailOptions = {
+    from: `"${senderName}" <${sender}>`,
+    to: toEmail,
+    subject,
+    text: textContent,
+    html: htmlContent,
+  };
+
   try {
-    const sender = process.env.EMAIL_FROM_ADDRESS || process.env.SMTP_USER.trim();
-    const senderName = process.env.EMAIL_FROM_NAME || 'CivicResolve Support';
-
-    const info = await transporter.sendMail({
-      from: `"${senderName}" <${sender}>`,
-      to: toEmail,
-      subject,
-      text: textContent,
-      html: htmlContent,
-    });
-
+    // Attempt fast delivery via Primary Transporter (Port 465 SSL, IPv4)
+    const info = await primary.sendMail(mailOptions);
     console.info(`[Email Dispatch] Password reset email successfully sent to: ${toEmail} (Message ID: ${info.messageId})`);
     return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error(`[Email Dispatch Error] Failed to send email to ${toEmail}:`, error.message);
-    throw new Error(`Email delivery failed: ${error.message}`);
+  } catch (primaryError) {
+    console.warn(
+      `[Email Dispatch] Primary transporter (Port 465) failed (${primaryError.message}). Attempting fallback on Port 587...`
+    );
+
+    try {
+      const fallback = getFallbackTransporter();
+      const fallbackInfo = await fallback.sendMail(mailOptions);
+      console.info(
+        `[Email Dispatch] Password reset email successfully sent via fallback to: ${toEmail} (Message ID: ${fallbackInfo.messageId})`
+      );
+      return { success: true, messageId: fallbackInfo.messageId };
+    } catch (fallbackError) {
+      console.error(`[Email Dispatch Error] Failed to send email to ${toEmail}:`, fallbackError.message);
+      throw new Error(`Email delivery failed: ${fallbackError.message}`);
+    }
   }
 };
 

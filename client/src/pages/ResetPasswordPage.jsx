@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import Card from '../components/ui/Card';
@@ -15,6 +15,34 @@ export default function ResetPasswordPage() {
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  // Auto-redirect to home page if page left open or idle for > 24 hours
+  useEffect(() => {
+    const pageOpenKey = `reset_opened_${token}`;
+    const openedAt = sessionStorage.getItem(pageOpenKey);
+    const now = Date.now();
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+
+    if (!openedAt) {
+      sessionStorage.setItem(pageOpenKey, String(now));
+    } else if (now - Number(openedAt) >= ONE_DAY) {
+      sessionStorage.removeItem(pageOpenKey);
+      sessionStorage.setItem('civic_inactivity_notice', 'true');
+      navigate('/', { replace: true, state: { inactivityRedirect: true } });
+      return;
+    }
+
+    const timer = setInterval(() => {
+      const currentOpenedAt = sessionStorage.getItem(pageOpenKey);
+      if (currentOpenedAt && Date.now() - Number(currentOpenedAt) >= ONE_DAY) {
+        sessionStorage.removeItem(pageOpenKey);
+        sessionStorage.setItem('civic_inactivity_notice', 'true');
+        navigate('/', { replace: true, state: { inactivityRedirect: true } });
+      }
+    }, 30000);
+
+    return () => clearInterval(timer);
+  }, [token, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

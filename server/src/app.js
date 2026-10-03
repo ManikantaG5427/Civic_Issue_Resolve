@@ -30,6 +30,7 @@ app.use(
 
 // CORS configuration supporting web and mobile clients
 const allowedOrigins = [
+  'https://civicissueresolve-client.vercel.app',
   process.env.CLIENT_URL || 'http://localhost:5173',
   'http://localhost:3000',
   'http://localhost:5173',

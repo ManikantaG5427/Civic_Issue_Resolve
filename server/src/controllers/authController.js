@@ -254,7 +254,19 @@ export const forgotPassword = async (req, res, next) => {
     user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save({ validateBeforeSave: false });
 
-    const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
+    // Resolve client URL dynamically based on request origin/referer or config
+    let dynamicClientUrl = process.env.CLIENT_URL || 'https://civicissueresolve-client.vercel.app';
+    if (req.headers.origin && typeof req.headers.origin === 'string' && req.headers.origin.startsWith('http')) {
+      dynamicClientUrl = req.headers.origin;
+    } else if (req.headers.referer && typeof req.headers.referer === 'string') {
+      try {
+        dynamicClientUrl = new URL(req.headers.referer).origin;
+      } catch {
+        // Fall back to default dynamicClientUrl
+      }
+    }
+
+    const clientUrl = dynamicClientUrl.replace(/\/$/, '');
     const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
     const { sendPasswordResetEmail } = await import('../services/emailService.js');

@@ -7,6 +7,7 @@ import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleRoute from './components/RoleRoute';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import InactivityGuard from './components/common/InactivityGuard';
 import { Loader2 } from 'lucide-react';
 
 // Robust lazy import with automatic cache recovery on redeployment
@@ -63,6 +64,7 @@ export default function App() {
       <AuthProvider>
         <SocketProvider>
           <BrowserRouter>
+            <InactivityGuard />
             <div className="min-h-screen flex flex-col bg-[#F4F7F4] text-charcoal-900 selection:bg-[#B4D5C2] selection:text-[#183827] font-sans">
               <HoverableSidebar />
               <div className="flex-1 flex flex-col md:pl-20 transition-all duration-300">
