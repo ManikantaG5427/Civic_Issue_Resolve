@@ -1,39 +1,48 @@
 import nodemailer from 'nodemailer';
 
 /**
- * Configure email transporter
- * Uses SMTP settings or Gmail service if provided in .env
+ * Cached Transporter Instance
+ * Reuses the transporter connection to avoid repeated setup overhead
  */
-const createTransporter = async () => {
+let cachedTransporter = null;
+
+const getTransporter = () => {
+  if (cachedTransporter) {
+    return cachedTransporter;
+  }
+
   const user = process.env.SMTP_USER ? process.env.SMTP_USER.trim() : '';
-  // Google App Passwords are 16 letters often copied with spaces (e.g. "pltu hrry hibg mdtn")
   const pass = process.env.SMTP_PASS ? process.env.SMTP_PASS.replace(/\s+/g, '') : '';
 
-  if (user && pass) {
-    if (user.endsWith('@gmail.com') || process.env.SMTP_SERVICE === 'gmail') {
-      return nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user,
-          pass,
-        },
-      });
-    }
+  if (!user || !pass) {
+    return null;
+  }
 
-    return nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587', 10),
-      secure: process.env.SMTP_SECURE === 'true',
+  if (user.endsWith('@gmail.com') || process.env.SMTP_SERVICE === 'gmail') {
+    cachedTransporter = nodemailer.createTransport({
+      service: 'gmail',
       auth: {
         user,
         pass,
       },
     });
+    return cachedTransporter;
   }
 
-  // Fallback when SMTP is not configured
-  return null;
+  cachedTransporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user,
+      pass,
+    },
+  });
+
+  return cachedTransporter;
 };
+
+
 
 /**
  * Send Password Reset Email with responsive HTML template
@@ -89,7 +98,7 @@ export const sendPasswordResetEmail = async (toEmail, userName, resetUrl) => {
 
   const textContent = `CivicResolve — Password Reset Instructions\n\nHello ${userName || 'Citizen'},\n\nWe received a request to reset the password for your account (${toEmail}).\n\nPlease visit the link below to set a new password:\n${resetUrl}\n\nThis link is valid for 1 hour.\nIf you did not request this, please ignore this email.`;
 
-  const transporter = await createTransporter();
+  const transporter = getTransporter();
   if (!transporter) {
     console.warn(`[Dev Email Simulation] -> To: ${toEmail} | Subject: ${subject} | URL: ${resetUrl}`);
     return { success: true, simulated: true };
