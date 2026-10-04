@@ -714,14 +714,32 @@ export const updateProfile = async (req, res, next) => {
  */
 export const googleAuth = async (req, res, next) => {
   try {
-    const { credential, email: rawEmail, name: rawName, picture, googleId: rawGoogleId, requestedRole } = req.body;
+    const { credential, accessToken: rawAccessToken, email: rawEmail, name: rawName, picture, googleId: rawGoogleId, requestedRole } = req.body;
 
     let email = rawEmail;
     let name = rawName;
     let avatar = picture || '';
     let googleId = rawGoogleId;
 
-    // Decode Google ID Token if passed as JWT credential
+    // 1. If OAuth2 access token provided, fetch verified user info directly from Google API
+    if (rawAccessToken && (!email || !googleId)) {
+      try {
+        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${rawAccessToken}` },
+        });
+        if (userInfoRes.ok) {
+          const profile = await userInfoRes.json();
+          if (profile.email) email = profile.email;
+          if (profile.name) name = profile.name;
+          if (profile.picture) avatar = profile.picture;
+          if (profile.sub) googleId = profile.sub;
+        }
+      } catch (tokenErr) {
+        console.warn('[Google UserInfo Fetch Warning]', tokenErr.message);
+      }
+    }
+
+    // 2. Decode Google ID Token if passed as JWT credential
     if (credential && typeof credential === 'string') {
       try {
         const parts = credential.split('.');
@@ -739,7 +757,7 @@ export const googleAuth = async (req, res, next) => {
     }
 
     if (!email) {
-      return next(new AppError('Google authentication failed: Email address could not be verified.', 400));
+      return next(new AppError('Google authentication failed: Email address could not be verified by Google.', 400));
     }
 
     const normalizedEmail = email.toLowerCase().trim();

@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Loader2, AlertCircle, X, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertCircle, X, ExternalLink, KeyRound, CheckCircle2 } from 'lucide-react';
 
 export default function GoogleSignInButton({
-  label = 'Continue with Google',
+  label = 'Sign in with Google',
   redirectPath = '/dashboard',
   role = 'citizen',
   onError,
@@ -12,293 +12,305 @@ export default function GoogleSignInButton({
   const { googleLogin } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [showSimModal, setShowSimModal] = useState(false);
-  const [simEmail, setSimEmail] = useState('');
-  const [simName, setSimName] = useState('');
-  const [simError, setSimError] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [customClientId, setCustomClientId] = useState('');
 
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const buttonContainerRef = useRef(null);
+  const tokenClientRef = useRef(null);
 
-  // Initialize Google Identity Services if client ID exists
+  // Client ID from environment or user-specified
+  const clientId =
+    import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+    localStorage.getItem('civic_google_client_id') ||
+    customClientId;
+
+  // Load Google Identity Services SDK
   useEffect(() => {
-    if (!googleClientId) return;
+    let isMounted = true;
 
-    const loadGIS = () => {
-      if (window.google?.accounts?.id) {
+    const initGoogleServices = () => {
+      if (!window.google?.accounts) return;
+
+      if (clientId) {
         try {
+          // 1. Initialize Google ID (Credential / JWT)
           window.google.accounts.id.initialize({
-            client_id: googleClientId,
-            callback: handleGoogleCredentialResponse,
+            client_id: clientId,
+            callback: handleCredentialResponse,
             auto_select: false,
-            cancel_on_tap_outside: true,
+          });
+
+          // Render official Google button if container ref is available
+          if (buttonContainerRef.current) {
+            buttonContainerRef.current.innerHTML = '';
+            window.google.accounts.id.renderButton(buttonContainerRef.current, {
+              type: 'standard',
+              theme: 'outline',
+              size: 'large',
+              text: label.toLowerCase().includes('sign up') || label.toLowerCase().includes('register')
+                ? 'signup_with'
+                : 'signin_with',
+              shape: 'rectangular',
+              logo_alignment: 'left',
+              width: buttonContainerRef.current.offsetWidth || 340,
+            });
+          }
+
+          // 2. Initialize OAuth 2.0 Token Client for direct popup ("Choose an account")
+          tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+            client_id: clientId,
+            scope: 'openid email profile',
+            callback: handleOAuthResponse,
           });
         } catch (err) {
-          console.warn('GIS initialization error:', err);
+          console.warn('Failed to initialize Google Identity Services:', err);
         }
       }
     };
 
-    if (!document.getElementById('google-client-script')) {
+    if (!document.getElementById('google-gsi-script')) {
       const script = document.createElement('script');
-      script.id = 'google-client-script';
+      script.id = 'google-gsi-script';
       script.src = 'https://accounts.google.com/gsi/client';
       script.async = true;
       script.defer = true;
-      script.onload = loadGIS;
+      script.onload = () => {
+        if (isMounted) initGoogleServices();
+      };
       document.body.appendChild(script);
     } else {
-      loadGIS();
+      initGoogleServices();
     }
-  }, [googleClientId]);
 
-  const handleGoogleCredentialResponse = async (response) => {
+    return () => {
+      isMounted = false;
+    };
+  }, [clientId, label]);
+
+  // Handler for Google ID token (JWT)
+  const handleCredentialResponse = async (response) => {
     if (!response?.credential) return;
     setLoading(true);
+    setErrorMsg('');
     try {
       const result = await googleLogin({
         credential: response.credential,
         role,
       });
+
       if (result.success) {
         navigate(redirectPath, { replace: true });
       } else {
-        if (onError) onError(result.error);
-        else setSimError(result.error || 'Google authentication failed.');
+        const msg = result.error || 'Google authentication failed';
+        setErrorMsg(msg);
+        if (onError) onError(msg);
       }
     } catch (err) {
-      if (onError) onError(err.message);
+      const msg = err.message || 'Failed to authenticate with Google';
+      setErrorMsg(msg);
+      if (onError) onError(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleButtonClick = () => {
-    // If real Google Client ID is configured and GIS is available, trigger One Tap prompt
-    if (googleClientId && window.google?.accounts?.id) {
-      setLoading(true);
-      try {
-        window.google.accounts.id.prompt((notification) => {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            setLoading(false);
-            // Fall back to direct modal if prompt is not displayed
-            setShowSimModal(true);
-          }
-        });
-      } catch {
-        setLoading(false);
-        setShowSimModal(true);
+  // Handler for OAuth 2.0 Access Token ("Choose an account" popup)
+  const handleOAuthResponse = async (tokenResponse) => {
+    if (tokenResponse.error) {
+      setLoading(false);
+      setErrorMsg(`Google authorization error: ${tokenResponse.error}`);
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      // Send access token to backend for server-side verification and login
+      const result = await googleLogin({
+        accessToken: tokenResponse.access_token,
+        role,
+      });
+
+      if (result.success) {
+        navigate(redirectPath, { replace: true });
+      } else {
+        const msg = result.error || 'Google login failed';
+        setErrorMsg(msg);
+        if (onError) onError(msg);
       }
-    } else {
-      // Show Google OAuth login modal
-      setShowSimModal(true);
+    } catch (err) {
+      const msg = err.message || 'Failed to connect Google account';
+      setErrorMsg(msg);
+      if (onError) onError(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleQuickGoogleSubmit = async (e) => {
-    e.preventDefault();
-    setSimError('');
-
-    if (!simEmail || !simEmail.includes('@')) {
-      setSimError('Please enter a valid Google email address');
+  // Direct button click -> triggers real Google OAuth popup
+  const handleButtonClick = () => {
+    setErrorMsg('');
+    if (!clientId) {
+      setShowConfigModal(true);
       return;
     }
 
     setLoading(true);
     try {
-      const result = await googleLogin({
-        email: simEmail.trim().toLowerCase(),
-        name: simName.trim() || simEmail.split('@')[0],
-        googleId: `google_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-        picture: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(simEmail.trim())}`,
-        role,
-      });
-
-      if (result.success) {
-        setShowSimModal(false);
-        navigate(redirectPath, { replace: true });
+      if (tokenClientRef.current) {
+        // Triggers Google's real "Choose an account" popup
+        tokenClientRef.current.requestAccessToken({ prompt: 'select_account' });
+      } else if (window.google?.accounts?.id) {
+        window.google.accounts.id.prompt((notification) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            setLoading(false);
+          }
+        });
       } else {
-        setSimError(result.error || 'Failed to sign in with Google');
+        setLoading(false);
+        setShowConfigModal(true);
       }
     } catch (err) {
-      setSimError(err.message || 'Authentication error');
-    } finally {
       setLoading(false);
+      setErrorMsg(err.message || 'Could not open Google Sign-In popup');
     }
   };
 
-  return (
-    <>
-      <button
-        type="button"
-        onClick={handleButtonClick}
-        disabled={loading}
-        className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold shadow-sm transition-all duration-200 hover:border-slate-400 focus:outline-none focus:ring-4 focus:ring-slate-100 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
-      >
-        {loading ? (
-          <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
-        ) : (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-            <path
-              fill="#4285F4"
-              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-            />
-            <path
-              fill="#EA4335"
-              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-            />
-          </svg>
-        )}
-        <span>{label}</span>
-      </button>
+  const handleSaveCustomClientId = (e) => {
+    e.preventDefault();
+    if (!customClientId.trim()) return;
+    localStorage.setItem('civic_google_client_id', customClientId.trim());
+    setShowConfigModal(false);
+    setErrorMsg('');
+  };
 
-      {/* Interactive Google Sign-In Modal */}
-      {showSimModal && (
+  return (
+    <div className="w-full space-y-2">
+      {errorMsg && (
+        <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+          <span className="flex-1">{errorMsg}</span>
+        </div>
+      )}
+
+      {/* Official Google Button container if rendered by GIS */}
+      <div ref={buttonContainerRef} className="w-full flex justify-center empty:hidden" />
+
+      {/* Fallback / Custom Styled Google Sign-In Button */}
+      {(!clientId || !buttonContainerRef.current?.hasChildNodes()) && (
+        <button
+          type="button"
+          onClick={handleButtonClick}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold shadow-sm transition-all duration-200 hover:border-slate-400 focus:outline-none focus:ring-4 focus:ring-slate-100 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
+          ) : (
+            <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+              />
+            </svg>
+          )}
+          <span>{label}</span>
+        </button>
+      )}
+
+      {/* Google OAuth Client ID Configuration Modal */}
+      {showConfigModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 relative animate-in zoom-in-95 duration-200">
             <button
-              onClick={() => {
-                setShowSimModal(false);
-                setSimError('');
-              }}
+              onClick={() => setShowConfigModal(false)}
               className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="text-center mb-6">
-              <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 shadow-md flex items-center justify-center mx-auto mb-3">
-                <svg className="w-7 h-7" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                  />
-                </svg>
+            <div className="text-center mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-200 text-brand-700 flex items-center justify-center mx-auto mb-3 shadow-sm">
+                <KeyRound className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
-                Sign in with Google
+              <h3 className="text-lg font-bold text-slate-900 tracking-tight">
+                Connect Real Google OAuth
               </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Authenticate your verified Google profile with CivicResolve.
+              <p className="text-xs text-slate-600 mt-1">
+                To launch the real Google <em>"Choose an account"</em> popup, add your Google Cloud OAuth Client ID.
               </p>
             </div>
 
-            {simError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 flex items-center gap-2 text-xs">
-                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                <span>{simError}</span>
-              </div>
-            )}
-
-            {/* Quick Demo Options */}
-            <div className="mb-4 space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Quick Select Account
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSimEmail('gundrothumanikantad@gmail.com');
-                  setSimName('Manikanta Gundrothu');
-                }}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-200 hover:border-brand-500 hover:bg-brand-50/50 transition text-left text-xs text-slate-800 group"
+            <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs text-slate-700 space-y-2 mb-4">
+              <p className="font-semibold text-slate-900">How to get your Client ID in 1 minute:</p>
+              <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-600">
+                <li>Go to Google Cloud Console &rarr; <strong>APIs & Services</strong> &rarr; <strong>Credentials</strong></li>
+                <li>Create an <strong>OAuth 2.0 Client ID</strong> (Web application)</li>
+                <li>Add <code className="bg-white px-1 py-0.5 rounded border">http://localhost:5173</code> to Authorized JavaScript origins</li>
+              </ol>
+              <a
+                href="https://console.cloud.google.com/apis/credentials"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-700 hover:underline pt-1"
               >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-full bg-brand-600 text-white font-bold flex items-center justify-center text-xs">
-                    M
-                  </div>
-                  <div>
-                    <div className="font-bold flex items-center gap-1.5">
-                      <span>Manikanta Gundrothu</span>
-                      <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-full">
-                        Super Admin
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-500">gundrothumanikantad@gmail.com</div>
-                  </div>
-                </div>
-                <Sparkles className="w-4 h-4 text-slate-300 group-hover:text-brand-600 transition" />
-              </button>
+                <span>Open Google Cloud Credentials</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
             </div>
 
-            <form onSubmit={handleQuickGoogleSubmit} className="space-y-3.5">
+            <form onSubmit={handleSaveCustomClientId} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Google Account Email *
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="user@gmail.com"
-                  value={simEmail}
-                  onChange={(e) => setSimEmail(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Full Name
+                  Google OAuth Client ID
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Manikanta"
-                  value={simName}
-                  onChange={(e) => setSimName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100"
+                  required
+                  placeholder="e.g. 1234567890-xxx.apps.googleusercontent.com"
+                  value={customClientId}
+                  onChange={(e) => setCustomClientId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100"
                 />
               </div>
 
-              <div className="pt-2 flex items-center gap-2.5">
+              <div className="pt-2 flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowSimModal(false)}
-                  className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition"
+                  onClick={() => setShowConfigModal(false)}
+                  className="flex-1 py-2 px-3 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="flex-1 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-60"
+                  className="flex-1 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm"
                 >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span>Continue</span>
-                    </>
-                  )}
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>Save & Connect</span>
                 </button>
               </div>
             </form>
 
-            <p className="text-[11px] text-slate-400 text-center mt-4">
-              Instant verification. No OTP required for Google Sign-In.
+            <p className="text-[10px] text-slate-400 text-center mt-3">
+              You can also set <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">VITE_GOOGLE_CLIENT_ID</code> in your <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">client/.env</code> file.
             </p>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
