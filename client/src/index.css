@@ -37,7 +37,12 @@
     color: #003366;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: #1D1D1F;
     letter-spacing: -0.025em;
@@ -91,7 +96,7 @@
 }
 
 .apple-btn-primary:hover {
-  background-color: #0077ED;
+  background-color: #494e54;
 }
 
 .apple-btn-primary:active {
