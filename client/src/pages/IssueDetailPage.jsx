@@ -1191,34 +1191,86 @@ export default function IssueDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Columns: Issue Description, Evidence, Location */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Citizen Feedback Rating Card */}
+          {/* Citizen Feedback & Review Stars Card */}
           {issue.feedback?.rating && (
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 space-y-3 shadow-soft">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 font-heading">
-                  <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                  Citizen Service Rating & Verification
-                </h3>
-                <div className="flex items-center gap-1 text-amber-500 text-sm">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star
-                      key={s}
-                      className={`w-4 h-4 ${
-                        s <= issue.feedback.rating
-                          ? 'text-amber-500 fill-amber-500'
-                          : 'text-slate-300'
-                      }`}
-                    />
-                  ))}
-                  <span className="text-xs font-bold text-slate-800 ml-1.5">
-                    {issue.feedback.rating}/5 Stars
+            <div className="p-6 rounded-2xl bg-gradient-to-b from-amber-50/40 via-white to-white border border-amber-200/80 shadow-soft space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100/80 text-amber-800 flex items-center justify-center border border-amber-200 shadow-sm">
+                    <Star className="w-5 h-5 fill-amber-500 text-amber-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 font-heading flex items-center gap-2">
+                      <span>Citizen Work Completion Review</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Verified Rating
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Public satisfaction feedback submitted by the complainant
+                    </p>
+                  </div>
+                </div>
+
+                {/* 5-Star Visualizer & Quality Label */}
+                <div className="flex flex-col sm:items-end gap-1">
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        className={`w-5 h-5 transition-transform duration-200 ${
+                          s <= issue.feedback.rating
+                            ? 'text-amber-500 fill-amber-500 drop-shadow-sm'
+                            : 'text-slate-200'
+                        }`}
+                      />
+                    ))}
+                    <span className="text-sm font-extrabold text-slate-900 ml-2 font-mono">
+                      {issue.feedback.rating}.0<span className="text-slate-400 font-normal text-xs">/5.0</span>
+                    </span>
+                  </div>
+
+                  <span className="text-[11px] font-bold text-amber-800">
+                    {issue.feedback.rating === 5
+                      ? 'Outstanding Resolution Quality'
+                      : issue.feedback.rating === 4
+                      ? 'Very Good Execution'
+                      : issue.feedback.rating === 3
+                      ? 'Satisfactory Resolution'
+                      : issue.feedback.rating === 2
+                      ? 'Needs Improvement'
+                      : 'Unsatisfactory Work'}
                   </span>
                 </div>
               </div>
+
               {issue.feedback.comment && (
-                <p className="text-xs text-slate-700 italic bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  "{issue.feedback.comment}"
-                </p>
+                <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs relative">
+                  <span className="text-2xl text-slate-300 absolute top-2 left-3 font-serif">“</span>
+                  <p className="text-xs text-slate-700 italic pl-5 pr-2 leading-relaxed">
+                    {issue.feedback.comment}
+                  </p>
+                </div>
+              )}
+
+              {issue.feedback.submittedAt && (
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Reviewed on {new Date(issue.feedback.submittedAt).toLocaleDateString(undefined, {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                  <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Civic Service Closed & Verified
+                  </span>
+                </div>
               )}
             </div>
           )}

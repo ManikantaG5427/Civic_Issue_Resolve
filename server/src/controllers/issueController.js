@@ -463,8 +463,8 @@ export const provideRequestedInfo = async (req, res, next) => {
  */
 export const confirmResolution = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const { rating, feedback } = req.body;
+    const { rating, feedback, comment } = req.body;
+    const feedbackComment = (comment || feedback || '').trim();
 
     const ratingNum = Number(rating);
     if (!ratingNum || ratingNum < 1 || ratingNum > 5) {
@@ -483,6 +483,7 @@ export const confirmResolution = async (req, res, next) => {
 
     if (
       req.user.role === 'citizen' &&
+      issue.reporter &&
       issue.reporter.toString() !== req.user._id.toString()
     ) {
       return res.status(403).json({
@@ -491,10 +492,10 @@ export const confirmResolution = async (req, res, next) => {
       });
     }
 
-    if (issue.status !== 'resolved_verification_pending') {
+    if (issue.status !== 'resolved_verification_pending' && issue.status !== 'closed') {
       return res.status(400).json({
         success: false,
-        message: `Cannot confirm resolution on issue with status: '${issue.status}'`,
+        message: `Cannot submit resolution feedback on issue with status: '${issue.status}'`,
       });
     }
 
@@ -502,13 +503,13 @@ export const confirmResolution = async (req, res, next) => {
     issue.status = 'closed';
     issue.feedback = {
       rating: ratingNum,
-      comment: feedback?.trim() || '',
+      comment: feedbackComment,
       submittedAt: new Date(),
     };
 
     const ratingStars = '★'.repeat(ratingNum) + '☆'.repeat(5 - ratingNum);
     const feedbackNote = `Citizen verified resolution (${ratingStars} ${ratingNum}/5).${
-      feedback?.trim() ? ` Comment: "${feedback.trim()}"` : ''
+      feedbackComment ? ` Comment: "${feedbackComment}"` : ''
     }`;
 
     issue.timeline.push({

@@ -13,6 +13,8 @@ import {
   Eye,
   Trash2,
   AlertTriangle,
+  Star,
+  CheckCircle2,
 } from 'lucide-react';
 import { issueAPI, configAPI } from '../services/api';
 import Card from '../components/ui/Card';
@@ -269,7 +271,15 @@ export default function MyReportsPage() {
                     <PriorityBadge priority={issue.priority} size="sm" short />
                   </div>
 
-                  <StatusBadge status={issue.status} size="sm" />
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={issue.status} size="sm" />
+                    {issue.feedback?.rating && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
+                        <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                        <span>{issue.feedback.rating}/5</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div>
@@ -322,22 +332,33 @@ export default function MyReportsPage() {
               </div>
 
               {/* Card Bottom Links & Actions */}
-              <div className="flex items-center gap-2 pt-1">
-                <Link
-                  to={`/issues/${issue.issueNumber || issue._id}`}
-                  className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-50 hover:bg-brand-700 hover:text-white text-slate-700 text-xs font-bold transition border border-slate-200 shadow-soft"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>View Timeline & Details</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
+              <div className="space-y-2 pt-1">
+                {issue.status === 'resolved_verification_pending' && !issue.feedback?.rating && (
+                  <Link
+                    to={`/issues/${issue.issueNumber || issue._id}`}
+                    className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Rate Work & Confirm Closure →</span>
+                  </Link>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => setIssueToDelete(issue)}
-                  className="p-2.5 rounded-xl bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-700 border border-slate-200 hover:border-red-300 transition shadow-soft"
-                  title="Delete this issue report"
-                >
+                <div className="flex items-center gap-2">
+                  <Link
+                    to={`/issues/${issue.issueNumber || issue._id}`}
+                    className="flex-1 inline-flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-slate-50 hover:bg-brand-700 hover:text-white text-slate-700 text-xs font-bold transition border border-slate-200 shadow-soft"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>View Timeline & Details</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => setIssueToDelete(issue)}
+                    className="p-2 rounded-xl bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-700 border border-slate-200 hover:border-red-300 transition shadow-soft"
+                    title="Delete this issue report"
+                  >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
