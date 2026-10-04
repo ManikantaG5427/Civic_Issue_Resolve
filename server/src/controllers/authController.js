@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import PendingRegistration from '../models/PendingRegistration.js';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -26,7 +27,9 @@ const sanitizeUser = (user) => ({
 });
 
 /**
- * Register a new citizen (Generates 6-digit email verification code)
+ * Register a new citizen
+ * Secure holding: Stores temporarily in PendingRegistration until OTP is verified.
+ * NO permanent User document is created in database until email is verified!
  * POST /api/auth/register
  */
 export const register = async (req, res, next) => {
@@ -34,46 +37,31 @@ export const register = async (req, res, next) => {
     const { name, email, password, phone } = req.body;
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Check if email already registered
+    // Check if email already registered in permanent User database
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      if (!existingUser.isEmailVerified) {
-        // User started registration earlier but did not verify. Generate fresh code.
-        const newCode = Math.floor(100000 + Math.random() * 900000).toString();
-        existingUser.name = name.trim();
-        existingUser.password = password;
-        existingUser.phone = phone ? phone.trim() : '';
-        existingUser.emailVerificationCode = newCode;
-        existingUser.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
-        await existingUser.save();
-
-        await sendVerificationEmail(existingUser.email, existingUser.name, newCode);
-
-        return successResponse(
-          res,
-          'A new 6-digit verification code has been sent to your email.',
-          {
-            requireVerification: true,
-            email: existingUser.email,
-          },
-          200
-        );
-      }
       return next(new AppError('An account with this email already exists. Please sign in.', 409));
     }
 
     const isSuperAdminEmail = normalizedEmail === 'gundrothumanikantad@gmail.com';
 
-    // If primary Super Admin email, immediately activate with super_admin role
+    // If primary Super Admin email, immediately create super_admin with zero OTP required
     if (isSuperAdminEmail) {
-      const user = new User({
-        name: name.trim() || 'Manikanta Super Admin',
-        email: normalizedEmail,
-        password,
-        phone: phone ? phone.trim() : '',
-        role: 'super_admin',
-        isEmailVerified: true,
-      });
+      let user = await User.findOne({ email: normalizedEmail });
+      if (!user) {
+        user = new User({
+          name: name.trim() || 'Manikanta Super Admin',
+          email: normalizedEmail,
+          password,
+          phone: phone ? phone.trim() : '',
+          role: 'super_admin',
+          isEmailVerified: true,
+        });
+      } else {
+        user.password = password;
+        user.role = 'super_admin';
+        user.isEmailVerified = true;
+      }
 
       const accessToken = generateAccessToken(user);
       const refreshToken = generateRefreshToken(user);
@@ -97,29 +85,29 @@ export const register = async (req, res, next) => {
     // Generate 6-digit OTP verification code for citizens
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Create new unverified citizen user
-    const user = new User({
-      name: name.trim(),
-      email: normalizedEmail,
-      password,
-      phone: phone ? phone.trim() : '',
-      role: 'citizen',
-      isEmailVerified: false,
-      emailVerificationCode: verificationCode,
-      emailVerificationExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 mins
-    });
-
-    await user.save();
+    // Store temporarily in PendingRegistration collection (NOT in permanent User database)
+    await PendingRegistration.findOneAndUpdate(
+      { email: normalizedEmail },
+      {
+        name: name.trim(),
+        email: normalizedEmail,
+        password,
+        phone: phone ? phone.trim() : '',
+        verificationCode,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 mins expiry
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
 
     // Dispatch verification code to citizen's inbox
-    await sendVerificationEmail(user.email, user.name, verificationCode);
+    await sendVerificationEmail(normalizedEmail, name.trim(), verificationCode);
 
     return successResponse(
       res,
-      'Registration successful! Please enter the 6-digit verification code sent to your email to activate your account.',
+      'Registration initiated! Please enter the 6-digit verification code sent to your email to activate your account.',
       {
         requireVerification: true,
-        email: user.email,
+        email: normalizedEmail,
       },
       201
     );
@@ -130,6 +118,7 @@ export const register = async (req, res, next) => {
 
 /**
  * Verify 6-digit Email Verification Code
+ * ONLY AFTER VERIFICATION: Permanently adds the user to the User database.
  * POST /api/auth/verify-email
  */
 export const verifyEmail = async (req, res, next) => {
@@ -143,48 +132,58 @@ export const verifyEmail = async (req, res, next) => {
     const normalizedEmail = email.toLowerCase().trim();
     const cleanCode = code.toString().trim();
 
-    const user = await User.findOne({ email: normalizedEmail }).select(
-      '+emailVerificationCode +emailVerificationExpires +refreshToken'
-    );
+    // Look up in pending registrations holding store
+    const pending = await PendingRegistration.findOne({ email: normalizedEmail });
 
-    if (!user) {
-      return next(new AppError('No account found with this email address', 404));
+    if (!pending) {
+      // Check if already in permanent User collection
+      const existingUser = await User.findOne({ email: normalizedEmail });
+      if (existingUser) {
+        return successResponse(res, 'Your email is already verified. You can now log in.', {
+          alreadyVerified: true,
+        });
+      }
+      return next(
+        new AppError('No pending registration found for this email. Please register again.', 404)
+      );
     }
 
-    if (user.isEmailVerified) {
-      return successResponse(res, 'Your email is already verified. You can now log in.', {
-        alreadyVerified: true,
-      });
-    }
-
+    // Check code match and expiry
     if (
-      !user.emailVerificationCode ||
-      user.emailVerificationCode !== cleanCode ||
-      !user.emailVerificationExpires ||
-      user.emailVerificationExpires < new Date()
+      pending.verificationCode !== cleanCode ||
+      !pending.expiresAt ||
+      pending.expiresAt < new Date()
     ) {
       return next(
         new AppError('Invalid or expired 6-digit verification code. Please request a new code.', 400)
       );
     }
 
-    // Activate and mark email as verified
-    user.isEmailVerified = true;
-    user.emailVerificationCode = undefined;
-    user.emailVerificationExpires = undefined;
-    user.lastLogin = new Date();
+    // CREATE THE PERMANENT USER DOCUMENT IN DATABASE NOW
+    const user = new User({
+      name: pending.name,
+      email: pending.email,
+      password: pending.password, // Pre-save hook will hash it
+      phone: pending.phone || '',
+      role: 'citizen',
+      isEmailVerified: true,
+      lastLogin: new Date(),
+    });
 
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
     user.refreshToken = refreshToken;
 
-    await user.save({ validateBeforeSave: false });
+    await user.save();
 
-    console.info(`[Email Verification Success] User ${user.email} verified account successfully.`);
+    // Clean up temporary pending record
+    await PendingRegistration.deleteOne({ _id: pending._id });
+
+    console.info(`[Security: User Verified & Created in DB] User ${user.email} added to database.`);
 
     return successResponse(
       res,
-      'Email verified successfully! Welcome to CivicResolve.',
+      'Email verified successfully! Your account is now active.',
       {
         user: sanitizeUser(user),
         accessToken,
@@ -209,30 +208,30 @@ export const resendVerificationCode = async (req, res, next) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    const user = await User.findOne({ email: normalizedEmail }).select(
-      '+emailVerificationCode +emailVerificationExpires'
-    );
+    const pending = await PendingRegistration.findOne({ email: normalizedEmail });
 
-    if (!user) {
-      return next(new AppError('No account found with this email address', 404));
-    }
-
-    if (user.isEmailVerified) {
-      return next(new AppError('This email is already verified. Please sign in.', 400));
+    if (!pending) {
+      const existingUser = await User.findOne({ email: normalizedEmail });
+      if (existingUser) {
+        return next(new AppError('This email is already verified. Please sign in.', 400));
+      }
+      return next(
+        new AppError('No pending registration found for this email. Please register first.', 404)
+      );
     }
 
     // Generate new code
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    user.emailVerificationCode = verificationCode;
-    user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
-    await user.save({ validateBeforeSave: false });
+    pending.verificationCode = verificationCode;
+    pending.expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    await pending.save();
 
-    await sendVerificationEmail(user.email, user.name, verificationCode);
+    await sendVerificationEmail(pending.email, pending.name, verificationCode);
 
     return successResponse(
       res,
       'A fresh 6-digit verification code has been dispatched to your email.',
-      { email: user.email },
+      { email: pending.email },
       200
     );
   } catch (error) {
@@ -306,7 +305,6 @@ export const login = async (req, res, next) => {
       user.email === 'gundrothumanikantad@gmail.com';
 
     if (user.isEmailVerified === false && !isExemptFromOtp) {
-      // Generate code and send email only for regular unverified citizens
       const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
       user.emailVerificationCode = verificationCode;
       user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
@@ -509,7 +507,7 @@ export const resetPassword = async (req, res, next) => {
     user.passwordResetExpires = undefined;
     user.failedLoginAttempts = 0;
     user.lockUntil = null;
-    user.isEmailVerified = true; // Password reset confirms email ownership
+    user.isEmailVerified = true;
     await user.save();
 
     console.info(`[Password Reset Completed] User: ${user.email} successfully updated password.`);

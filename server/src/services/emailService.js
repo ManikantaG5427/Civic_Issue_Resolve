@@ -84,9 +84,28 @@ const sendViaBrevoHttp = async ({ senderName, senderEmail, to, subject, html, te
 };
 
 /**
+ * Create Gmail direct service transporter
+ */
+const createGmailServiceTransporter = () => {
+  const user = process.env.SMTP_USER ? process.env.SMTP_USER.trim() : '';
+  const pass = process.env.SMTP_PASS ? process.env.SMTP_PASS.replace(/\s+/g, '') : '';
+
+  if (!user || !pass) return null;
+
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user, pass },
+    family: 4,
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 8000,
+  });
+};
+
+/**
  * Create SMTP Transporter with short timeout (Port 465 or 587)
  */
-const createSmtpTransporter = (port = 465, secure = true) => {
+const createSmtpTransporter = (port = 587, secure = false) => {
   const user = process.env.SMTP_USER ? process.env.SMTP_USER.trim() : '';
   const pass = process.env.SMTP_PASS ? process.env.SMTP_PASS.replace(/\s+/g, '') : '';
 
@@ -97,9 +116,9 @@ const createSmtpTransporter = (port = 465, secure = true) => {
     port,
     secure,
     family: 4,
-    connectionTimeout: 4000, // Short 4s timeout so Render firewall blocks don't freeze the app
-    greetingTimeout: 4000,
-    socketTimeout: 6000,
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 8000,
     auth: { user, pass },
     tls: { rejectUnauthorized: false },
   });
@@ -137,21 +156,21 @@ const dispatchEmail = async ({ to, subject, html, text }) => {
     if (brevoResult) return brevoResult;
   }
 
-  // 3. SMTP Port 465 (SSL)
-  const smtp465 = createSmtpTransporter(465, true);
-  if (smtp465) {
+  // 3. Gmail Direct Service Transporter
+  const gmailService = createGmailServiceTransporter();
+  if (gmailService) {
     try {
-      const info = await smtp465.sendMail({
+      const info = await gmailService.sendMail({
         from: `"${senderName}" <${senderEmail}>`,
         to,
         subject,
         text,
         html,
       });
-      console.info(`[Email Dispatch: SMTP 465] Delivered to ${to} (ID: ${info.messageId})`);
-      return { success: true, messageId: info.messageId, provider: 'smtp_465' };
-    } catch (err465) {
-      console.warn(`[Email Dispatch: SMTP 465 Blocked/Failed] ${err465.message}. Trying SMTP 587...`);
+      console.info(`[Email Dispatch: Gmail Service] Delivered to ${to} (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId, provider: 'gmail_service' };
+    } catch (errService) {
+      console.warn(`[Email Dispatch: Gmail Service Failed] ${errService.message}. Trying SMTP...`);
     }
   }
 
@@ -169,11 +188,29 @@ const dispatchEmail = async ({ to, subject, html, text }) => {
       console.info(`[Email Dispatch: SMTP 587] Delivered to ${to} (ID: ${info.messageId})`);
       return { success: true, messageId: info.messageId, provider: 'smtp_587' };
     } catch (err587) {
-      console.warn(`[Email Dispatch: SMTP 587 Blocked/Failed] ${err587.message}`);
+      console.warn(`[Email Dispatch: SMTP 587 Failed] ${err587.message}. Trying Port 465...`);
     }
   }
 
-  // 5. Cloud fallback logged
+  // 5. SMTP Port 465 (SSL)
+  const smtp465 = createSmtpTransporter(465, true);
+  if (smtp465) {
+    try {
+      const info = await smtp465.sendMail({
+        from: `"${senderName}" <${senderEmail}>`,
+        to,
+        subject,
+        text,
+        html,
+      });
+      console.info(`[Email Dispatch: SMTP 465] Delivered to ${to} (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId, provider: 'smtp_465' };
+    } catch (err465) {
+      console.warn(`[Email Dispatch: SMTP 465 Failed] ${err465.message}`);
+    }
+  }
+
+  // 6. Cloud Fallback
   return {
     success: true,
     simulated: true,
@@ -233,20 +270,18 @@ export const sendVerificationEmail = async (toEmail, userName, verificationCode)
 
   const textContent = `CivicResolve — Email Verification\n\nHello ${userName || 'Citizen'},\n\nYour 6-digit verification code is: ${verificationCode}\n\nThis code is valid for 15 minutes. Enter this code on the site to activate your account.`;
 
+  console.info(`\n=============================================================`);
+  console.info(`[EMAIL VERIFICATION OTP SENT]`);
+  console.info(`Recipient: ${toEmail}`);
+  console.info(`Verification Code: ${verificationCode}`);
+  console.info(`=============================================================\n`);
+
   const result = await dispatchEmail({
     to: toEmail,
     subject,
     html: htmlContent,
     text: textContent,
   });
-
-  if (result.simulated) {
-    console.warn(`\n=============================================================`);
-    console.warn(`[EMAIL VERIFICATION CODE GENERATED]`);
-    console.warn(`Recipient: ${toEmail}`);
-    console.warn(`Verification Code: ${verificationCode}`);
-    console.warn(`=============================================================\n`);
-  }
 
   return { ...result, verificationCode };
 };
@@ -305,20 +340,18 @@ export const sendPasswordResetEmail = async (toEmail, userName, resetUrl) => {
 
   const textContent = `CivicResolve — Password Reset Instructions\n\nHello ${userName || 'Citizen'},\n\nWe received a request to reset the password for your account (${toEmail}).\n\nPlease open the link below to set a new password:\n${resetUrl}\n\nThis link is valid for 1 hour.\nIf you did not request this, please ignore this email.`;
 
+  console.info(`\n=============================================================`);
+  console.info(`[PASSWORD RESET LINK DISPATCHED]`);
+  console.info(`Recipient: ${toEmail}`);
+  console.info(`Reset URL: ${resetUrl}`);
+  console.info(`=============================================================\n`);
+
   const result = await dispatchEmail({
     to: toEmail,
     subject,
     html: htmlContent,
     text: textContent,
   });
-
-  if (result.simulated) {
-    console.warn(`\n=============================================================`);
-    console.warn(`[PASSWORD RESET LINK GENERATED]`);
-    console.warn(`Recipient: ${toEmail}`);
-    console.warn(`Reset URL: ${resetUrl}`);
-    console.warn(`=============================================================\n`);
-  }
 
   return { ...result, resetUrl };
 };
