@@ -15,9 +15,14 @@ import {
   Eye,
   CheckCircle2,
   Zap,
+  Users,
+  UserCheck,
+  UserX,
+  Building,
 } from 'lucide-react';
 import { adminAPI, configAPI } from '../services/api';
 import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import PageHeader from '../components/common/PageHeader';
@@ -47,8 +52,15 @@ const PRIORITY_OPTIONS = [
 ];
 
 export default function AdminReviewQueuePage() {
+  const { user } = useAuth();
   const { subscribeToEvent } = useSocket();
+  const [activeTab, setActiveTab] = useState('issues'); // 'issues' | 'staff_approvals'
   const [issues, setIssues] = useState([]);
+  const [pendingStaff, setPendingStaff] = useState([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [staffSuccessMsg, setStaffSuccessMsg] = useState(null);
+  const [selectedStaffArea, setSelectedStaffArea] = useState({});
+  const [selectedStaffDept, setSelectedStaffDept] = useState({});
   const [metrics, setMetrics] = useState({
     pendingTriage: 0,
     urgent: 0,
@@ -162,6 +174,55 @@ export default function AdminReviewQueuePage() {
     fetchQueue();
   };
 
+  const fetchPendingStaff = useCallback(async () => {
+    if (user?.role !== 'super_admin') return;
+    setStaffLoading(true);
+    try {
+      const res = await adminAPI.getPendingApprovals();
+      if (res.data) {
+        setPendingStaff(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to load pending staff approvals', err);
+    } finally {
+      setStaffLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.role === 'super_admin') {
+      fetchPendingStaff();
+    }
+  }, [user, fetchPendingStaff]);
+
+  const handleApproveStaff = async (staffId, requestedRole) => {
+    try {
+      const areaId = selectedStaffArea[staffId];
+      const deptId = selectedStaffDept[staffId];
+      const res = await adminAPI.approveUserRole(staffId, {
+        role: requestedRole,
+        serviceArea: areaId || undefined,
+        department: deptId || undefined,
+      });
+      setStaffSuccessMsg(res.message || 'Staff approved successfully!');
+      setTimeout(() => setStaffSuccessMsg(null), 5000);
+      fetchPendingStaff();
+    } catch (err) {
+      setError(err.message || 'Failed to approve staff role.');
+    }
+  };
+
+  const handleRejectStaff = async (staffId) => {
+    try {
+      const res = await adminAPI.rejectUserRole(staffId);
+      setStaffSuccessMsg(res.message || 'Staff request rejected.');
+      setTimeout(() => setStaffSuccessMsg(null), 5000);
+      fetchPendingStaff();
+    } catch (err) {
+      setError(err.message || 'Failed to reject staff request.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -189,6 +250,40 @@ export default function AdminReviewQueuePage() {
         }
       />
 
+      {/* Super Admin Tab Switcher */}
+      {user?.role === 'super_admin' && (
+        <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
+          <button
+            onClick={() => setActiveTab('issues')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 ${
+              activeTab === 'issues'
+                ? 'bg-brand-700 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Civic Issues Queue</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('staff_approvals')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 ${
+              activeTab === 'staff_approvals'
+                ? 'bg-purple-700 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Staff & Officer Approvals</span>
+            {pendingStaff.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-400 text-slate-950 animate-pulse">
+                {pendingStaff.length}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
       {error && (
         <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-center justify-between">
           <span>{error}</span>
@@ -201,14 +296,14 @@ export default function AdminReviewQueuePage() {
         </div>
       )}
 
-      {slaSuccessMessage && (
+      {staffSuccessMsg && (
         <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span className="font-semibold">{slaSuccessMessage}</span>
+            <span className="font-semibold">{staffSuccessMsg}</span>
           </div>
           <button
-            onClick={() => setSlaSuccessMessage(null)}
+            onClick={() => setStaffSuccessMsg(null)}
             className="text-xs text-emerald-700 hover:text-emerald-900 font-bold"
           >
             Dismiss
@@ -216,7 +311,154 @@ export default function AdminReviewQueuePage() {
         </div>
       )}
 
-      {/* KPI Triage Scorecards */}
+      {/* STAFF APPROVALS TAB CONTENT */}
+      {user?.role === 'super_admin' && activeTab === 'staff_approvals' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-extrabold text-slate-900 font-heading">
+                Pending Staff & Officer Applications
+              </h2>
+              <p className="text-xs text-slate-500">
+                Review verified user registrations requesting Government Officer or Field Worker roles. Assign their operational jurisdiction and department.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchPendingStaff}
+              loading={staffLoading}
+              icon={RefreshCw}
+            >
+              Refresh List
+            </Button>
+          </div>
+
+          {pendingStaff.length === 0 ? (
+            <Card className="p-12 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center mx-auto mb-3">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900 font-heading">
+                All Staff Requests Reviewed
+              </h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                There are currently no pending officer or field worker registrations awaiting approval.
+              </p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {pendingStaff.map((staff) => (
+                <Card key={staff._id} elevated className="p-5 sm:p-6 border-l-4 border-l-amber-500">
+                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-extrabold text-slate-900 font-heading">
+                          {staff.name}
+                        </span>
+                        <span className="text-[11px] font-mono uppercase font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                          Requested: {staff.requestedRole === 'administrator' ? 'Govt Officer / Admin' : 'Field Worker Lead'}
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          • {new Date(staff.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+                        <span className="flex items-center gap-1 font-mono">
+                          ✉️ {staff.email}
+                        </span>
+                        {staff.phone && (
+                          <span className="flex items-center gap-1 font-mono">
+                            📞 {staff.phone}
+                          </span>
+                        )}
+                        <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                          ✓ Email OTP Verified
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                      {/* Service Area / Village Dropdown */}
+                      <div className="flex-1 sm:w-48">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                          Assign Village / Zone
+                        </label>
+                        <select
+                          value={selectedStaffArea[staff._id] || staff.serviceArea?._id || ''}
+                          onChange={(e) =>
+                            setSelectedStaffArea({
+                              ...selectedStaffArea,
+                              [staff._id]: e.target.value,
+                            })
+                          }
+                          className="w-full text-xs py-2 px-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-800 outline-none focus:border-brand-600"
+                        >
+                          <option value="">Select Service Area...</option>
+                          {serviceAreas.map((sa) => (
+                            <option key={sa._id} value={sa._id}>
+                              {sa.name} ({sa.city || sa.code})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Department Dropdown */}
+                      <div className="flex-1 sm:w-48">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                          Assign Department
+                        </label>
+                        <select
+                          value={selectedStaffDept[staff._id] || staff.department?._id || ''}
+                          onChange={(e) =>
+                            setSelectedStaffDept({
+                              ...selectedStaffDept,
+                              [staff._id]: e.target.value,
+                            })
+                          }
+                          className="w-full text-xs py-2 px-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-800 outline-none focus:border-brand-600"
+                        >
+                          <option value="">Select Department...</option>
+                          {departments.map((d) => (
+                            <option key={d._id} value={d._id}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2 pt-4 sm:pt-0">
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          icon={UserCheck}
+                          onClick={() => handleApproveStaff(staff._id, staff.requestedRole)}
+                        >
+                          Approve Role
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          icon={UserX}
+                          onClick={() => handleRejectStaff(staff._id)}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CIVIC ISSUES QUEUE TAB CONTENT */}
+      {(activeTab === 'issues' || user?.role !== 'super_admin') && (
+        <>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card className="p-4 sm:p-5">
           <div className="flex items-center justify-between">
@@ -529,6 +771,8 @@ export default function AdminReviewQueuePage() {
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
+      )}
+      </>
       )}
     </div>
   );

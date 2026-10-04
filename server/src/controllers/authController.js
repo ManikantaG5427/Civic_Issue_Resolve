@@ -18,6 +18,8 @@ const sanitizeUser = (user) => ({
   email: user.email,
   phone: user.phone || '',
   role: user.role,
+  requestedRole: user.requestedRole || user.role,
+  approvalStatus: user.approvalStatus || 'approved',
   serviceArea: user.serviceArea || null,
   department: user.department || null,
   isActive: user.isActive,

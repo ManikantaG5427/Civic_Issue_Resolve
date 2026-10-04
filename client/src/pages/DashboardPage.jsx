@@ -83,6 +83,59 @@ export default function DashboardPage() {
         }
       />
 
+      {/* Staff Role Request Status Banner (For Pending or Rejected Approvals) */}
+      {user?.approvalStatus === 'pending' && (
+        <Card elevated className="p-6 bg-gradient-to-r from-amber-50/90 via-amber-50/50 to-orange-50/60 border-2 border-amber-300 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start space-x-4">
+              <div className="p-3 rounded-2xl bg-amber-100 border border-amber-300 text-amber-900 shrink-0">
+                <Clock className="w-6 h-6 animate-pulse" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900 border border-amber-300">
+                    Application Under Review
+                  </span>
+                  <span className="text-xs text-slate-500 font-medium">
+                    Requested Role: <strong className="text-slate-900 uppercase">{user.requestedRole === 'administrator' ? 'Government Officer / Admin' : 'Field Worker Lead'}</strong>
+                  </span>
+                </div>
+                <h3 className="text-base font-extrabold text-slate-900 font-heading">
+                  Super Admin Approval in Progress
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed max-w-2xl">
+                  Your email has been verified. The primary Super Administrator (<strong className="text-slate-900">Manikanta</strong>) is reviewing your application. Once your municipal service area/village and department are assigned, your full administrative tools will unlock automatically.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0 w-full sm:w-auto">
+              <div className="px-3.5 py-2 rounded-xl bg-white/80 border border-amber-200 text-center sm:text-right">
+                <span className="text-[11px] font-semibold text-amber-900 uppercase block tracking-wider">
+                  Current Access
+                </span>
+                <span className="text-xs font-bold text-slate-700">
+                  Citizen Portal Active
+                </span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {user?.approvalStatus === 'rejected' && (
+        <Card className="p-5 bg-red-50/80 border border-red-200">
+          <div className="flex items-start space-x-3 text-red-900 text-xs sm:text-sm">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="font-bold">Role Upgrade Request Not Approved</p>
+              <p className="text-red-800 text-xs leading-relaxed">
+                Your request for the <strong>{user.requestedRole || 'Officer'}</strong> role was reviewed by the Super Administrator. You maintain full access as a verified Citizen to submit municipal issues and track community resolutions.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Role-Specific Operational Modules */}
       <Card className="p-6 sm:p-8">
         <div className="flex items-center space-x-3 pb-4 border-b border-slate-200">

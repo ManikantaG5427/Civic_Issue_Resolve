@@ -213,6 +213,11 @@ export const adminAPI = {
   triggerSlaCheck: () =>
     apiRequest('/admin/sla/check-escalations', { method: 'POST' }),
   getOverdueIssues: () => apiRequest('/admin/sla/overdue'),
+  getPendingApprovals: () => apiRequest('/admin/users/pending-approvals'),
+  approveUserRole: (id, data) =>
+    apiRequest(`/admin/users/${id}/approve-role`, { method: 'POST', body: JSON.stringify(data) }),
+  rejectUserRole: (id) =>
+    apiRequest(`/admin/users/${id}/reject-role`, { method: 'POST' }),
   getAnalytics: (params = {}) => {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
