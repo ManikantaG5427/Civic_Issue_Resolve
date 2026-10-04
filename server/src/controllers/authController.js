@@ -148,7 +148,9 @@ export const verifyEmail = async (req, res, next) => {
     const cleanCode = code.toString().trim();
 
     // 1. Check PendingRegistration collection
-    const pending = await PendingRegistration.findOne({ email: normalizedEmail });
+    const pending = await PendingRegistration.findOne({ email: normalizedEmail }).select(
+      '+verificationCode +password'
+    );
 
     if (pending) {
       // Check code match and expiry

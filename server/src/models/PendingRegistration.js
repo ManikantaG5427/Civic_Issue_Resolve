@@ -23,7 +23,6 @@ const pendingRegistrationSchema = new mongoose.Schema(
     password: {
       type: String,
       required: [true, 'Password is required'],
-      select: false,
     },
     phone: {
       type: String,
@@ -38,7 +37,6 @@ const pendingRegistrationSchema = new mongoose.Schema(
     verificationCode: {
       type: String,
       required: true,
-      select: false,
     },
     expiresAt: {
       type: Date,
