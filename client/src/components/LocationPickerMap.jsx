@@ -7,7 +7,6 @@ import {
   Search,
   X,
   Check,
-  Sparkles,
   Navigation,
   Compass,
 } from 'lucide-react';
@@ -385,7 +384,7 @@ export default function LocationPickerMap({
               <div className="px-3.5 py-2 bg-sand-50/90 text-[10px] font-semibold text-charcoal-500 flex items-center justify-between">
                 <span>Verified Spatial Matches ({searchResults.length})</span>
                 <span className="text-forest-800 flex items-center gap-1 font-bold">
-                  <Sparkles className="w-3 h-3" /> High-Accuracy Engine
+                  <MapPin className="w-3 h-3" /> High-Accuracy Engine
                 </span>
               </div>
               {searchResults.map((result, idx) => {

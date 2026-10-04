@@ -7,7 +7,6 @@ import {
   Clock,
   Shield,
   Layers,
-  Sparkles,
   RefreshCw,
   AlertCircle,
   Phone,

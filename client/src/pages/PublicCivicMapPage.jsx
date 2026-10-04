@@ -12,7 +12,6 @@ import {
   Globe2,
   Search,
   Maximize2,
-  Sparkles,
   Layers,
 } from 'lucide-react';
 import { issueAPI, configAPI, getImageUrl } from '../services/api';
@@ -431,7 +430,7 @@ export default function PublicCivicMapPage() {
                 <div className="px-3.5 py-2 bg-sand-50/90 text-[10px] font-semibold text-charcoal-500 flex items-center justify-between">
                   <span>Matches Found ({searchResults.length})</span>
                   <span className="text-forest-800 flex items-center gap-1 font-bold">
-                    <Sparkles className="w-3 h-3" /> Villages & Colleges Optimized
+                    <MapPin className="w-3 h-3" /> Villages & Colleges Optimized
                   </span>
                 </div>
                 {searchResults.map((result, idx) => {

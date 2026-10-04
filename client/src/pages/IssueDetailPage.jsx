@@ -21,12 +21,10 @@ import {
   HelpCircle,
   Send,
   AlertTriangle,
-  Flame,
   Wrench,
   Play,
   Upload,
   Layers,
-  Sparkles,
   Star,
   RotateCcw,
   Compass,
@@ -1146,7 +1144,7 @@ export default function IssueDetailPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-green-200">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-2xl bg-green-100 text-green-800 border border-green-300 shadow-sm">
-                <Sparkles className="w-6 h-6" />
+                <CheckCircle2 className="w-6 h-6 text-green-700" />
               </div>
               <div>
                 <h3 className="text-base font-bold text-green-950 flex items-center gap-2 font-heading">

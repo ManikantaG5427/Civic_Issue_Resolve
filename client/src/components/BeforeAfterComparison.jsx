@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ImageIcon, CheckCircle2, AlertCircle, ExternalLink, Sparkles, Layers } from 'lucide-react';
+import { ImageIcon, CheckCircle2, AlertCircle, ExternalLink, Layers } from 'lucide-react';
 import { getImageUrl } from '../services/api.js';
 
 export default function BeforeAfterComparison({ evidence = [], onExpandPhoto }) {
@@ -103,7 +103,7 @@ export default function BeforeAfterComparison({ evidence = [], onExpandPhoto }) 
           <div className="space-y-3 p-4 rounded-xl bg-green-50/50 border border-green-200">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-green-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-green-700" />
                 After: Resolution Proof ({resolutionPhotos.length})
               </span>
               <span className="text-xs text-green-700 font-medium">Field Worker Fix</span>

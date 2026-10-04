@@ -13,7 +13,6 @@ import {
   ChevronLeft,
   RefreshCw,
   Eye,
-  Flame,
   CheckCircle2,
   Navigation,
   Wrench,
@@ -237,7 +236,7 @@ export default function WorkerDashboardPage() {
         >
           <div className="flex items-center justify-between text-xs text-red-700 font-bold uppercase tracking-wider font-heading">
             <span>Urgent Hazards</span>
-            <Flame className="w-4 h-4 text-red-600" />
+            <AlertTriangle className="w-4 h-4 text-red-600" />
           </div>
           <div className="text-2xl font-bold text-slate-900 mt-1 font-heading">{metrics.urgent}</div>
           <span className="text-xs text-slate-500">Top Priority</span>

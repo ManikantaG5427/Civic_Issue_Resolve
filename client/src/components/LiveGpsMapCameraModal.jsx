@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   RotateCcw,
-  Sparkles,
   Compass,
 } from 'lucide-react';
 import { reverseGeocodeMulti } from '../services/mapSearchEngine';

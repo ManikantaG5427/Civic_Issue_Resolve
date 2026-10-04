@@ -25,7 +25,6 @@ import {
   ThumbsUp,
   ShieldCheck,
   Building,
-  Sparkles,
   Smartphone,
 } from 'lucide-react';
 import { extractExifGpsData } from '../utils/exifReader';
@@ -862,8 +861,8 @@ export default function ReportIssuePage() {
                   Upload Photo Evidence (Live GPS Map Camera for Android & iOS)
                 </label>
                 {gpsVerifiedBadge && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-sage-200 text-forest-900 border border-sage-400 text-xs font-bold animate-pulse shadow-sm">
-                    <Sparkles className="w-3.5 h-3.5 text-forest-700" />
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-sage-200 text-forest-900 border border-sage-400 text-xs font-bold shadow-sm">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-forest-700" />
                     GPS Verified Photo Added
                   </span>
                 )}
