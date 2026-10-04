@@ -2,7 +2,7 @@ import Issue from '../models/Issue.js';
 import User from '../models/User.js';
 import { successResponse } from '../utils/apiResponse.js';
 import { emitIssueEvent } from '../socket.js';
-import { sendNotification } from '../services/notificationService.js';
+import { sendNotification, notifySuperAdmin } from '../services/notificationService.js';
 
 /**
  * Get administrator review queue with triage metrics, filters, and pagination
@@ -202,6 +202,19 @@ export const verifyIssue = async (req, res, next) => {
       .populate('reporter', 'name email phone')
       .populate('assignedWorker', 'name email phone department')
       .populate('timeline.performedBy', 'name role');
+
+    notifySuperAdmin({
+      eventType: 'admin_action',
+      title: `⚙️ Issue Verified: ${issue.issueNumber}`,
+      message: `Administrator ${req.user.name} verified and accepted "${issue.title}".`,
+      actor: req.user,
+      metadata: {
+        'Issue ID': issue.issueNumber,
+        'Admin Name': req.user.name,
+      },
+      linkUrl: `/issues/${issue.issueNumber}`,
+      req,
+    });
 
     return successResponse(res, 'Issue verified and accepted successfully', populated, 200);
   } catch (error) {
@@ -487,6 +500,21 @@ export const assignIssue = async (req, res, next) => {
       .populate('reporter', 'name email phone')
       .populate('assignedWorker', 'name email phone department')
       .populate('timeline.performedBy', 'name role');
+
+    notifySuperAdmin({
+      eventType: 'assignment',
+      title: `🟡 Issue Dispatched & Assigned: ${issue.issueNumber}`,
+      message: `Issue "${issue.title}" assigned to ${workerName} with ${issue.priority} priority (SLA: ${hoursNum} hrs).`,
+      actor: req.user,
+      metadata: {
+        'Issue ID': issue.issueNumber,
+        'Assigned Worker': workerName,
+        'Priority Level': issue.priority,
+        'SLA Deadline': slaDeadline.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }),
+      },
+      linkUrl: `/issues/${issue.issueNumber}`,
+      req,
+    });
 
     return successResponse(res, 'Civic issue assigned successfully', populated, 200);
   } catch (error) {
@@ -825,6 +853,31 @@ export const approveUserRole = async (req, res, next) => {
 
     await user.save({ validateBeforeSave: false });
 
+    // Send in-app notification to the approved user
+    sendNotification({
+      recipient: user._id,
+      title: `🎉 Staff Role Approved!`,
+      message: `Your application for ${user.role.replace('_', ' ').toUpperCase()} has been approved by the Super Admin. You now have full operational access.`,
+      type: 'role_approved',
+      linkUrl: '/dashboard',
+    });
+
+    // Alert Super Admin
+    notifySuperAdmin({
+      eventType: 'role_approved',
+      title: `🔷 Staff Role Approved: ${user.name}`,
+      message: `Super Admin approved ${user.name} (${user.email}) for the ${user.role.replace('_', ' ')} role.`,
+      actor: req.user,
+      metadata: {
+        'Approved User': user.name,
+        'User Email': user.email,
+        'Assigned Role': user.role.replace('_', ' '),
+        'Department Assigned': department || 'General Administration',
+      },
+      linkUrl: '/dashboard',
+      req,
+    });
+
     console.info(`[Role Approved] Super Admin approved ${user.email} as ${user.role}`);
 
     return successResponse(res, `User approved as ${user.role} successfully`, user, 200);
@@ -848,6 +901,30 @@ export const rejectUserRole = async (req, res, next) => {
     user.role = 'citizen';
     user.approvalStatus = 'rejected';
     await user.save({ validateBeforeSave: false });
+
+    // Send in-app notification to the user
+    sendNotification({
+      recipient: user._id,
+      title: `Staff Role Application Update`,
+      message: `Your application for ${user.requestedRole || 'staff'} was not approved at this time. Your account retains standard Citizen privileges.`,
+      type: 'role_rejected',
+      linkUrl: '/dashboard',
+    });
+
+    // Alert Super Admin
+    notifySuperAdmin({
+      eventType: 'role_rejected',
+      title: `🔴 Staff Role Request Rejected: ${user.name}`,
+      message: `Application for ${user.name} (${user.email}) was rejected. Account remains citizen.`,
+      actor: req.user,
+      metadata: {
+        'Applicant': user.name,
+        'Applicant Email': user.email,
+        'Requested Role': user.requestedRole || 'N/A',
+      },
+      linkUrl: '/dashboard',
+      req,
+    });
 
     return successResponse(res, 'Role request rejected. User retained citizen access.', user, 200);
   } catch (error) {

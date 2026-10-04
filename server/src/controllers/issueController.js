@@ -5,7 +5,7 @@ import ServiceArea from '../models/ServiceArea.js';
 import { generateIssueNumber } from '../utils/issueNumberGenerator.js';
 import { successResponse } from '../utils/apiResponse.js';
 import { AppError } from '../utils/appError.js';
-import { notifyAdminsOnNewIssue } from '../services/notificationService.js';
+import { notifyAdminsOnNewIssue, notifySuperAdmin } from '../services/notificationService.js';
 import { emitIssueEvent } from '../socket.js';
 
 /**
@@ -184,6 +184,21 @@ export const createIssue = async (req, res, next) => {
 
     // 8. Real-time updates for All Admin and SuperAdmin Roles
     notifyAdminsOnNewIssue(newIssue, reporterName);
+    notifySuperAdmin({
+      eventType: 'issue_created',
+      title: `🚨 Civic Issue Reported: ${newIssue.issueNumber}`,
+      message: `${reporterName} reported "${newIssue.title}" under ${category.name} at ${newIssue.location?.landmark || newIssue.location?.address || 'Municipal Zone'}.`,
+      actor: req.user || { name: reporterName, role: 'citizen' },
+      metadata: {
+        'Issue ID': newIssue.issueNumber,
+        'Civic Category': category.name,
+        'Jurisdiction Zone': serviceArea.name,
+        'Priority': category.defaultPriority || 'medium',
+        'Location': newIssue.location?.address || newIssue.location?.landmark || 'Municipal Zone',
+      },
+      linkUrl: `/issues/${newIssue.issueNumber}`,
+      req,
+    });
     emitIssueEvent('issue:created', populatedIssue);
 
     return successResponse(
@@ -482,6 +497,20 @@ export const confirmResolution = async (req, res, next) => {
       .populate('assignedWorker', 'name email phone department')
       .populate('timeline.performedBy', 'name role');
 
+    notifySuperAdmin({
+      eventType: 'issue_resolved',
+      title: `✅ Citizen Confirmed Resolution: ${issue.issueNumber}`,
+      message: `${req.user.name} verified and confirmed resolution for "${issue.title}" with a rating of ${ratingNum}/5 stars.`,
+      actor: req.user,
+      metadata: {
+        'Issue ID': issue.issueNumber,
+        'Citizen Rating': `${ratingNum} / 5 Stars`,
+        'Citizen Feedback': feedback?.trim() || 'No additional notes',
+      },
+      linkUrl: `/issues/${issue.issueNumber}`,
+      req,
+    });
+
     return successResponse(res, 'Civic issue resolution verified and closed successfully', populated, 200);
   } catch (error) {
     next(error);
@@ -580,6 +609,19 @@ export const reopenIssue = async (req, res, next) => {
       .populate('reporter', 'name email phone')
       .populate('assignedWorker', 'name email phone department')
       .populate('timeline.performedBy', 'name role');
+
+    notifySuperAdmin({
+      eventType: 'security_alert',
+      title: `⚠️ Issue Reopened: ${issue.issueNumber}`,
+      message: `${req.user.name} reopened "${issue.title}". Reason: ${reopenReason.trim()}`,
+      actor: req.user,
+      metadata: {
+        'Issue ID': issue.issueNumber,
+        'Reopen Reason': reopenReason.trim(),
+      },
+      linkUrl: `/issues/${issue.issueNumber}`,
+      req,
+    });
 
     return successResponse(res, 'Issue reopened and redispatched for municipal field action', populated, 200);
   } catch (error) {

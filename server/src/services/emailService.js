@@ -355,3 +355,150 @@ export const sendPasswordResetEmail = async (toEmail, userName, resetUrl) => {
 
   return { ...result, resetUrl };
 };
+
+/**
+ * Send Instant Security & Activity Audit Alert to Super Admin
+ */
+export const sendSuperAdminAlertEmail = async ({
+  eventType = 'system',
+  title = 'CivicResolve System Activity Alert',
+  message = '',
+  actorName = 'System User',
+  actorEmail = '',
+  actorRole = 'user',
+  details = {},
+  linkUrl = '',
+  timestamp = new Date(),
+}) => {
+  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL || 'gundrothumanikantad@gmail.com';
+  const formattedTime = new Date(timestamp).toLocaleString('en-US', {
+    dateStyle: 'full',
+    timeStyle: 'medium',
+    timeZone: 'Asia/Kolkata',
+  });
+
+  // Theme color mapping based on event category
+  const badgeThemes = {
+    user_login: { bg: '#ECFDF5', border: '#10B981', text: '#065F46', icon: '🟢', label: 'USER LOGIN ACTIVITY' },
+    user_register: { bg: '#EFF6FF', border: '#3B82F6', text: '#1E40AF', icon: '🔵', label: 'NEW ACCOUNT REGISTERED' },
+    staff_request: { bg: '#FAF5FF', border: '#A855F7', text: '#6B21A8', icon: '🟣', label: 'STAFF ROLE REQUEST' },
+    issue_created: { bg: '#FFF7ED', border: '#F97316', text: '#9A3412', icon: '🟠', label: 'CIVIC ISSUE REPORTED' },
+    issue_resolved: { bg: '#F0FDF4', border: '#22C55E', text: '#15803D', icon: '✅', label: 'RESOLUTION CONFIRMED' },
+    role_approved: { bg: '#EEF2FF', border: '#6366F1', text: '#3730A3', icon: '🔷', label: 'STAFF ROLE APPROVED' },
+    role_rejected: { bg: '#FEF2F2', border: '#EF4444', text: '#991B1B', icon: '🔴', label: 'STAFF ROLE REJECTED' },
+    assignment: { bg: '#FEFCE8', border: '#EAB308', text: '#854D0E', icon: '🟡', label: 'WORKER DISPATCHED' },
+    admin_action: { bg: '#F8FAFC', border: '#64748B', text: '#334155', icon: '⚙️', label: 'ADMINISTRATIVE ACTION' },
+    security_alert: { bg: '#FFF1F2', border: '#F43F5E', text: '#881337', icon: '🚨', label: 'SECURITY INCIDENT' },
+  };
+
+  const currentTheme = badgeThemes[eventType] || {
+    bg: '#F8FAFC',
+    border: '#183827',
+    text: '#183827',
+    icon: '🛡️',
+    label: 'SYSTEM AUDIT & ACTIVITY',
+  };
+
+  // Build detail table rows
+  const detailRowsHtml = Object.entries(details)
+    .filter(([_, val]) => val !== undefined && val !== null && val !== '')
+    .map(
+      ([key, val]) => `
+      <tr>
+        <td style="padding: 10px 14px; border-bottom: 1px solid #F1F5F9; font-weight: 600; color: #64748B; font-size: 13px; width: 38%;">${key}</td>
+        <td style="padding: 10px 14px; border-bottom: 1px solid #F1F5F9; color: #0F172A; font-size: 13px; font-weight: 500;">${val}</td>
+      </tr>
+    `
+    )
+    .join('');
+
+  const actionButtonHtml = linkUrl
+    ? `
+      <div style="text-align: center; margin: 26px 0 10px 0;">
+        <a href="${linkUrl}" style="display: inline-block; background-color: #183827; color: #ffffff !important; text-decoration: none; padding: 12px 26px; border-radius: 10px; font-weight: 700; font-size: 14px; letter-spacing: 0.3px;" target="_blank">
+          Open in Super Admin Portal &rarr;
+        </a>
+      </div>
+    `
+    : '';
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${title}</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 24px; color: #1E293B; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+        .header { background: #183827; color: #ffffff; padding: 22px 26px; display: flex; align-items: center; justify-content: space-between; }
+        .badge { display: inline-block; padding: 6px 14px; border-radius: 9999px; font-size: 11px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 14px; }
+        .content { padding: 28px 26px; }
+        .table-wrap { background: #FAFAFA; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden; margin: 20px 0; }
+        .footer { background: #F8FAFC; padding: 18px 24px; text-align: center; font-size: 12px; color: #64748B; border-top: 1px solid #E2E8F0; line-height: 1.5; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div>
+            <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.3px; color: #ffffff;">CivicResolve Sentinel</h1>
+            <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.85; color: #E2E8F0;">Super Admin Real-Time Surveillance & Audit</p>
+          </div>
+        </div>
+        <div class="content">
+          <div class="badge" style="background-color: ${currentTheme.bg}; color: ${currentTheme.text}; border: 1px solid ${currentTheme.border};">
+            ${currentTheme.icon} ${currentTheme.label}
+          </div>
+
+          <h2 style="font-size: 18px; font-weight: 700; margin: 0 0 10px 0; color: #0F172A; line-height: 1.4;">
+            ${title}
+          </h2>
+
+          <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 0 0 18px 0;">
+            ${message}
+          </p>
+
+          <div class="table-wrap">
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+              <tr>
+                <td style="padding: 10px 14px; border-bottom: 1px solid #F1F5F9; font-weight: 600; color: #64748B; font-size: 13px; width: 38%;">Actor / User</td>
+                <td style="padding: 10px 14px; border-bottom: 1px solid #F1F5F9; color: #0F172A; font-size: 13px; font-weight: 700;">${actorName} ${actorEmail ? `(${actorEmail})` : ''}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 14px; border-bottom: 1px solid #F1F5F9; font-weight: 600; color: #64748B; font-size: 13px;">User Role</td>
+                <td style="padding: 10px 14px; border-bottom: 1px solid #F1F5F9; color: #0F172A; font-size: 13px; text-transform: capitalize; font-weight: 600;">${actorRole.replace('_', ' ')}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 14px; border-bottom: 1px solid #F1F5F9; font-weight: 600; color: #64748B; font-size: 13px;">Timestamp (IST)</td>
+                <td style="padding: 10px 14px; border-bottom: 1px solid #F1F5F9; color: #0F172A; font-size: 13px;">${formattedTime}</td>
+              </tr>
+              ${detailRowsHtml}
+            </table>
+          </div>
+
+          ${actionButtonHtml}
+        </div>
+        <div class="footer">
+          <strong>CivicResolve Municipal Sentinel Security Network</strong><br>
+          Automated real-time telemetry delivered to Super Administrator (${superAdminEmail}).
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const textContent = `[CIVICRESOLVE SUPER ADMIN ALERT] ${currentTheme.label}\n\n${title}\n${message}\n\nActor: ${actorName} (${actorEmail})\nRole: ${actorRole}\nTime: ${formattedTime}\n\n${Object.entries(details).map(([k, v]) => `${k}: ${v}`).join('\n')}\n\nPortal: ${linkUrl || 'https://civicissueresolve-client.vercel.app/dashboard'}`;
+
+  console.info(`[SUPER ADMIN ALERT DISPATCH] Event: ${eventType} | To: ${superAdminEmail} | ${title}`);
+
+  // Non-blocking dispatch
+  return dispatchEmail({
+    to: superAdminEmail,
+    subject: `[CivicResolve Alert] ${title}`,
+    html: htmlContent,
+    text: textContent,
+  });
+};
+

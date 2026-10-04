@@ -8,6 +8,7 @@ import {
 import { successResponse } from '../utils/apiResponse.js';
 import { AppError } from '../utils/appError.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/emailService.js';
+import { notifySuperAdmin } from '../services/notificationService.js';
 
 /**
  * Format sanitized user object for API responses
@@ -186,6 +187,36 @@ export const verifyEmail = async (req, res, next) => {
       await PendingRegistration.deleteOne({ _id: pending._id });
 
       console.info(`[Security: User Verified & Created in DB] User ${user.email} (${user.requestedRole}) added to database.`);
+
+      // Trigger Real-Time Super Admin Notification & Email Alert
+      if (isStaffRole) {
+        notifySuperAdmin({
+          eventType: 'staff_request',
+          title: `📋 Staff Role Application: ${user.name}`,
+          message: `${user.name} (${user.email}) verified their account and requested the ${user.requestedRole.replace('_', ' ').toUpperCase()} role. Please review and assign jurisdictional coverage.`,
+          actor: user,
+          metadata: {
+            'Requested Role': user.requestedRole.replace('_', ' '),
+            'Account Status': 'Pending Super Admin Approval',
+            'Phone': user.phone || 'N/A',
+          },
+          linkUrl: '/dashboard',
+          req,
+        });
+      } else {
+        notifySuperAdmin({
+          eventType: 'user_register',
+          title: `🎉 New Citizen Registered: ${user.name}`,
+          message: `${user.name} (${user.email}) successfully verified their email and activated a citizen account.`,
+          actor: user,
+          metadata: {
+            'Registered Role': 'Citizen',
+            'Phone': user.phone || 'N/A',
+          },
+          linkUrl: '/dashboard',
+          req,
+        });
+      }
 
       return successResponse(
         res,
@@ -412,6 +443,21 @@ export const login = async (req, res, next) => {
     await user.save({ validateBeforeSave: false });
 
     console.info(`[Audit: Login Success] User ${user.email} (${user.role}) logged in successfully`);
+
+    // Trigger Real-Time Super Admin Notification & Email Alert
+    notifySuperAdmin({
+      eventType: 'user_login',
+      title: `🔑 User Session Login: ${user.name}`,
+      message: `${user.name} (${user.email}) logged into the platform as ${user.role.replace('_', ' ')}.`,
+      actor: user,
+      metadata: {
+        'Active Role': user.role,
+        'Account Status': user.approvalStatus || 'approved',
+        'Service Area': user.serviceArea?.name || 'Default Zone',
+      },
+      linkUrl: '/dashboard',
+      req,
+    });
 
     return successResponse(
       res,

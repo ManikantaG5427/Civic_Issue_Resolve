@@ -124,6 +124,16 @@ export const configAPI = {
  * Civic Issue Management API Endpoints
  */
 export const issueAPI = {
+  getIssues: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '' && value !== 'all') {
+        searchParams.append(key, value);
+      }
+    });
+    const queryString = searchParams.toString();
+    return apiRequest(`/issues/public-map${queryString ? `?${queryString}` : ''}`);
+  },
   createIssue: (data) => apiRequest('/issues', { method: 'POST', body: JSON.stringify(data) }),
   getIssueById: (id) => apiRequest(`/issues/${id}`),
   getMyReports: (params = {}) => {
