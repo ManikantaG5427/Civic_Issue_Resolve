@@ -51,6 +51,16 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    approvalStatus: {
+      type: String,
+      enum: ['approved', 'pending', 'rejected'],
+      default: 'approved',
+    },
+    requestedRole: {
+      type: String,
+      enum: ['citizen', 'field_worker', 'administrator', 'super_admin'],
+      default: 'citizen',
+    },
     refreshToken: {
       type: String,
       select: false,

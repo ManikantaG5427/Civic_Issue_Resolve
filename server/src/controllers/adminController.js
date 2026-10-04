@@ -782,3 +782,75 @@ export const submitPhaseProof = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Get users awaiting role approval (Government Officers & Field Workers)
+ * GET /api/admin/users/pending-approvals
+ */
+export const getPendingApprovals = async (req, res, next) => {
+  try {
+    const pendingUsers = await User.find({
+      approvalStatus: 'pending',
+    })
+      .select('name email phone role requestedRole approvalStatus serviceArea department createdAt')
+      .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code')
+      .sort({ createdAt: -1 });
+
+    return successResponse(res, 'Pending staff approvals retrieved', pendingUsers, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Super Admin: Approve user role with Service Area (Village/Zone) & Department assignment
+ * POST /api/admin/users/:id/approve-role
+ */
+export const approveUserRole = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { role, serviceArea, department } = req.body;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const assignedRole = role || user.requestedRole || 'administrator';
+    user.role = assignedRole;
+    user.approvalStatus = 'approved';
+    if (serviceArea) user.serviceArea = serviceArea;
+    if (department) user.department = department;
+
+    await user.save({ validateBeforeSave: false });
+
+    console.info(`[Role Approved] Super Admin approved ${user.email} as ${user.role}`);
+
+    return successResponse(res, `User approved as ${user.role} successfully`, user, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Super Admin: Reject role request
+ * POST /api/admin/users/:id/reject-role
+ */
+export const rejectUserRole = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    user.role = 'citizen';
+    user.approvalStatus = 'rejected';
+    await user.save({ validateBeforeSave: false });
+
+    return successResponse(res, 'Role request rejected. User retained citizen access.', user, 200);
+  } catch (error) {
+    next(error);
+  }
+};

@@ -22,6 +22,11 @@ const pendingRegistrationSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    role: {
+      type: String,
+      enum: ['citizen', 'field_worker', 'administrator'],
+      default: 'citizen',
+    },
     verificationCode: {
       type: String,
       required: true,

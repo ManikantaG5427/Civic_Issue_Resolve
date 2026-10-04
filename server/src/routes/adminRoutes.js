@@ -57,5 +57,16 @@ router.delete('/issues/:id/workers/:workerId', removeWorkerFromRoster);
 // 3-Phase Work Execution Proof
 router.post('/issues/:id/phase-proof', submitPhaseProof);
 
+// Super Admin Staff / Officer Role Approvals
+router.get('/users/pending-approvals', (req, res, next) => {
+  import('../controllers/adminController.js').then((m) => m.getPendingApprovals(req, res, next));
+});
+router.post('/users/:id/approve-role', (req, res, next) => {
+  import('../controllers/adminController.js').then((m) => m.approveUserRole(req, res, next));
+});
+router.post('/users/:id/reject-role', (req, res, next) => {
+  import('../controllers/adminController.js').then((m) => m.rejectUserRole(req, res, next));
+});
+
 export default router;
 
