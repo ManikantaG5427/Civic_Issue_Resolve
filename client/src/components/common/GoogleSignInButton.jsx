@@ -229,7 +229,7 @@ export default function GoogleSignInButton({
                   <div>
                     <div className="font-bold flex items-center gap-1.5">
                       <span>Manikanta Gundrothu</span>
-                      <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded-full">
+                      <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-full">
                         Super Admin
                       </span>
                     </div>
