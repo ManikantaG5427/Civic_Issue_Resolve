@@ -131,32 +131,7 @@ const dispatchEmail = async ({ to, subject, html, text }) => {
   const senderEmail = process.env.EMAIL_FROM_ADDRESS || process.env.SMTP_USER || 'civicissuesolve@gmail.com';
   const senderName = process.env.EMAIL_FROM_NAME || 'CivicResolve Support';
 
-  // 1. Resend HTTPS API (Port 443)
-  if (process.env.RESEND_API_KEY) {
-    const resendResult = await sendViaResendHttp({
-      from: `"${senderName}" <${senderEmail}>`,
-      to,
-      subject,
-      html,
-      text,
-    });
-    if (resendResult) return resendResult;
-  }
-
-  // 2. Brevo HTTPS API (Port 443)
-  if (process.env.BREVO_API_KEY) {
-    const brevoResult = await sendViaBrevoHttp({
-      senderName,
-      senderEmail,
-      to,
-      subject,
-      html,
-      text,
-    });
-    if (brevoResult) return brevoResult;
-  }
-
-  // 3. Gmail Direct Service Transporter
+  // 1. Gmail Direct Service Transporter (Fastest & direct inbox delivery to ANY email)
   const gmailService = createGmailServiceTransporter();
   if (gmailService) {
     try {
@@ -170,8 +145,33 @@ const dispatchEmail = async ({ to, subject, html, text }) => {
       console.info(`[Email Dispatch: Gmail Service] Delivered to ${to} (ID: ${info.messageId})`);
       return { success: true, messageId: info.messageId, provider: 'gmail_service' };
     } catch (errService) {
-      console.warn(`[Email Dispatch: Gmail Service Failed] ${errService.message}. Trying SMTP...`);
+      console.warn(`[Email Dispatch: Gmail Service Failed] ${errService.message}. Trying HTTPS/SMTP failover...`);
     }
+  }
+
+  // 2. Resend HTTPS API (Port 443 - uses onboarding@resend.dev for guaranteed delivery)
+  if (process.env.RESEND_API_KEY) {
+    const resendResult = await sendViaResendHttp({
+      from: `CivicResolve <onboarding@resend.dev>`,
+      to,
+      subject,
+      html,
+      text,
+    });
+    if (resendResult) return resendResult;
+  }
+
+  // 3. Brevo HTTPS API (Port 443)
+  if (process.env.BREVO_API_KEY) {
+    const brevoResult = await sendViaBrevoHttp({
+      senderName,
+      senderEmail,
+      to,
+      subject,
+      html,
+      text,
+    });
+    if (brevoResult) return brevoResult;
   }
 
   // 4. SMTP Port 587 (STARTTLS)

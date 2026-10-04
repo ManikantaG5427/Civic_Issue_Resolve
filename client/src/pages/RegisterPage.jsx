@@ -13,12 +13,16 @@ import {
   Phone,
   AlertCircle,
   CheckCircle2,
-  KeyRound,
   RefreshCw,
   ArrowLeft,
   Eye,
   EyeOff,
   ShieldCheck,
+  Building2,
+  HardHat,
+  Users,
+  Clock,
+  ArrowRight,
 } from 'lucide-react';
 
 export default function RegisterPage() {
@@ -31,10 +35,11 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phone, setPhone] = useState('');
+  const [role, setRole] = useState('citizen'); // 'citizen' | 'administrator' | 'field_worker'
   const [showPassword, setShowPassword] = useState(false);
 
   // Verification Step State
-  const [step, setStep] = useState('form'); // 'form' | 'verify'
+  const [step, setStep] = useState('form'); // 'form' | 'verify' | 'pending_approval'
   const [verificationCode, setVerificationCode] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isResending, setIsResending] = useState(false);
@@ -86,7 +91,7 @@ export default function RegisterPage() {
     }
 
     setIsSubmitting(true);
-    const result = await register(name, email, password, phone);
+    const result = await register(name, email, password, phone, role);
     setIsSubmitting(false);
 
     if (result.success) {
@@ -115,7 +120,11 @@ export default function RegisterPage() {
     setIsSubmitting(false);
 
     if (result.success) {
-      navigate('/dashboard', { replace: true });
+      if (role === 'administrator' || role === 'field_worker') {
+        setStep('pending_approval');
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } else {
       setFormError(result.error || 'Invalid or expired verification code');
     }
@@ -138,20 +147,44 @@ export default function RegisterPage() {
     }
   };
 
+  const roles = [
+    {
+      id: 'citizen',
+      title: 'Citizen',
+      description: 'Report municipal defects & track resolution progress in real time.',
+      icon: Users,
+      badge: 'Immediate Access',
+    },
+    {
+      id: 'administrator',
+      title: 'Government Officer / Admin',
+      description: 'Review queue triage, department dispatch & SLA oversight.',
+      icon: Building2,
+      badge: 'Super Admin Verified',
+    },
+    {
+      id: 'field_worker',
+      title: 'Field Worker / Lead',
+      description: 'Receive repair briefs, manage crew & upload geo-tagged photo proof.',
+      icon: HardHat,
+      badge: 'Super Admin Verified',
+    },
+  ];
+
   return (
     <div className="min-h-[80vh] flex items-center justify-center py-8 px-4">
       <div className="max-w-lg w-full space-y-6">
-        {step === 'form' ? (
+        {step === 'form' && (
           <>
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-200 text-brand-700 flex items-center justify-center mx-auto shadow-sm">
                 <UserPlus className="w-6 h-6" />
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-heading">
-                Register as a <span className="text-brand-700">Citizen</span>
+                Create an Account
               </h1>
               <p className="text-sm text-slate-600">
-                Create an account to report civic issues and follow resolution timelines.
+                Join the CivicResolve resolution network. Choose your role below.
               </p>
             </div>
 
@@ -173,6 +206,55 @@ export default function RegisterPage() {
               )}
 
               <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                {/* ROLE SELECTION */}
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-800">
+                    Select Your Role *
+                  </label>
+                  <div className="space-y-2.5">
+                    {roles.map((r) => {
+                      const Icon = r.icon;
+                      const isSelected = role === r.id;
+                      return (
+                        <div
+                          key={r.id}
+                          onClick={() => setRole(r.id)}
+                          className={`p-3.5 rounded-2xl border transition cursor-pointer flex items-start gap-3.5 ${
+                            isSelected
+                              ? 'border-brand-600 bg-brand-50/60 ring-2 ring-brand-600/20'
+                              : 'border-slate-200 hover:border-slate-300 bg-white'
+                          }`}
+                        >
+                          <div
+                            className={`p-2 rounded-xl shrink-0 mt-0.5 ${
+                              isSelected ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-bold text-slate-900">{r.title}</span>
+                              <span
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                  isSelected
+                                    ? 'bg-brand-200 text-brand-900 font-bold'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {r.badge}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                              {r.description}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <Input
                   label="Full Name *"
                   type="text"
@@ -269,8 +351,9 @@ export default function RegisterPage() {
               </div>
             </Card>
           </>
-        ) : (
-          /* STEP 2: EMAIL VERIFICATION CODE */
+        )}
+
+        {step === 'verify' && (
           <>
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-200 text-brand-700 flex items-center justify-center mx-auto shadow-sm">
@@ -336,7 +419,7 @@ export default function RegisterPage() {
                   className="inline-flex items-center gap-1.5 font-semibold text-slate-600 hover:text-slate-900 transition"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Change Email</span>
+                  <span>Change Email / Role</span>
                 </button>
 
                 <button
@@ -359,6 +442,54 @@ export default function RegisterPage() {
               </div>
             </Card>
           </>
+        )}
+
+        {step === 'pending_approval' && (
+          <div className="space-y-6 text-center">
+            <div className="w-16 h-16 rounded-3xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto border border-amber-300 shadow-sm">
+              <Clock className="w-8 h-8 text-amber-800" />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-900 bg-amber-200 px-3 py-1 rounded-full">
+                Email Verified • Role Pending Approval
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-heading">
+                Welcome to CivicResolve!
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                Your email has been verified. You requested the{' '}
+                <strong className="text-slate-900 uppercase">
+                  {role === 'administrator' ? 'Municipal Officer / Admin' : 'Field Worker'}
+                </strong>{' '}
+                role.
+              </p>
+            </div>
+
+            <Card elevated className="p-6 text-left text-xs sm:text-sm space-y-3 bg-amber-50/70 border-amber-200">
+              <p className="font-semibold text-amber-950 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-amber-800" />
+                Super Admin Verification Required
+              </p>
+              <p className="text-amber-900 text-xs leading-relaxed">
+                The primary Super Administrator (Manikanta) has received your request. Once your service area/zone and department are assigned, your officer privileges will be unlocked automatically.
+              </p>
+              <p className="text-xs text-slate-600 pt-2 border-t border-amber-200">
+                In the meantime, your citizen portal is active so you can report infrastructure issues and track community resolutions.
+              </p>
+            </Card>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button
+                onClick={() => navigate('/dashboard', { replace: true })}
+                className="w-full sm:w-auto"
+                size="lg"
+              >
+                <span>Continue to Dashboard</span>
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     </div>

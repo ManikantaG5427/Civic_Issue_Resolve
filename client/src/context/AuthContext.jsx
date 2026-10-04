@@ -66,10 +66,10 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const register = async (name, email, password, phone) => {
+  const register = async (name, email, password, phone, role = 'citizen') => {
     setError(null);
     try {
-      const response = await authAPI.register({ name, email, password, phone });
+      const response = await authAPI.register({ name, email, password, phone, role });
       return {
         success: true,
         requireVerification: response.data?.requireVerification ?? true,
