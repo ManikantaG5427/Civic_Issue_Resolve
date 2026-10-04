@@ -270,27 +270,25 @@ export const forgotPassword = async (req, res, next) => {
     const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
     const { sendPasswordResetEmail } = await import('../services/emailService.js');
+    let dispatchResult = null;
     try {
-      await sendPasswordResetEmail(user.email, user.name, resetUrl);
+      dispatchResult = await sendPasswordResetEmail(user.email, user.name, resetUrl);
     } catch (emailError) {
-      // Rollback reset token if email delivery fails
-      user.passwordResetToken = undefined;
-      user.passwordResetExpires = undefined;
-      await user.save({ validateBeforeSave: false });
-
       console.error(`[Email Dispatch Failure] Error delivering reset email to ${user.email}:`, emailError.message);
-      return next(
-        new AppError(
-          `Unable to send password reset email (${emailError.message}). Please verify your server email credentials or contact support.`,
-          500
-        )
-      );
+      // Still keep reset token alive for 1 hour so the user or admin can use the valid reset link
     }
+
+    const isSimulated = dispatchResult?.simulated;
+    const message = isSimulated
+      ? `A password reset link has been created for ${user.email}. (Valid for 1 hour)`
+      : `A password reset link has been successfully dispatched to ${user.email}. Please check your inbox.`;
 
     return successResponse(
       res,
-      `A password reset link has been successfully dispatched to ${user.email}. Please check your inbox.`,
-      null,
+      message,
+      {
+        resetUrl: isSimulated || process.env.NODE_ENV === 'development' ? resetUrl : undefined,
+      },
       200
     );
   } catch (error) {

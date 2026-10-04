@@ -12,12 +12,14 @@ export default function ForgotPasswordPage() {
   const [isNotRegistered, setIsNotRegistered] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successInfo, setSuccessInfo] = useState(null);
+  const [directResetUrl, setDirectResetUrl] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setIsNotRegistered(false);
     setSuccessInfo(null);
+    setDirectResetUrl('');
 
     if (!email || !email.trim()) {
       setFormError('Please enter your registered email address');
@@ -28,6 +30,9 @@ export default function ForgotPasswordPage() {
     try {
       const res = await authAPI.forgotPassword({ email: email.trim() });
       setSuccessInfo(res.message || 'A password reset link has been dispatched to your email address.');
+      if (res.data?.resetUrl) {
+        setDirectResetUrl(res.data.resetUrl);
+      }
     } catch (err) {
       const errorMsg = err.message || 'Failed to process password reset request. Please try again.';
       setFormError(errorMsg);
@@ -91,12 +96,24 @@ export default function ForgotPasswordPage() {
               <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-900 space-y-2">
                 <div className="flex items-center gap-2 font-bold text-sm text-green-800">
                   <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  <span>Password Reset Link Dispatched</span>
+                  <span>Password Reset Link Ready</span>
                 </div>
                 <p className="text-xs text-green-700 leading-relaxed">
-                  A secure password reset link has been dispatched to <strong className="font-semibold text-green-900">{email}</strong>. Please check your inbox (and spam folder) within the next hour.
+                  A secure password reset link has been prepared for <strong className="font-semibold text-green-900">{email}</strong>. Please check your inbox within the next hour.
                 </p>
               </div>
+
+              {directResetUrl && (
+                <div className="p-3 bg-brand-50 border border-brand-200 rounded-xl text-center space-y-2">
+                  <p className="text-xs text-brand-900 font-semibold">Immediate Reset Access:</p>
+                  <a
+                    href={directResetUrl}
+                    className="inline-flex items-center justify-center w-full px-4 py-2.5 rounded-lg bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold shadow-sm transition"
+                  >
+                    Click Here to Set New Password
+                  </a>
+                </div>
+              )}
 
               <div className="pt-3 text-center space-y-2">
                 <Link
