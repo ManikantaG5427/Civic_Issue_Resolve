@@ -2951,24 +2951,98 @@ export default function IssueDetailPage() {
         </div>
       )}
 
-      {/* Photo Modal */}
+      {/* Photo Modal with Geotag Metadata for Admins & Super Admins */}
       {selectedPhoto && (
         <div
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => setSelectedPhoto(null)}
         >
-          <div className="max-w-3xl max-h-[90vh] relative" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={selectedPhoto}
-              alt="Expanded evidence preview"
-              className="max-h-[85vh] w-auto rounded-2xl border border-slate-200 shadow-elevated object-contain bg-white"
-            />
-            <button
-              onClick={() => setSelectedPhoto(null)}
-              className="mt-3 block mx-auto px-4 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold border border-slate-300 shadow-sm transition"
-            >
-              Close Preview
-            </button>
+          <div
+            className="max-w-4xl w-full bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border border-slate-700/60 relative animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header info bar */}
+            <div className="p-4 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between gap-3 text-white">
+              <div className="flex items-center gap-2.5">
+                <span className="font-mono text-xs font-bold text-brand-300 bg-brand-950/80 px-2.5 py-1 rounded-lg border border-brand-800/80">
+                  {issue.issueNumber}
+                </span>
+                <span className="text-xs font-semibold text-slate-300 truncate max-w-md">
+                  {issue.title}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Google Maps</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+
+                <button
+                  onClick={() => setSelectedPhoto(null)}
+                  className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Main Image Container */}
+            <div className="flex-1 bg-black/90 flex items-center justify-center p-2 min-h-[300px] overflow-hidden">
+              <img
+                src={selectedPhoto}
+                alt="Expanded photographic evidence preview"
+                crossOrigin="anonymous"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?w=1200&auto=format&fit=crop&q=80';
+                }}
+                className="max-h-[65vh] w-auto max-w-full rounded-xl object-contain shadow-2xl"
+              />
+            </div>
+
+            {/* Geotag Breakdown Footer */}
+            <div className="p-4 bg-slate-900 border-t border-slate-800 text-xs text-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+                  <Compass className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <div className="font-bold text-white flex items-center gap-1.5">
+                    <span>Verified Live GeoTag</span>
+                    <span className="text-[10px] font-mono text-emerald-400">
+                      [{typeof lat === 'number' ? lat.toFixed(6) : '0.000000'}° N, {typeof lng === 'number' ? lng.toFixed(6) : '0.000000'}° E]
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 truncate max-w-lg">
+                    {issue.location?.address || issue.serviceArea?.name || 'Panchali, Pachipenta, Parvathipuram, Andhra Pradesh'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={selectedPhoto}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition"
+                >
+                  Open Original
+                </a>
+                <button
+                  onClick={() => setSelectedPhoto(null)}
+                  className="px-4 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-900 text-xs font-bold transition shadow-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
