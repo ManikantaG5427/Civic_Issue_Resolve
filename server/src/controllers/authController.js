@@ -706,3 +706,173 @@ export const updateProfile = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Google Sign-In & Unified Social Authentication
+ * Authenticates users using Google Identity Services (GIS) / Google OAuth credentials
+ * POST /api/auth/google
+ */
+export const googleAuth = async (req, res, next) => {
+  try {
+    const { credential, email: rawEmail, name: rawName, picture, googleId: rawGoogleId, requestedRole } = req.body;
+
+    let email = rawEmail;
+    let name = rawName;
+    let avatar = picture || '';
+    let googleId = rawGoogleId;
+
+    // Decode Google ID Token if passed as JWT credential
+    if (credential && typeof credential === 'string') {
+      try {
+        const parts = credential.split('.');
+        if (parts.length === 3) {
+          const payloadJson = Buffer.from(parts[1], 'base64').toString('utf-8');
+          const payload = JSON.parse(payloadJson);
+          if (payload.email) email = payload.email;
+          if (payload.name) name = payload.name;
+          if (payload.picture) avatar = payload.picture;
+          if (payload.sub) googleId = payload.sub;
+        }
+      } catch (decodeErr) {
+        console.warn('[Google Auth JWT Decode Warning]', decodeErr.message);
+      }
+    }
+
+    if (!email) {
+      return next(new AppError('Google authentication failed: Email address could not be verified.', 400));
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const isSuperAdminEmail = normalizedEmail === 'gundrothumanikantad@gmail.com';
+
+    // 1. Check if user already exists
+    let user = await User.findOne({
+      $or: [
+        { email: normalizedEmail },
+        ...(googleId ? [{ googleId }] : []),
+      ],
+    });
+
+    let isNewUser = false;
+
+    if (user) {
+      // Link Google Account & update profile
+      if (googleId && !user.googleId) user.googleId = googleId;
+      if (avatar && !user.avatar) user.avatar = avatar;
+      if (!user.isEmailVerified) user.isEmailVerified = true;
+      if (isSuperAdminEmail) {
+        user.role = 'super_admin';
+        user.requestedRole = 'super_admin';
+        user.approvalStatus = 'approved';
+      }
+      user.lastLogin = new Date();
+      user.lastLoginIp = req.ip || req.connection?.remoteAddress || '';
+      user.lastLoginUserAgent = req.headers['user-agent'] || '';
+
+      const accessToken = generateAccessToken(user);
+      const refreshToken = generateRefreshToken(user);
+      user.refreshToken = refreshToken;
+
+      await user.save({ validateBeforeSave: false });
+
+      // Notify Super Admin on login
+      notifySuperAdmin({
+        eventType: 'user_login',
+        title: `Google Login: ${user.name}`,
+        message: `${user.name} (${user.email}) logged in via Google Provider as ${user.role.replace('_', ' ')}.`,
+        actor: user,
+        metadata: {
+          'Auth Method': 'Google Identity Provider',
+          'Role': user.role,
+        },
+        linkUrl: '/dashboard',
+        req,
+      });
+
+      return successResponse(
+        res,
+        `Welcome back, ${user.name}! Signed in with Google.`,
+        {
+          user: sanitizeUser(user),
+          accessToken,
+          refreshToken,
+          isNewUser: false,
+        },
+        200
+      );
+    }
+
+    // 2. Create new user for first-time Google sign-in
+    isNewUser = true;
+    const validRoles = ['citizen', 'field_worker', 'administrator'];
+    const chosenRequestedRole = validRoles.includes(requestedRole) ? requestedRole : 'citizen';
+    const isStaffRole = chosenRequestedRole === 'administrator' || chosenRequestedRole === 'field_worker';
+
+    user = new User({
+      name: name?.trim() || normalizedEmail.split('@')[0] || 'Civic Member',
+      email: normalizedEmail,
+      googleId: googleId || null,
+      authProvider: 'google',
+      avatar,
+      role: isSuperAdminEmail ? 'super_admin' : 'citizen',
+      requestedRole: isSuperAdminEmail ? 'super_admin' : chosenRequestedRole,
+      approvalStatus: isSuperAdminEmail ? 'approved' : (isStaffRole ? 'pending' : 'approved'),
+      isEmailVerified: true,
+      lastLogin: new Date(),
+      lastLoginIp: req.ip || req.connection?.remoteAddress || '',
+      lastLoginUserAgent: req.headers['user-agent'] || '',
+    });
+
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    user.refreshToken = refreshToken;
+
+    await user.save({ validateBeforeSave: false });
+
+    // Send real-time telemetry alert to Super Admin
+    if (isStaffRole) {
+      notifySuperAdmin({
+        eventType: 'staff_request',
+        title: `Google Sign-Up: Staff Role Request (${user.name})`,
+        message: `${user.name} (${user.email}) created an account via Google and applied for the ${user.requestedRole.replace('_', ' ').toUpperCase()} role.`,
+        actor: user,
+        metadata: {
+          'Requested Role': user.requestedRole.replace('_', ' '),
+          'Auth Method': 'Google Provider',
+          'Approval Status': 'Pending Super Admin Review',
+        },
+        linkUrl: '/dashboard',
+        req,
+      });
+    } else {
+      notifySuperAdmin({
+        eventType: 'user_register',
+        title: `Google Sign-Up: New Citizen (${user.name})`,
+        message: `${user.name} (${user.email}) joined CivicResolve via Google Identity Provider.`,
+        actor: user,
+        metadata: {
+          'Role': 'Citizen',
+          'Auth Method': 'Google Provider',
+        },
+        linkUrl: '/dashboard',
+        req,
+      });
+    }
+
+    return successResponse(
+      res,
+      `Account created successfully! Welcome to CivicResolve, ${user.name}.`,
+      {
+        user: sanitizeUser(user),
+        accessToken,
+        refreshToken,
+        isNewUser: true,
+        pendingApproval: isStaffRole,
+      },
+      201
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+

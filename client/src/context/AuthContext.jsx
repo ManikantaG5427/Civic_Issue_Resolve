@@ -116,6 +116,22 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const googleLogin = async (googleData) => {
+    setError(null);
+    try {
+      const response = await authAPI.googleAuth(googleData);
+      const { user: userData, accessToken, refreshToken } = response.data;
+
+      setStoredTokens(accessToken, refreshToken);
+      setUser(userData);
+      localStorage.setItem('civic_user', JSON.stringify(userData));
+      return { success: true, user: userData, isNewUser: response.data?.isNewUser };
+    } catch (err) {
+      setError(err.message || 'Google sign in failed');
+      return { success: false, error: err.message };
+    }
+  };
+
   const logout = async () => {
     try {
       await authAPI.logout();
@@ -135,6 +151,7 @@ export function AuthProvider({ children }) {
         loading,
         error,
         login,
+        googleLogin,
         register,
         verifyEmail,
         updateProfile,

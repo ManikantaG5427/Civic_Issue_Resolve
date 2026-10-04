@@ -10,6 +10,7 @@ import {
   verifyEmail,
   resendVerificationCode,
   updateProfile,
+  googleAuth,
 } from '../controllers/authController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import {
@@ -20,6 +21,7 @@ import { loginLimiter, registerLimiter, otpLimiter, passwordResetLimiter } from 
 
 const router = express.Router();
 
+router.post('/google', googleAuth);
 router.post('/register', registerLimiter, validateRegister, register);
 router.post('/verify-email', otpLimiter, verifyEmail);
 router.post('/resend-verification', otpLimiter, resendVerificationCode);

@@ -5,6 +5,7 @@ import { authAPI } from '../services/api';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import GoogleSignInButton from '../components/common/GoogleSignInButton';
 import {
   Lock,
   Mail,
@@ -138,7 +139,21 @@ export default function LoginPage() {
                     )}
                   </div>
                 </div>
-              )}
+              {/* Google Sign In Option */}
+              <div className="mb-5 space-y-4">
+                <GoogleSignInButton
+                  label="Sign In with Google"
+                  redirectPath={from}
+                  onError={(err) => setFormError(err)}
+                />
+
+                <div className="relative flex items-center justify-center">
+                  <div className="border-t border-slate-200 w-full" />
+                  <span className="bg-white px-3 text-[11px] font-semibold tracking-wider uppercase text-slate-400 absolute">
+                    Or continue with email
+                  </span>
+                </div>
+              </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <Input

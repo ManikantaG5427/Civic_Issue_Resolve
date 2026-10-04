@@ -102,6 +102,7 @@ export const authAPI = {
   verifyEmail: (data) => apiRequest('/auth/verify-email', { method: 'POST', body: JSON.stringify(data) }),
   resendVerification: (data) => apiRequest('/auth/resend-verification', { method: 'POST', body: JSON.stringify(data) }),
   login: (credentials) => apiRequest('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
+  googleAuth: (googleData) => apiRequest('/auth/google', { method: 'POST', body: JSON.stringify(googleData) }),
   forgotPassword: (data) => apiRequest('/auth/forgot-password', { method: 'POST', body: JSON.stringify(data) }),
   resetPassword: (token, data) => apiRequest(`/auth/reset-password/${token}`, { method: 'POST', body: JSON.stringify(data) }),
   logout: () => apiRequest('/auth/logout', { method: 'POST' }),
