@@ -70,15 +70,33 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const response = await authAPI.register({ name, email, password, phone });
-      const { user: userData, accessToken, refreshToken } = response.data;
-
-      setStoredTokens(accessToken, refreshToken);
-      setUser(userData);
-      localStorage.setItem('civic_user', JSON.stringify(userData));
-      return { success: true, user: userData };
+      return {
+        success: true,
+        requireVerification: response.data?.requireVerification ?? true,
+        email: response.data?.email || email,
+        message: response.message,
+      };
     } catch (err) {
       setError(err.message || 'Registration failed');
       return { success: false, error: err.message, errors: err.errors };
+    }
+  };
+
+  const verifyEmail = async (email, code) => {
+    setError(null);
+    try {
+      const response = await authAPI.verifyEmail({ email, code });
+      if (response.data?.accessToken) {
+        const { user: userData, accessToken, refreshToken } = response.data;
+        setStoredTokens(accessToken, refreshToken);
+        setUser(userData);
+        localStorage.setItem('civic_user', JSON.stringify(userData));
+        return { success: true, user: userData };
+      }
+      return { success: true, message: response.message };
+    } catch (err) {
+      setError(err.message || 'Verification failed');
+      return { success: false, error: err.message };
     }
   };
 
@@ -102,6 +120,7 @@ export function AuthProvider({ children }) {
         error,
         login,
         register,
+        verifyEmail,
         logout,
         setUser,
       }}

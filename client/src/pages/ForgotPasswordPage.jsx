@@ -93,35 +93,26 @@ export default function ForgotPasswordPage() {
 
           {successInfo ? (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-900 space-y-2">
-                <div className="flex items-center gap-2 font-bold text-sm text-green-800">
-                  <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  <span>Password Reset Link Ready</span>
+              <div className="p-5 rounded-2xl bg-green-50 border border-green-200 text-green-900 space-y-3">
+                <div className="flex items-center gap-2.5 font-bold text-sm text-green-800">
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  <span>Password Reset Email Sent</span>
                 </div>
-                <p className="text-xs text-green-700 leading-relaxed">
-                  A secure password reset link has been prepared for <strong className="font-semibold text-green-900">{email}</strong>. Please check your inbox within the next hour.
+                <p className="text-xs text-green-800 leading-relaxed">
+                  A secure password reset link has been dispatched to <strong className="font-semibold text-green-950">{email}</strong>.
                 </p>
+                <div className="p-3 bg-white/80 border border-green-200 rounded-xl text-xs text-green-900 font-medium">
+                  📩 <strong>Next Step:</strong> Open your email inbox and click the <strong>"Reset My Password"</strong> link inside the email to access the password reset page on our site.
+                </div>
               </div>
 
-              {directResetUrl && (
-                <div className="p-3 bg-brand-50 border border-brand-200 rounded-xl text-center space-y-2">
-                  <p className="text-xs text-brand-900 font-semibold">Immediate Reset Access:</p>
-                  <a
-                    href={directResetUrl}
-                    className="inline-flex items-center justify-center w-full px-4 py-2.5 rounded-lg bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold shadow-sm transition"
-                  >
-                    Click Here to Set New Password
-                  </a>
-                </div>
-              )}
-
-              <div className="pt-3 text-center space-y-2">
+              <div className="pt-2 text-center space-y-2">
                 <Link
                   to="/login"
                   className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 hover:text-slate-900 transition"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back to Sign In</span>
+                  <span>Return to Sign In</span>
                 </Link>
               </div>
             </div>

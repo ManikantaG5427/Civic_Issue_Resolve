@@ -106,13 +106,156 @@ const createSmtpTransporter = (port = 465, secure = true) => {
 };
 
 /**
- * Send Password Reset Email
+ * Core dispatch runner with cascading failover
  */
-export const sendPasswordResetEmail = async (toEmail, userName, resetUrl) => {
-  const subject = 'CivicResolve — Password Reset Instructions';
+const dispatchEmail = async ({ to, subject, html, text }) => {
   const senderEmail = process.env.EMAIL_FROM_ADDRESS || process.env.SMTP_USER || 'civicissuesolve@gmail.com';
   const senderName = process.env.EMAIL_FROM_NAME || 'CivicResolve Support';
 
+  // 1. Resend HTTPS API (Port 443)
+  if (process.env.RESEND_API_KEY) {
+    const resendResult = await sendViaResendHttp({
+      from: `"${senderName}" <${senderEmail}>`,
+      to,
+      subject,
+      html,
+      text,
+    });
+    if (resendResult) return resendResult;
+  }
+
+  // 2. Brevo HTTPS API (Port 443)
+  if (process.env.BREVO_API_KEY) {
+    const brevoResult = await sendViaBrevoHttp({
+      senderName,
+      senderEmail,
+      to,
+      subject,
+      html,
+      text,
+    });
+    if (brevoResult) return brevoResult;
+  }
+
+  // 3. SMTP Port 465 (SSL)
+  const smtp465 = createSmtpTransporter(465, true);
+  if (smtp465) {
+    try {
+      const info = await smtp465.sendMail({
+        from: `"${senderName}" <${senderEmail}>`,
+        to,
+        subject,
+        text,
+        html,
+      });
+      console.info(`[Email Dispatch: SMTP 465] Delivered to ${to} (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId, provider: 'smtp_465' };
+    } catch (err465) {
+      console.warn(`[Email Dispatch: SMTP 465 Blocked/Failed] ${err465.message}. Trying SMTP 587...`);
+    }
+  }
+
+  // 4. SMTP Port 587 (STARTTLS)
+  const smtp587 = createSmtpTransporter(587, false);
+  if (smtp587) {
+    try {
+      const info = await smtp587.sendMail({
+        from: `"${senderName}" <${senderEmail}>`,
+        to,
+        subject,
+        text,
+        html,
+      });
+      console.info(`[Email Dispatch: SMTP 587] Delivered to ${to} (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId, provider: 'smtp_587' };
+    } catch (err587) {
+      console.warn(`[Email Dispatch: SMTP 587 Blocked/Failed] ${err587.message}`);
+    }
+  }
+
+  // 5. Cloud fallback logged
+  return {
+    success: true,
+    simulated: true,
+    provider: 'fallback',
+  };
+};
+
+/**
+ * Send 6-Digit Email Verification Code to New User
+ */
+export const sendVerificationEmail = async (toEmail, userName, verificationCode) => {
+  const subject = `Your CivicResolve Verification Code: ${verificationCode}`;
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${subject}</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F4F7F4; margin: 0; padding: 24px; color: #1E293B; }
+        .container { max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+        .header { background: #183827; color: #ffffff; padding: 26px 24px; text-align: center; }
+        .content { padding: 32px 28px; line-height: 1.6; }
+        .otp-box { text-align: center; margin: 28px 0; background: #F1F8F4; border: 2px dashed #183827; border-radius: 12px; padding: 18px 24px; }
+        .otp-code { font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #183827; font-family: monospace; }
+        .footer { background: #F8FAFC; padding: 20px 24px; text-align: center; font-size: 12px; color: #64748B; border-top: 1px solid #E2E8F0; }
+        .note { background: #F8FAFC; border-left: 4px solid #183827; padding: 12px 16px; border-radius: 6px; font-size: 13px; color: #334155; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1 style="margin:0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">CivicResolve</h1>
+          <p style="margin:6px 0 0 0; font-size: 13px; opacity: 0.9;">Account Verification</p>
+        </div>
+        <div class="content">
+          <h2 style="font-size: 18px; margin-top:0; color: #0F172A;">Welcome to CivicResolve, ${userName || 'Citizen'}!</h2>
+          <p>Please enter the 6-digit verification code below on our site to verify your email and activate your account:</p>
+          
+          <div class="otp-box">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: bold; color: #183827; margin-bottom: 6px;">Your One-Time Verification Code</div>
+            <div class="otp-code">${verificationCode}</div>
+          </div>
+
+          <div class="note">
+            <strong>Security Notice:</strong> This verification code is valid for <strong>15 minutes</strong>. Never share this code with anyone.
+          </div>
+        </div>
+        <div class="footer">
+          &copy; ${new Date().getFullYear()} CivicResolve Platform. Official Municipal Resolution Network.
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const textContent = `CivicResolve — Email Verification\n\nHello ${userName || 'Citizen'},\n\nYour 6-digit verification code is: ${verificationCode}\n\nThis code is valid for 15 minutes. Enter this code on the site to activate your account.`;
+
+  const result = await dispatchEmail({
+    to: toEmail,
+    subject,
+    html: htmlContent,
+    text: textContent,
+  });
+
+  if (result.simulated) {
+    console.warn(`\n=============================================================`);
+    console.warn(`[EMAIL VERIFICATION CODE GENERATED]`);
+    console.warn(`Recipient: ${toEmail}`);
+    console.warn(`Verification Code: ${verificationCode}`);
+    console.warn(`=============================================================\n`);
+  }
+
+  return { ...result, verificationCode };
+};
+
+/**
+ * Send Password Reset Email with responsive HTML template
+ */
+export const sendPasswordResetEmail = async (toEmail, userName, resetUrl) => {
+  const subject = 'CivicResolve — Password Reset Instructions';
   const htmlContent = `
     <!DOCTYPE html>
     <html lang="en">
@@ -140,7 +283,7 @@ export const sendPasswordResetEmail = async (toEmail, userName, resetUrl) => {
         <div class="content">
           <h2 style="font-size: 18px; margin-top:0; color: #0F172A;">Hello ${userName || 'Citizen'},</h2>
           <p>We received a request to reset the password for your registered account (<strong>${toEmail}</strong>).</p>
-          <p>Click the secure button below to set a new password:</p>
+          <p>Click the secure button below in this email to proceed with setting a new password on our website:</p>
           <div class="btn-wrapper">
             <a href="${resetUrl}" class="btn" target="_blank">Reset My Password</a>
           </div>
@@ -160,83 +303,22 @@ export const sendPasswordResetEmail = async (toEmail, userName, resetUrl) => {
     </html>
   `;
 
-  const textContent = `CivicResolve — Password Reset Instructions\n\nHello ${userName || 'Citizen'},\n\nWe received a request to reset the password for your account (${toEmail}).\n\nPlease visit the link below to set a new password:\n${resetUrl}\n\nThis link is valid for 1 hour.\nIf you did not request this, please ignore this email.`;
+  const textContent = `CivicResolve — Password Reset Instructions\n\nHello ${userName || 'Citizen'},\n\nWe received a request to reset the password for your account (${toEmail}).\n\nPlease open the link below to set a new password:\n${resetUrl}\n\nThis link is valid for 1 hour.\nIf you did not request this, please ignore this email.`;
 
-  // 1. Try Resend HTTP API (HTTPS Port 443)
-  if (process.env.RESEND_API_KEY) {
-    const resendResult = await sendViaResendHttp({
-      from: `"${senderName}" <${senderEmail}>`,
-      to: toEmail,
-      subject,
-      html: htmlContent,
-      text: textContent,
-    });
-    if (resendResult) return resendResult;
+  const result = await dispatchEmail({
+    to: toEmail,
+    subject,
+    html: htmlContent,
+    text: textContent,
+  });
+
+  if (result.simulated) {
+    console.warn(`\n=============================================================`);
+    console.warn(`[PASSWORD RESET LINK GENERATED]`);
+    console.warn(`Recipient: ${toEmail}`);
+    console.warn(`Reset URL: ${resetUrl}`);
+    console.warn(`=============================================================\n`);
   }
 
-  // 2. Try Brevo HTTP API (HTTPS Port 443)
-  if (process.env.BREVO_API_KEY) {
-    const brevoResult = await sendViaBrevoHttp({
-      senderName,
-      senderEmail,
-      to: toEmail,
-      subject,
-      html: htmlContent,
-      text: textContent,
-    });
-    if (brevoResult) return brevoResult;
-  }
-
-  // 3. Try SMTP (Port 465 SSL)
-  const smtp465 = createSmtpTransporter(465, true);
-  if (smtp465) {
-    try {
-      const info = await smtp465.sendMail({
-        from: `"${senderName}" <${senderEmail}>`,
-        to: toEmail,
-        subject,
-        text: textContent,
-        html: htmlContent,
-      });
-      console.info(`[Email Dispatch: SMTP 465] Sent to ${toEmail} (ID: ${info.messageId})`);
-      return { success: true, messageId: info.messageId, provider: 'smtp_465' };
-    } catch (err465) {
-      console.warn(`[Email Dispatch: SMTP 465 Blocked/Failed] ${err465.message}. Trying SMTP 587...`);
-    }
-  }
-
-  // 4. Try SMTP (Port 587 STARTTLS)
-  const smtp587 = createSmtpTransporter(587, false);
-  if (smtp587) {
-    try {
-      const info = await smtp587.sendMail({
-        from: `"${senderName}" <${senderEmail}>`,
-        to: toEmail,
-        subject,
-        text: textContent,
-        html: htmlContent,
-      });
-      console.info(`[Email Dispatch: SMTP 587] Sent to ${toEmail} (ID: ${info.messageId})`);
-      return { success: true, messageId: info.messageId, provider: 'smtp_587' };
-    } catch (err587) {
-      console.warn(`[Email Dispatch: SMTP 587 Blocked/Failed] ${err587.message}`);
-    }
-  }
-
-  // 5. CLOUD FIREWALL RESCUE FALLBACK:
-  // When cloud host (e.g. Render Free Tier) blocks outbound SMTP ports 25/465/587,
-  // do NOT fail or crash the user request. Keep the token valid and log the live link.
-  console.warn(`\n=============================================================`);
-  console.warn(`[PASSWORD RESET RESCUE LINK ACTIVATED]`);
-  console.warn(`Recipient: ${toEmail}`);
-  console.warn(`Reset URL: ${resetUrl}`);
-  console.warn(`(Notice: Cloud host blocked SMTP ports. Reset token is ACTIVE & VALID for 1 hour)`);
-  console.warn(`=============================================================\n`);
-
-  return {
-    success: true,
-    simulated: true,
-    resetUrl,
-    notice: 'Password reset link generated and active for 1 hour.',
-  };
+  return { ...result, resetUrl };
 };

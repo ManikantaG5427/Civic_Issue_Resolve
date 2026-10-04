@@ -6,6 +6,7 @@ import {
 } from '../utils/tokenUtils.js';
 import { successResponse } from '../utils/apiResponse.js';
 import { AppError } from '../utils/appError.js';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../services/emailService.js';
 
 /**
  * Format sanitized user object for API responses
@@ -19,49 +20,188 @@ const sanitizeUser = (user) => ({
   serviceArea: user.serviceArea || null,
   department: user.department || null,
   isActive: user.isActive,
+  isEmailVerified: user.isEmailVerified ?? true,
   lastLogin: user.lastLogin,
   createdAt: user.createdAt,
 });
 
 /**
- * Register a new citizen
+ * Register a new citizen (Generates 6-digit email verification code)
  * POST /api/auth/register
  */
 export const register = async (req, res, next) => {
   try {
     const { name, email, password, phone } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
 
     // Check if email already registered
-    const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return next(new AppError('An account with this email already exists', 409));
+      if (!existingUser.isEmailVerified) {
+        // User started registration earlier but did not verify. Generate fresh code.
+        const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+        existingUser.name = name.trim();
+        existingUser.password = password;
+        existingUser.phone = phone ? phone.trim() : '';
+        existingUser.emailVerificationCode = newCode;
+        existingUser.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+        await existingUser.save();
+
+        await sendVerificationEmail(existingUser.email, existingUser.name, newCode);
+
+        return successResponse(
+          res,
+          'A new 6-digit verification code has been sent to your email.',
+          {
+            requireVerification: true,
+            email: existingUser.email,
+          },
+          200
+        );
+      }
+      return next(new AppError('An account with this email already exists. Please sign in.', 409));
     }
 
-    // Create new citizen user (Role defaults to citizen)
+    // Generate 6-digit OTP verification code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Create new unverified citizen user
     const user = new User({
       name: name.trim(),
-      email: email.toLowerCase().trim(),
+      email: normalizedEmail,
       password,
       phone: phone ? phone.trim() : '',
       role: 'citizen',
+      isEmailVerified: false,
+      emailVerificationCode: verificationCode,
+      emailVerificationExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 mins
     });
 
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    user.refreshToken = refreshToken;
-    user.lastLogin = new Date();
     await user.save();
+
+    // Dispatch verification code to citizen's inbox
+    await sendVerificationEmail(user.email, user.name, verificationCode);
 
     return successResponse(
       res,
-      'Registration successful',
+      'Registration successful! Please enter the 6-digit verification code sent to your email to activate your account.',
+      {
+        requireVerification: true,
+        email: user.email,
+      },
+      201
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Verify 6-digit Email Verification Code
+ * POST /api/auth/verify-email
+ */
+export const verifyEmail = async (req, res, next) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return next(new AppError('Please provide both your registered email and 6-digit code', 400));
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const cleanCode = code.toString().trim();
+
+    const user = await User.findOne({ email: normalizedEmail }).select(
+      '+emailVerificationCode +emailVerificationExpires +refreshToken'
+    );
+
+    if (!user) {
+      return next(new AppError('No account found with this email address', 404));
+    }
+
+    if (user.isEmailVerified) {
+      return successResponse(res, 'Your email is already verified. You can now log in.', {
+        alreadyVerified: true,
+      });
+    }
+
+    if (
+      !user.emailVerificationCode ||
+      user.emailVerificationCode !== cleanCode ||
+      !user.emailVerificationExpires ||
+      user.emailVerificationExpires < new Date()
+    ) {
+      return next(
+        new AppError('Invalid or expired 6-digit verification code. Please request a new code.', 400)
+      );
+    }
+
+    // Activate and mark email as verified
+    user.isEmailVerified = true;
+    user.emailVerificationCode = undefined;
+    user.emailVerificationExpires = undefined;
+    user.lastLogin = new Date();
+
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    user.refreshToken = refreshToken;
+
+    await user.save({ validateBeforeSave: false });
+
+    console.info(`[Email Verification Success] User ${user.email} verified account successfully.`);
+
+    return successResponse(
+      res,
+      'Email verified successfully! Welcome to CivicResolve.',
       {
         user: sanitizeUser(user),
         accessToken,
         refreshToken,
       },
-      201
+      200
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Resend Email Verification Code
+ * POST /api/auth/resend-verification
+ */
+export const resendVerificationCode = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return next(new AppError('Please provide your registered email address', 400));
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail }).select(
+      '+emailVerificationCode +emailVerificationExpires'
+    );
+
+    if (!user) {
+      return next(new AppError('No account found with this email address', 404));
+    }
+
+    if (user.isEmailVerified) {
+      return next(new AppError('This email is already verified. Please sign in.', 400));
+    }
+
+    // Generate new code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    user.emailVerificationCode = verificationCode;
+    user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
+    await user.save({ validateBeforeSave: false });
+
+    await sendVerificationEmail(user.email, user.name, verificationCode);
+
+    return successResponse(
+      res,
+      'A fresh 6-digit verification code has been dispatched to your email.',
+      { email: user.email },
+      200
     );
   } catch (error) {
     next(error);
@@ -83,7 +223,6 @@ export const login = async (req, res, next) => {
     );
 
     if (!user) {
-      // Log failed attempt audit
       console.warn(`[Audit: Failed Login] Non-existent email attempt: ${normalizedEmail}`);
       return next(new AppError('Invalid email or password', 401));
     }
@@ -125,6 +264,24 @@ export const login = async (req, res, next) => {
 
       await user.save({ validateBeforeSave: false });
       return next(new AppError('Invalid email or password', 401));
+    }
+
+    // Check if email is verified
+    if (user.isEmailVerified === false) {
+      // Generate code and send email
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      user.emailVerificationCode = verificationCode;
+      user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
+      await user.save({ validateBeforeSave: false });
+
+      await sendVerificationEmail(user.email, user.name, verificationCode);
+
+      return res.status(403).json({
+        success: false,
+        requireVerification: true,
+        email: user.email,
+        message: 'Your email is not verified yet. We have sent a 6-digit verification code to your email.',
+      });
     }
 
     // Reset failed login counters upon successful authentication
@@ -222,7 +379,7 @@ export const logout = async (req, res, next) => {
 };
 
 /**
- * Request password reset token
+ * Request password reset token (Sends email with secure reset link)
  * POST /api/auth/forgot-password
  */
 export const forgotPassword = async (req, res, next) => {
@@ -235,7 +392,7 @@ export const forgotPassword = async (req, res, next) => {
     const normalizedEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: normalizedEmail });
 
-    // Check if user is present in database; if not, instruct them to register first
+    // Check if user exists in database
     if (!user) {
       return next(
         new AppError(
@@ -262,33 +419,20 @@ export const forgotPassword = async (req, res, next) => {
       try {
         dynamicClientUrl = new URL(req.headers.referer).origin;
       } catch {
-        // Fall back to default dynamicClientUrl
+        // Fall back
       }
     }
 
     const clientUrl = dynamicClientUrl.replace(/\/$/, '');
     const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
-    const { sendPasswordResetEmail } = await import('../services/emailService.js');
-    let dispatchResult = null;
-    try {
-      dispatchResult = await sendPasswordResetEmail(user.email, user.name, resetUrl);
-    } catch (emailError) {
-      console.error(`[Email Dispatch Failure] Error delivering reset email to ${user.email}:`, emailError.message);
-      // Still keep reset token alive for 1 hour so the user or admin can use the valid reset link
-    }
-
-    const isSimulated = dispatchResult?.simulated;
-    const message = isSimulated
-      ? `A password reset link has been created for ${user.email}. (Valid for 1 hour)`
-      : `A password reset link has been successfully dispatched to ${user.email}. Please check your inbox.`;
+    // Dispatch password reset email
+    await sendPasswordResetEmail(user.email, user.name, resetUrl);
 
     return successResponse(
       res,
-      message,
-      {
-        resetUrl: isSimulated || process.env.NODE_ENV === 'development' ? resetUrl : undefined,
-      },
+      `A password reset link has been dispatched to ${user.email}. Please check your inbox to proceed with resetting your password.`,
+      null,
       200
     );
   } catch (error) {
@@ -297,7 +441,7 @@ export const forgotPassword = async (req, res, next) => {
 };
 
 /**
- * Reset password using signed reset token
+ * Reset password using signed reset token from email
  * POST /api/auth/reset-password/:token
  */
 export const resetPassword = async (req, res, next) => {
@@ -321,12 +465,13 @@ export const resetPassword = async (req, res, next) => {
       return next(new AppError('Password reset link is invalid or has expired', 400));
     }
 
-    // Set new password (will be automatically hashed by pre-save hook)
+    // Set new password
     user.password = password;
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
     user.failedLoginAttempts = 0;
     user.lockUntil = null;
+    user.isEmailVerified = true; // Password reset confirms email ownership
     await user.save();
 
     console.info(`[Password Reset Completed] User: ${user.email} successfully updated password.`);
@@ -354,4 +499,3 @@ export const getMe = async (req, res) => {
     200
   );
 };
-
