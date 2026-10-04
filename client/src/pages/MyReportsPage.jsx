@@ -359,8 +359,9 @@ export default function MyReportsPage() {
                     className="p-2 rounded-xl bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-700 border border-slate-200 hover:border-red-300 transition shadow-soft"
                     title="Delete this issue report"
                   >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </Card>
           ))}
