@@ -4,7 +4,7 @@ import { AppError } from '../utils/appError.js';
  * Validation middleware for user registration
  */
 export const validateRegister = (req, res, next) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, role } = req.body;
   const errors = [];
 
   if (!name || typeof name !== 'string' || name.trim().length < 2) {
@@ -20,6 +20,13 @@ export const validateRegister = (req, res, next) => {
     errors.push({
       field: 'password',
       message: 'Password must be at least 6 characters long',
+    });
+  }
+
+  if (role && !['citizen', 'field_worker', 'administrator'].includes(role)) {
+    errors.push({
+      field: 'role',
+      message: 'Invalid role selected',
     });
   }
 

@@ -15,16 +15,16 @@ import {
   validateRegister,
   validateLogin,
 } from '../middlewares/authValidation.js';
-import { loginLimiter, registerLimiter } from '../middlewares/rateLimiter.js';
+import { loginLimiter, registerLimiter, otpLimiter, passwordResetLimiter } from '../middlewares/rateLimiter.js';
 
 const router = express.Router();
 
 router.post('/register', registerLimiter, validateRegister, register);
-router.post('/verify-email', verifyEmail);
-router.post('/resend-verification', resendVerificationCode);
+router.post('/verify-email', otpLimiter, verifyEmail);
+router.post('/resend-verification', otpLimiter, resendVerificationCode);
 router.post('/login', loginLimiter, validateLogin, login);
-router.post('/forgot-password', forgotPassword);
-router.post('/reset-password/:token', resetPassword);
+router.post('/forgot-password', passwordResetLimiter, forgotPassword);
+router.post('/reset-password/:token', passwordResetLimiter, resetPassword);
 router.post('/refresh', refreshToken);
 router.post('/logout', protect, logout);
 router.get('/me', protect, getMe);
