@@ -12,9 +12,20 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     const token = localStorage.getItem('civic_access_token');
-    const socketUrl = import.meta.env.VITE_API_URL
-      ? import.meta.env.VITE_API_URL.replace('/api', '')
-      : 'http://localhost:5000';
+    const apiUrl =
+      import.meta.env.VITE_API_BASE_URL ||
+      import.meta.env.VITE_API_URL ||
+      'http://localhost:5000/api';
+    const socketUrl = apiUrl.replace(/\/api\/?$/, '');
+
+    // Skip attempting connection if in production and pointing to localhost
+    const isLocalhost = socketUrl.includes('localhost') || socketUrl.includes('127.0.0.1');
+    const isProduction = typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
+
+    if (isProduction && isLocalhost) {
+      // In production without live backend URL configured, avoid spamming localhost socket errors
+      return;
+    }
 
     const socket = io(socketUrl, {
       auth: {
@@ -22,8 +33,9 @@ export const SocketProvider = ({ children }) => {
       },
       transports: ['websocket', 'polling'],
       autoConnect: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 2000,
+      reconnectionAttempts: 3,
+      reconnectionDelay: 5000,
+      timeout: 10000,
     });
 
     socketRef.current = socket;
@@ -37,7 +49,7 @@ export const SocketProvider = ({ children }) => {
     });
 
     socket.on('connect_error', (err) => {
-      console.warn('[Socket Connection]', err.message);
+      // Gracefully handle socket connection errors
       setIsConnected(false);
     });
 
