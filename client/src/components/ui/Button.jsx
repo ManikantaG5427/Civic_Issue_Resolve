@@ -2,23 +2,25 @@ import React from 'react';
 
 const VARIANTS = {
   primary:
-    'bg-[#1D3627] text-white hover:bg-[#122419] focus:ring-4 focus:ring-emerald-100 shadow-md hover:shadow-lg border border-transparent disabled:bg-slate-300 disabled:text-slate-500',
+    'bg-[#0071E3] text-white hover:bg-[#0077ED] active:bg-[#005BB5] shadow-sm hover:shadow border border-transparent disabled:bg-[#D2D2D7] disabled:text-[#86868B]',
   secondary:
-    'bg-white border border-slate-200/90 text-[#112418] hover:bg-slate-50 hover:border-slate-300 focus:ring-4 focus:ring-slate-100 shadow-sm disabled:bg-slate-100 disabled:text-slate-400',
+    'bg-[#E8E8ED] border border-black/[0.04] text-[#1D1D1F] hover:bg-[#DEDEE3] active:bg-[#D2D2D7] shadow-sm disabled:bg-[#F5F5F7] disabled:text-[#86868B]',
+  dark:
+    'bg-[#1D1D1F] text-white hover:bg-[#2D2D30] active:bg-[#000000] shadow-sm disabled:bg-[#D2D2D7] disabled:text-[#86868B]',
   civic:
-    'bg-[#33684B] text-white hover:bg-[#234A34] focus:ring-4 focus:ring-emerald-100 shadow-md border border-transparent disabled:bg-slate-300 disabled:text-slate-500',
+    'bg-[#34C759] text-white hover:bg-[#2FB350] active:bg-[#248A3D] shadow-sm border border-transparent disabled:bg-[#D2D2D7] disabled:text-[#86868B]',
   danger:
-    'bg-rose-600 text-white hover:bg-rose-700 focus:ring-4 focus:ring-rose-100 shadow-sm border border-transparent disabled:bg-slate-300 disabled:text-slate-500',
+    'bg-[#FF3B30] text-white hover:bg-[#E0352A] active:bg-[#C92A20] shadow-sm border border-transparent disabled:bg-[#D2D2D7] disabled:text-[#86868B]',
   ghost:
-    'bg-transparent text-[#2C4D38] hover:bg-white/60 hover:text-[#112418] focus:ring-2 focus:ring-slate-200',
+    'bg-transparent text-[#1D1D1F] hover:bg-black/[0.05] active:bg-black/[0.08]',
   outline:
-    'bg-transparent border border-[#1D3627] text-[#1D3627] hover:bg-[#1D3627]/10 focus:ring-4 focus:ring-emerald-100',
+    'bg-white border border-[#D2D2D7] text-[#1D1D1F] hover:border-[#86868B] hover:bg-black/[0.02]',
 };
 
 const SIZES = {
-  sm: 'px-3.5 py-1.5 text-xs rounded-full gap-1.5 tracking-wider uppercase font-bold',
-  md: 'px-6 py-2.5 text-xs rounded-full gap-2 tracking-wider uppercase font-bold',
-  lg: 'px-8 py-3.5 text-xs rounded-full gap-2.5 tracking-wider uppercase font-extrabold',
+  sm: 'px-3.5 py-1.5 text-xs rounded-full gap-1.5 font-semibold tracking-tight',
+  md: 'px-5 py-2.5 text-xs sm:text-sm rounded-full gap-2 font-semibold tracking-tight',
+  lg: 'px-7 py-3.5 text-sm rounded-full gap-2.5 font-semibold tracking-tight',
 };
 
 export default function Button({
