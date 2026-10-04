@@ -270,50 +270,51 @@ export const seedDatabase = async () => {
       }
     }
 
-    // 4. Seed Demo Users for All 4 Roles
-    console.info('[Seed] Seeding Demo User Accounts for All Roles...');
-    const demoUsers = [
-      {
-        name: 'Suresh Citizen',
-        email: 'citize@civicresolve.org',
-        password: 'MANIKANTAG5427',
-        phone: '+91 98765 11111',
-        role: 'citizen',
-        serviceArea: pilotArea._id,
-      },
-      {
-        name: 'Ramesh Field Worker',
-        email: 'worke@civicresolve.org',
-        password: 'MANIKANTAG5427',
-        phone: '+91 98765 22222',
-        role: 'field_worker',
-        serviceArea: pilotArea._id,
-        department: departmentMap['DPW-RDS'],
-      },
-      {
-        name: 'Ananya Administrator',
-        email: 'admi@civicresolve.org',
-        password: 'MANIKANTAG5427',
-        phone: '+91 98765 33333',
-        role: 'administrator',
-        serviceArea: pilotArea._id,
-      },
-      {
-        name: 'Vikram Super Admin',
-        email: 'superadmi@civicresolve.org',
-        password: 'MANIKANTAG5427',
-        phone: '+91 98765 44444',
-        role: 'super_admin',
-        serviceArea: pilotArea._id,
-      },
+    // 4. Clean up any previous default dummy demo accounts
+    console.info('[Seed] Cleaning up default dummy demo user accounts...');
+    const defaultEmails = [
+      'maniadminsuper0@civicresolve.org',
+      'citize@civicresolve.org',
+      'worke@civicresolve.org',
+      'admi@civicresolve.org',
+      'superadmi@civicresolve.org',
+      'citizen@civicresolve.org',
+      'worker@civicresolve.org',
+      'admin@civicresolve.org',
+      'superadmin@civicresolve.org',
     ];
 
-    for (const u of demoUsers) {
-      const existingUser = await User.findOne({ email: u.email });
-      if (!existingUser) {
-        await User.create(u);
-        console.info(`[Seed] Created User: ${u.name} (${u.role}) -> ${u.email}`);
-      }
+    const deleteResult = await User.deleteMany({ email: { $in: defaultEmails } });
+    if (deleteResult.deletedCount > 0) {
+      console.info(`[Seed] Successfully removed ${deleteResult.deletedCount} default dummy user(s).`);
+    }
+
+    // 5. Seed / Upsert Primary Super Admin Account
+    console.info('[Seed] Seeding Super Admin Account (gundrothumanikantad@gmail.com)...');
+    const superAdminEmail = 'gundrothumanikantad@gmail.com';
+    let superAdmin = await User.findOne({ email: superAdminEmail });
+    if (!superAdmin) {
+      superAdmin = new User({
+        name: 'Manikanta Super Admin',
+        email: superAdminEmail,
+        password: 'MANIKANTACVM6782',
+        role: 'super_admin',
+        isEmailVerified: true,
+        isActive: true,
+        serviceArea: pilotArea?._id || null,
+      });
+      await superAdmin.save();
+      console.info(`[Seed] Super Admin created: ${superAdmin.email}`);
+    } else {
+      superAdmin.name = 'Manikanta Super Admin';
+      superAdmin.password = 'MANIKANTACVM6782';
+      superAdmin.role = 'super_admin';
+      superAdmin.isEmailVerified = true;
+      superAdmin.isActive = true;
+      superAdmin.failedLoginAttempts = 0;
+      superAdmin.lockUntil = null;
+      await superAdmin.save();
+      console.info(`[Seed] Super Admin credentials updated: ${superAdmin.email}`);
     }
 
     console.info('[Seed] Database configuration seeding completed successfully!');

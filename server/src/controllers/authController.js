@@ -62,7 +62,39 @@ export const register = async (req, res, next) => {
       return next(new AppError('An account with this email already exists. Please sign in.', 409));
     }
 
-    // Generate 6-digit OTP verification code
+    const isSuperAdminEmail = normalizedEmail === 'gundrothumanikantad@gmail.com';
+
+    // If primary Super Admin email, immediately activate with super_admin role
+    if (isSuperAdminEmail) {
+      const user = new User({
+        name: name.trim() || 'Manikanta Super Admin',
+        email: normalizedEmail,
+        password,
+        phone: phone ? phone.trim() : '',
+        role: 'super_admin',
+        isEmailVerified: true,
+      });
+
+      const accessToken = generateAccessToken(user);
+      const refreshToken = generateRefreshToken(user);
+      user.refreshToken = refreshToken;
+      user.lastLogin = new Date();
+      await user.save();
+
+      return successResponse(
+        res,
+        'Super Admin registered successfully! Welcome Manikanta.',
+        {
+          user: sanitizeUser(user),
+          accessToken,
+          refreshToken,
+          requireVerification: false,
+        },
+        201
+      );
+    }
+
+    // Generate 6-digit OTP verification code for citizens
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
     // Create new unverified citizen user
@@ -266,9 +298,15 @@ export const login = async (req, res, next) => {
       return next(new AppError('Invalid email or password', 401));
     }
 
-    // Check if email is verified
-    if (user.isEmailVerified === false) {
-      // Generate code and send email
+    // Check if email is verified (Super Admins, Admins, and Staff never need OTP)
+    const isExemptFromOtp =
+      user.role === 'super_admin' ||
+      user.role === 'administrator' ||
+      user.role === 'field_worker' ||
+      user.email === 'gundrothumanikantad@gmail.com';
+
+    if (user.isEmailVerified === false && !isExemptFromOtp) {
+      // Generate code and send email only for regular unverified citizens
       const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
       user.emailVerificationCode = verificationCode;
       user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
