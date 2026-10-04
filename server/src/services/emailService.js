@@ -379,23 +379,23 @@ export const sendSuperAdminAlertEmail = async ({
 
   // Theme color mapping based on event category
   const badgeThemes = {
-    user_login: { bg: '#ECFDF5', border: '#10B981', text: '#065F46', icon: '🟢', label: 'USER LOGIN ACTIVITY' },
-    user_register: { bg: '#EFF6FF', border: '#3B82F6', text: '#1E40AF', icon: '🔵', label: 'NEW ACCOUNT REGISTERED' },
-    staff_request: { bg: '#FAF5FF', border: '#A855F7', text: '#6B21A8', icon: '🟣', label: 'STAFF ROLE REQUEST' },
-    issue_created: { bg: '#FFF7ED', border: '#F97316', text: '#9A3412', icon: '🟠', label: 'CIVIC ISSUE REPORTED' },
-    issue_resolved: { bg: '#F0FDF4', border: '#22C55E', text: '#15803D', icon: '✅', label: 'RESOLUTION CONFIRMED' },
-    role_approved: { bg: '#EEF2FF', border: '#6366F1', text: '#3730A3', icon: '🔷', label: 'STAFF ROLE APPROVED' },
-    role_rejected: { bg: '#FEF2F2', border: '#EF4444', text: '#991B1B', icon: '🔴', label: 'STAFF ROLE REJECTED' },
-    assignment: { bg: '#FEFCE8', border: '#EAB308', text: '#854D0E', icon: '🟡', label: 'WORKER DISPATCHED' },
-    admin_action: { bg: '#F8FAFC', border: '#64748B', text: '#334155', icon: '⚙️', label: 'ADMINISTRATIVE ACTION' },
-    security_alert: { bg: '#FFF1F2', border: '#F43F5E', text: '#881337', icon: '🚨', label: 'SECURITY INCIDENT' },
+    user_login: { bg: '#ECFDF5', border: '#10B981', text: '#065F46', icon: '', label: 'USER LOGIN ACTIVITY' },
+    user_register: { bg: '#EFF6FF', border: '#3B82F6', text: '#1E40AF', icon: '', label: 'NEW ACCOUNT REGISTERED' },
+    staff_request: { bg: '#FAF5FF', border: '#A855F7', text: '#6B21A8', icon: '', label: 'STAFF ROLE REQUEST' },
+    issue_created: { bg: '#FFF7ED', border: '#F97316', text: '#9A3412', icon: '', label: 'CIVIC ISSUE REPORTED' },
+    issue_resolved: { bg: '#F0FDF4', border: '#22C55E', text: '#15803D', icon: '', label: 'RESOLUTION CONFIRMED' },
+    role_approved: { bg: '#EEF2FF', border: '#6366F1', text: '#3730A3', icon: '', label: 'STAFF ROLE APPROVED' },
+    role_rejected: { bg: '#FEF2F2', border: '#EF4444', text: '#991B1B', icon: '', label: 'STAFF ROLE REJECTED' },
+    assignment: { bg: '#FEFCE8', border: '#EAB308', text: '#854D0E', icon: '', label: 'WORKER DISPATCHED' },
+    admin_action: { bg: '#F8FAFC', border: '#64748B', text: '#334155', icon: '', label: 'ADMINISTRATIVE ACTION' },
+    security_alert: { bg: '#FFF1F2', border: '#F43F5E', text: '#881337', icon: '', label: 'SECURITY ALERT' },
   };
 
   const currentTheme = badgeThemes[eventType] || {
     bg: '#F8FAFC',
     border: '#183827',
     text: '#183827',
-    icon: '🛡️',
+    icon: '',
     label: 'SYSTEM AUDIT & ACTIVITY',
   };
 

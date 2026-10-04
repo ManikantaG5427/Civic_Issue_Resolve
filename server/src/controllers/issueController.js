@@ -186,7 +186,7 @@ export const createIssue = async (req, res, next) => {
     notifyAdminsOnNewIssue(newIssue, reporterName);
     notifySuperAdmin({
       eventType: 'issue_created',
-      title: `🚨 Civic Issue Reported: ${newIssue.issueNumber}`,
+      title: `Civic Issue Reported: ${newIssue.issueNumber}`,
       message: `${reporterName} reported "${newIssue.title}" under ${category.name} at ${newIssue.location?.landmark || newIssue.location?.address || 'Municipal Zone'}.`,
       actor: req.user || { name: reporterName, role: 'citizen' },
       metadata: {
@@ -499,7 +499,7 @@ export const confirmResolution = async (req, res, next) => {
 
     notifySuperAdmin({
       eventType: 'issue_resolved',
-      title: `✅ Citizen Confirmed Resolution: ${issue.issueNumber}`,
+      title: `Citizen Confirmed Resolution: ${issue.issueNumber}`,
       message: `${req.user.name} verified and confirmed resolution for "${issue.title}" with a rating of ${ratingNum}/5 stars.`,
       actor: req.user,
       metadata: {
@@ -612,7 +612,7 @@ export const reopenIssue = async (req, res, next) => {
 
     notifySuperAdmin({
       eventType: 'security_alert',
-      title: `⚠️ Issue Reopened: ${issue.issueNumber}`,
+      title: `Issue Reopened: ${issue.issueNumber}`,
       message: `${req.user.name} reopened "${issue.title}". Reason: ${reopenReason.trim()}`,
       actor: req.user,
       metadata: {

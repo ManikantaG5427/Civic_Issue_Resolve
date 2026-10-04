@@ -436,16 +436,25 @@ export default function DashboardPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-bold text-slate-900">{staff.name}</span>
                       <span className="text-[11px] font-mono uppercase font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
-                        Requested: {staff.requestedRole === 'administrator' ? '🏛️ Govt Officer' : '👷 Field Worker'}
+                        Requested: {staff.requestedRole === 'administrator' ? 'Govt Officer' : 'Field Worker'}
                       </span>
                       <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
-                        ✓ Email OTP Verified
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Email OTP Verified</span>
                       </span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
-                      <span className="font-mono">✉️ {staff.email}</span>
-                      {staff.phone && <span className="font-mono">📞 {staff.phone}</span>}
+                      <span className="font-mono flex items-center gap-1">
+                        <Mail className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{staff.email}</span>
+                      </span>
+                      {staff.phone && (
+                        <span className="font-mono flex items-center gap-1">
+                          <Phone className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{staff.phone}</span>
+                        </span>
+                      )}
                       <span className="text-slate-400">
                         Registered: {new Date(staff.createdAt).toLocaleDateString()}
                       </span>
@@ -530,21 +539,20 @@ export default function DashboardPage() {
 
       {/* SUPER ADMIN: REAL-TIME SENTINEL SURVEILLANCE & ACTIVITY MONITOR */}
       {user?.role === 'super_admin' && (
-        <Card elevated className="p-6 sm:p-7 border-2 border-emerald-300 bg-gradient-to-br from-emerald-50/60 via-white to-slate-50/50 space-y-5">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-emerald-200">
+        <Card elevated className="p-6 sm:p-7 border border-black/[0.08] bg-white space-y-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
             <div className="flex items-center space-x-3">
-              <div className="p-2.5 rounded-2xl bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm relative">
-                <Radio className="w-6 h-6 text-emerald-700 animate-pulse" />
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white animate-ping"></span>
+              <div className="p-2.5 rounded-2xl bg-black/[0.04] text-[#1D1D1F] border border-black/[0.06] shadow-sm relative">
+                <Radio className="w-6 h-6 text-[#0071E3]" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg font-extrabold text-slate-900 font-heading">
-                    Super Admin: Real-Time Sentinel Surveillance & Activity Monitor
+                    Sentinel Activity & Telemetry Monitor
                   </h3>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-600 text-white shadow-sm flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
-                    LIVE TELEMETRY
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#34C759]/10 text-[#34C759] border border-[#34C759]/20 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#34C759]"></span>
+                    Live
                   </span>
                 </div>
                 <p className="text-xs text-slate-600">
@@ -570,18 +578,18 @@ export default function DashboardPage() {
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {[
               { id: 'all', label: 'All Telemetry' },
-              { id: 'user_login', label: '🔑 User Logins' },
-              { id: 'user_register', label: '🎉 Registrations' },
-              { id: 'staff_request', label: '📋 Staff Requests' },
-              { id: 'issue', label: '🚨 Civic Issues & Resolutions' },
+              { id: 'user_login', label: 'User Logins' },
+              { id: 'user_register', label: 'Registrations' },
+              { id: 'staff_request', label: 'Staff Requests' },
+              { id: 'issue', label: 'Civic Issues & Resolutions' },
             ].map((f) => (
               <button
                 key={f.id}
                 onClick={() => setSentinelFilter(f.id)}
-                className={`text-xs px-3 py-1.5 rounded-xl font-bold transition border ${
+                className={`text-xs px-3.5 py-1.5 rounded-full font-semibold transition border ${
                   sentinelFilter === f.id
-                    ? 'bg-emerald-700 text-white border-emerald-800 shadow-sm'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-[#1D1D1F] text-white border-[#1D1D1F] shadow-sm'
+                    : 'bg-[#F5F5F7] text-[#1D1D1F] border-transparent hover:bg-black/[0.06]'
                 }`}
               >
                 {f.label}
@@ -592,7 +600,7 @@ export default function DashboardPage() {
           {/* Activity Stream List */}
           {sentinelLogs.length === 0 ? (
             <div className="py-8 text-center text-xs text-slate-500 space-y-1 bg-slate-50/50 rounded-2xl border border-slate-200">
-              <Activity className="w-8 h-8 text-emerald-600 mx-auto" />
+              <Activity className="w-8 h-8 text-slate-400 mx-auto" />
               <p className="font-bold text-slate-800 text-sm">Surveillance Gateway Active</p>
               <p>System is online and waiting for active sessions or user operations.</p>
             </div>
@@ -617,34 +625,36 @@ export default function DashboardPage() {
                   const getLogBadge = (t) => {
                     switch (t) {
                       case 'user_login':
-                        return { label: 'Session Login', bg: 'bg-emerald-100 text-emerald-900 border-emerald-300', icon: LogIn };
+                        return { label: 'Session Login', bg: 'bg-emerald-50 text-emerald-800 border-emerald-200', icon: LogIn };
                       case 'user_register':
-                        return { label: 'New User Registered', bg: 'bg-blue-100 text-blue-900 border-blue-300', icon: UserPlus };
+                        return { label: 'New User Registered', bg: 'bg-blue-50 text-blue-800 border-blue-200', icon: UserPlus };
                       case 'staff_request':
-                        return { label: 'Staff Application', bg: 'bg-purple-100 text-purple-900 border-purple-300', icon: Users };
+                        return { label: 'Staff Application', bg: 'bg-purple-50 text-purple-800 border-purple-200', icon: Users };
                       case 'role_approved':
-                        return { label: 'Staff Approved', bg: 'bg-indigo-100 text-indigo-900 border-indigo-300', icon: UserCheck };
+                        return { label: 'Staff Approved', bg: 'bg-indigo-50 text-indigo-800 border-indigo-200', icon: UserCheck };
                       case 'role_rejected':
-                        return { label: 'Staff Rejected', bg: 'bg-rose-100 text-rose-900 border-rose-300', icon: UserX };
+                        return { label: 'Staff Rejected', bg: 'bg-rose-50 text-rose-800 border-rose-200', icon: UserX };
                       case 'issue_created':
                       case 'new_issue':
-                        return { label: 'Issue Reported', bg: 'bg-amber-100 text-amber-900 border-amber-300', icon: AlertTriangle };
+                        return { label: 'Issue Reported', bg: 'bg-amber-50 text-amber-800 border-amber-200', icon: AlertTriangle };
                       case 'issue_resolved':
-                        return { label: 'Resolution Verified', bg: 'bg-emerald-100 text-emerald-900 border-emerald-300', icon: CheckCircle2 };
+                        return { label: 'Resolution Verified', bg: 'bg-emerald-50 text-emerald-800 border-emerald-200', icon: CheckCircle2 };
                       case 'assignment':
-                        return { label: 'Worker Dispatched', bg: 'bg-yellow-100 text-yellow-900 border-yellow-300', icon: HardHat };
+                        return { label: 'Worker Dispatched', bg: 'bg-yellow-50 text-yellow-800 border-yellow-200', icon: HardHat };
                       default:
-                        return { label: 'System Action', bg: 'bg-slate-100 text-slate-800 border-slate-300', icon: ShieldCheck };
+                        return { label: 'System Action', bg: 'bg-slate-100 text-slate-800 border-slate-200', icon: ShieldCheck };
                     }
                   };
 
                   const badge = getLogBadge(log.type);
                   const IconComp = badge.icon;
+                  // Sanitized clean title (stripping any legacy emojis)
+                  const cleanTitle = (log.title || '').replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
 
                   return (
                     <div
                       key={log._id}
-                      className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200 hover:border-emerald-300 shadow-sm transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                      className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 shadow-sm transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
                     >
                       <div className="flex items-start space-x-3 flex-1">
                         <div className={`p-2 rounded-xl border shrink-0 ${badge.bg}`}>
@@ -652,7 +662,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="space-y-0.5">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-xs font-bold text-slate-900">{log.title}</span>
+                            <span className="text-xs font-bold text-slate-900">{cleanTitle}</span>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badge.bg}`}>
                               {badge.label}
                             </span>
@@ -667,7 +677,7 @@ export default function DashboardPage() {
                               })}
                             </span>
                             <span className="text-emerald-700 font-semibold">
-                              ✓ Super Admin Alert Dispatched
+                              Super Admin Alert Dispatched
                             </span>
                           </div>
                         </div>

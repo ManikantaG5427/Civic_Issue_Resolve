@@ -72,7 +72,7 @@ export const checkAndEscalateOverdueIssues = async () => {
       if (issue.assignedWorker && issue.assignedWorker._id) {
         await sendNotification({
           recipient: issue.assignedWorker._id,
-          title: `⚠️ SLA BREACH: ${issue.issueNumber}`,
+          title: `SLA BREACH: ${issue.issueNumber}`,
           message: `Your assigned task "${issue.title}" has passed its SLA target deadline and has been auto-escalated to supervisor oversight.`,
           type: 'sla_escalated',
           linkUrl: `/issues/${issue.issueNumber}`,
@@ -88,7 +88,7 @@ export const checkAndEscalateOverdueIssues = async () => {
       for (const admin of admins) {
         await sendNotification({
           recipient: admin._id,
-          title: `🚨 SLA Escalation Alert: ${issue.issueNumber}`,
+          title: `SLA Escalation Alert: ${issue.issueNumber}`,
           message: `Civic issue "${issue.title}" has breached its SLA target. Immediate supervisory intervention is recommended.`,
           type: 'sla_escalated',
           linkUrl: `/issues/${issue.issueNumber}`,

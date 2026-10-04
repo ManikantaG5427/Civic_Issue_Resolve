@@ -109,7 +109,7 @@ export const notifyAdminsOnNewIssue = async (issue, reporterName = 'A citizen') 
     const notifPromises = admins.map((admin) =>
       sendNotification({
         recipient: admin._id,
-        title: `🚨 New Civic Issue: ${issue.issueNumber}`,
+        title: `New Civic Issue: ${issue.issueNumber}`,
         message: `${reporterName} reported "${issue.title}" at ${issue.location?.landmark || issue.location?.address || 'Municipal Zone'}.`,
         type: 'issue_created',
         linkUrl: `/issues/${issue.issueNumber || issue._id}`,

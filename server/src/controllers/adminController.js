@@ -205,7 +205,7 @@ export const verifyIssue = async (req, res, next) => {
 
     notifySuperAdmin({
       eventType: 'admin_action',
-      title: `⚙️ Issue Verified: ${issue.issueNumber}`,
+      title: `Issue Verified: ${issue.issueNumber}`,
       message: `Administrator ${req.user.name} verified and accepted "${issue.title}".`,
       actor: req.user,
       metadata: {
@@ -503,7 +503,7 @@ export const assignIssue = async (req, res, next) => {
 
     notifySuperAdmin({
       eventType: 'assignment',
-      title: `🟡 Issue Dispatched & Assigned: ${issue.issueNumber}`,
+      title: `Issue Dispatched & Assigned: ${issue.issueNumber}`,
       message: `Issue "${issue.title}" assigned to ${workerName} with ${issue.priority} priority (SLA: ${hoursNum} hrs).`,
       actor: req.user,
       metadata: {
@@ -856,7 +856,7 @@ export const approveUserRole = async (req, res, next) => {
     // Send in-app notification to the approved user
     sendNotification({
       recipient: user._id,
-      title: `🎉 Staff Role Approved!`,
+      title: `Staff Role Approved`,
       message: `Your application for ${user.role.replace('_', ' ').toUpperCase()} has been approved by the Super Admin. You now have full operational access.`,
       type: 'role_approved',
       linkUrl: '/dashboard',
@@ -865,7 +865,7 @@ export const approveUserRole = async (req, res, next) => {
     // Alert Super Admin
     notifySuperAdmin({
       eventType: 'role_approved',
-      title: `🔷 Staff Role Approved: ${user.name}`,
+      title: `Staff Role Approved: ${user.name}`,
       message: `Super Admin approved ${user.name} (${user.email}) for the ${user.role.replace('_', ' ')} role.`,
       actor: req.user,
       metadata: {
@@ -914,7 +914,7 @@ export const rejectUserRole = async (req, res, next) => {
     // Alert Super Admin
     notifySuperAdmin({
       eventType: 'role_rejected',
-      title: `🔴 Staff Role Request Rejected: ${user.name}`,
+      title: `Staff Role Request Rejected: ${user.name}`,
       message: `Application for ${user.name} (${user.email}) was rejected. Account remains citizen.`,
       actor: req.user,
       metadata: {

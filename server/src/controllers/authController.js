@@ -192,7 +192,7 @@ export const verifyEmail = async (req, res, next) => {
       if (isStaffRole) {
         notifySuperAdmin({
           eventType: 'staff_request',
-          title: `📋 Staff Role Application: ${user.name}`,
+          title: `Staff Role Application: ${user.name}`,
           message: `${user.name} (${user.email}) verified their account and requested the ${user.requestedRole.replace('_', ' ').toUpperCase()} role. Please review and assign jurisdictional coverage.`,
           actor: user,
           metadata: {
@@ -206,7 +206,7 @@ export const verifyEmail = async (req, res, next) => {
       } else {
         notifySuperAdmin({
           eventType: 'user_register',
-          title: `🎉 New Citizen Registered: ${user.name}`,
+          title: `New Citizen Registered: ${user.name}`,
           message: `${user.name} (${user.email}) successfully verified their email and activated a citizen account.`,
           actor: user,
           metadata: {
@@ -447,7 +447,7 @@ export const login = async (req, res, next) => {
     // Trigger Real-Time Super Admin Notification & Email Alert
     notifySuperAdmin({
       eventType: 'user_login',
-      title: `🔑 User Session Login: ${user.name}`,
+      title: `User Session Login: ${user.name}`,
       message: `${user.name} (${user.email}) logged into the platform as ${user.role.replace('_', ' ')}.`,
       actor: user,
       metadata: {
