@@ -139,6 +139,8 @@ export default function LoginPage() {
                     )}
                   </div>
                 </div>
+              )}
+
               {/* Google Sign In Option */}
               <div className="mb-5 space-y-4">
                 <GoogleSignInButton
