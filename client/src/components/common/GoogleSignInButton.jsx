@@ -194,11 +194,11 @@ export default function GoogleSignInButton({
         </div>
       )}
 
-      {/* Official Google Button container if rendered by GIS */}
-      <div ref={buttonContainerRef} className="w-full flex justify-center empty:hidden" />
-
-      {/* Fallback / Custom Styled Google Sign-In Button */}
-      {(!clientId || !buttonContainerRef.current?.hasChildNodes()) && (
+      {/* Official Google Button container when Client ID is configured */}
+      {clientId ? (
+        <div ref={buttonContainerRef} className="w-full flex justify-center min-h-[44px]" />
+      ) : (
+        /* Fallback Custom Google Button (opens configuration dialog) */
         <button
           type="button"
           onClick={handleButtonClick}
