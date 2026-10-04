@@ -5,15 +5,17 @@ const timelineEntrySchema = new mongoose.Schema(
     status: {
       type: String,
       required: true,
+      trim: true,
     },
     action: {
       type: String,
       required: true,
+      trim: true,
     },
     performedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: false,
+      default: null,
     },
     note: {
       type: String,
@@ -43,6 +45,7 @@ const commentSchema = new mongoose.Schema(
     authorName: {
       type: String,
       required: true,
+      trim: true,
     },
     authorRole: {
       type: String,
@@ -62,8 +65,8 @@ const commentSchema = new mongoose.Schema(
     },
     attachments: [
       {
-        url: String,
-        filename: String,
+        url: { type: String, required: true },
+        filename: { type: String, default: '' },
       },
     ],
     createdAt: {
@@ -79,14 +82,16 @@ const auditLogSchema = new mongoose.Schema(
     action: {
       type: String,
       required: true,
+      trim: true,
     },
     performedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
+      default: null,
     },
     previousState: mongoose.Schema.Types.Mixed,
     newState: mongoose.Schema.Types.Mixed,
-    ipAddress: String,
+    ipAddress: { type: String, default: '' },
     timestamp: {
       type: Date,
       default: Date.now,
@@ -95,14 +100,34 @@ const auditLogSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const phaseSchema = new mongoose.Schema(
+  {
+    images: [
+      {
+        url: { type: String, required: true },
+        filename: { type: String, default: '' },
+        geoTag: { type: mongoose.Schema.Types.Mixed, default: null },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
+    note: { type: String, trim: true, default: '' },
+    startedAt: { type: Date, default: null },
+    inProgressAt: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  },
+  { _id: false }
+);
+
 const issueSchema = new mongoose.Schema(
   {
     issueNumber: {
       type: String,
-      required: true,
+      required: [true, 'Issue tracking number is required'],
       unique: true,
       trim: true,
       uppercase: true,
+      index: true,
     },
     title: {
       type: String,
@@ -116,33 +141,36 @@ const issueSchema = new mongoose.Schema(
       required: [true, 'Issue description is required'],
       trim: true,
       minlength: [15, 'Description must be at least 15 characters long'],
-      maxlength: [2000, 'Description cannot exceed 2000 characters'],
+      maxlength: [5000, 'Description cannot exceed 5000 characters'],
     },
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'IssueCategory',
       required: [true, 'Category is required'],
+      index: true,
     },
     serviceArea: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ServiceArea',
       required: [true, 'Service area is required'],
+      index: true,
     },
     department: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Department',
       default: null,
+      index: true,
     },
     reporter: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: false,
       default: null,
+      index: true,
     },
     guestReporter: {
       name: { type: String, trim: true, default: 'Citizen' },
       phone: { type: String, trim: true, default: '' },
-      email: { type: String, trim: true, default: '' },
+      email: { type: String, trim: true, lowercase: true, default: '' },
     },
     status: {
       type: String,
@@ -161,11 +189,13 @@ const issueSchema = new mongoose.Schema(
         'withdrawn',
       ],
       default: 'submitted',
+      index: true,
     },
     priority: {
       type: String,
       enum: ['low', 'medium', 'high', 'urgent', 'critical'],
       default: 'medium',
+      index: true,
     },
     location: {
       address: {
@@ -179,6 +209,41 @@ const issueSchema = new mongoose.Schema(
         trim: true,
         maxlength: [150, 'Landmark cannot exceed 150 characters'],
       },
+      village: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      mandal: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      district: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      city: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      state: {
+        type: String,
+        trim: true,
+        default: 'Telangana',
+      },
+      country: {
+        type: String,
+        trim: true,
+        default: 'India',
+      },
+      pincode: {
+        type: String,
+        trim: true,
+        default: '',
+      },
       type: {
         type: String,
         enum: ['Point'],
@@ -188,14 +253,22 @@ const issueSchema = new mongoose.Schema(
         type: [Number], // [longitude, latitude]
         required: true,
         default: [78.3967, 17.4849],
+        validate: {
+          validator: function (coords) {
+            if (!Array.isArray(coords) || coords.length !== 2) return false;
+            const [lng, lat] = coords;
+            return lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90;
+          },
+          message: 'Coordinates must be valid GeoJSON [longitude (-180 to 180), latitude (-90 to 90)]',
+        },
       },
     },
     evidence: [
       {
         url: { type: String, required: true },
-        filename: String,
-        fileSize: Number,
-        mimeType: String,
+        filename: { type: String, default: '' },
+        fileSize: { type: Number, default: 0 },
+        mimeType: { type: String, default: 'image/jpeg' },
         geoTag: {
           type: mongoose.Schema.Types.Mixed,
           default: null,
@@ -242,52 +315,17 @@ const issueSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null,
+      index: true,
     },
     assignedAt: {
       type: Date,
       default: null,
     },
-    // 3-Phase Work Execution Proof (Starting, During, Completion with Geo-Tagged Evidence)
+    // 3-Phase Work Execution Proof
     executionPhases: {
-      startingPhase: {
-        images: [
-          {
-            url: String,
-            filename: String,
-            geoTag: mongoose.Schema.Types.Mixed,
-            uploadedAt: { type: Date, default: Date.now },
-          },
-        ],
-        note: { type: String, default: '' },
-        startedAt: { type: Date, default: null },
-        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      },
-      duringPhase: {
-        images: [
-          {
-            url: String,
-            filename: String,
-            geoTag: mongoose.Schema.Types.Mixed,
-            uploadedAt: { type: Date, default: Date.now },
-          },
-        ],
-        note: { type: String, default: '' },
-        inProgressAt: { type: Date, default: null },
-        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      },
-      completionPhase: {
-        images: [
-          {
-            url: String,
-            filename: String,
-            geoTag: mongoose.Schema.Types.Mixed,
-            uploadedAt: { type: Date, default: Date.now },
-          },
-        ],
-        note: { type: String, default: '' },
-        completedAt: { type: Date, default: null },
-        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      },
+      startingPhase: { type: phaseSchema, default: () => ({}) },
+      duringPhase: { type: phaseSchema, default: () => ({}) },
+      completionPhase: { type: phaseSchema, default: () => ({}) },
     },
     slaDeadline: {
       type: Date,
@@ -296,6 +334,7 @@ const issueSchema = new mongoose.Schema(
     isEscalated: {
       type: Boolean,
       default: false,
+      index: true,
     },
     feedback: {
       rating: {
@@ -331,20 +370,53 @@ const issueSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Issue',
       default: null,
+      index: true,
     },
     timeline: [timelineEntrySchema],
     auditLogs: [auditLogSchema],
   },
   {
     timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform: (doc, ret) => {
+        delete ret.__v;
+        return ret;
+      },
+    },
+    toObject: {
+      virtuals: true,
+    },
   }
 );
 
-// 2dsphere index for location-based nearby duplicate queries and maps
+// Virtual to determine if SLA is breached
+issueSchema.virtual('isOverdue').get(function () {
+  if (!this.slaDeadline) return false;
+  const terminalStatuses = ['closed', 'rejected', 'withdrawn', 'resolved_verification_pending'];
+  if (terminalStatuses.includes(this.status)) return false;
+  return new Date() > new Date(this.slaDeadline);
+});
+
+// Enterprise indexing strategy for high performance
 issueSchema.index({ 'location.coordinates': '2dsphere' });
-issueSchema.index({ reporter: 1, status: 1 });
-issueSchema.index({ serviceArea: 1, status: 1 });
-issueSchema.index({ assignedWorker: 1, status: 1 });
+issueSchema.index({
+  title: 'text',
+  description: 'text',
+  issueNumber: 'text',
+  'location.landmark': 'text',
+  'location.address': 'text',
+});
+
+// Compound indexes for dashboard queries & filters
+issueSchema.index({ status: 1, priority: 1, createdAt: -1 });
+issueSchema.index({ serviceArea: 1, status: 1, createdAt: -1 });
+issueSchema.index({ department: 1, status: 1, createdAt: -1 });
+issueSchema.index({ assignedWorker: 1, status: 1, createdAt: -1 });
+issueSchema.index({ 'assignedWorkers.worker': 1, status: 1 });
+issueSchema.index({ reporter: 1, status: 1, createdAt: -1 });
+issueSchema.index({ isEscalated: 1, slaDeadline: 1 });
+issueSchema.index({ createdAt: -1 });
 
 const Issue = mongoose.model('Issue', issueSchema);
 

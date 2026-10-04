@@ -23,9 +23,12 @@ export const createIssue = async (req, res, next) => {
       address,
       coordinates,
       evidence,
-      city,
+      village,
+      mandal,
       district,
+      city,
       state,
+      country,
       pincode,
     } = req.body;
 
@@ -35,37 +38,69 @@ export const createIssue = async (req, res, next) => {
       return next(new AppError('The selected civic category does not exist or is inactive', 400));
     }
 
-    // 2. Resolve or Dynamically Create Service Area Zone for ANY City / District / State in India
+    // 2. Resolve or Dynamically Create Service Area Zone for ANY Village / Mandal / District / State in India
     let serviceArea = null;
     if (serviceAreaId && mongoose.Types.ObjectId.isValid(serviceAreaId)) {
       serviceArea = await ServiceArea.findById(serviceAreaId);
     }
 
-    const cityName = city || district || (address ? address.split(',').slice(-3, -2)[0]?.trim() : '') || 'Local District';
-    const stateName = state || (address ? address.split(',').slice(-2, -1)[0]?.trim() : '') || 'India';
+    const villageName = village || '';
+    const mandalName = mandal || '';
+    const districtName = district || '';
+    const cityName = city || district || (address ? address.split(',').slice(-3, -2)[0]?.trim() : '') || 'Local Jurisdiction';
+    const stateName = state || (address ? address.split(',').slice(-2, -1)[0]?.trim() : '') || 'Andhra Pradesh';
+    const countryName = country || 'India';
+    const pinCodeValue = pincode || '';
 
-    if (!serviceArea && cityName && cityName !== 'Local District') {
-      serviceArea = await ServiceArea.findOne({
-        $or: [
-          { city: new RegExp(`^${cityName}$`, 'i') },
-          { name: new RegExp(`^${cityName}`, 'i') },
-        ],
-        isActive: true,
-      });
+    // Search by pincode or mandal/district/city
+    if (!serviceArea) {
+      const matchConditions = [];
+      if (pinCodeValue) {
+        matchConditions.push({ pincodes: pinCodeValue });
+      }
+      if (mandalName) {
+        matchConditions.push({ mandal: new RegExp(`^${mandalName}$`, 'i') });
+      }
+      if (districtName) {
+        matchConditions.push({ district: new RegExp(`^${districtName}$`, 'i') });
+      }
+      if (cityName && cityName !== 'Local Jurisdiction') {
+        matchConditions.push({ city: new RegExp(`^${cityName}$`, 'i') });
+        matchConditions.push({ name: new RegExp(`^${cityName}`, 'i') });
+      }
 
-      if (!serviceArea) {
-        const safeCode = `IND-${cityName.slice(0, 4).toUpperCase().replace(/[^A-Z]/g, 'X')}-${Math.floor(100 + Math.random() * 900)}`;
+      if (matchConditions.length > 0) {
+        serviceArea = await ServiceArea.findOne({
+          $or: matchConditions,
+          isActive: true,
+        });
+      }
+
+      // If no service area exists yet for this Mandal/District, create one automatically
+      if (!serviceArea && (mandalName || districtName || cityName !== 'Local Jurisdiction')) {
+        const zoneIdentifier = mandalName || districtName || cityName;
+        const safeCode = `SA-${zoneIdentifier.slice(0, 4).toUpperCase().replace(/[^A-Z]/g, 'X')}-${Math.floor(100 + Math.random() * 900)}`;
+        const zoneTitle = mandalName
+          ? `${mandalName} Mandal Zone (${districtName || stateName})`
+          : districtName
+          ? `${districtName} District Zone`
+          : `${cityName} Municipal Zone`;
+
         serviceArea = await ServiceArea.create({
-          name: `${cityName} Municipal Zone`,
+          name: zoneTitle,
           code: safeCode,
+          village: villageName,
+          mandal: mandalName,
+          district: districtName,
           city: cityName,
           state: stateName,
-          pincodes: pincode ? [pincode] : ['000000'],
+          country: countryName,
+          pincodes: pinCodeValue ? [pinCodeValue] : ['000000'],
           centerLocation: {
             type: 'Point',
             coordinates: coordinates && coordinates.length === 2 ? coordinates : [78.9629, 20.5937],
           },
-          description: `Municipal civic jurisdiction zone for ${cityName}, ${stateName}.`,
+          description: `Administrative civic jurisdiction zone for ${zoneIdentifier}, ${stateName}.`,
           isActive: true,
         });
       }
@@ -145,7 +180,7 @@ export const createIssue = async (req, res, next) => {
       },
     ];
 
-    // 6. Create Issue Record with Evidence
+    // 6. Create Issue Record with Evidence & Administrative Location Breakdown
     const newIssue = new Issue({
       issueNumber,
       title: title.trim(),
@@ -164,6 +199,13 @@ export const createIssue = async (req, res, next) => {
       location: {
         address: address ? address.trim() : `${serviceArea.name}, ${serviceArea.city}`,
         landmark: landmark.trim(),
+        village: villageName,
+        mandal: mandalName,
+        district: districtName,
+        city: cityName,
+        state: stateName,
+        country: countryName,
+        pincode: pinCodeValue,
         type: 'Point',
         coordinates: issueCoordinates,
       },

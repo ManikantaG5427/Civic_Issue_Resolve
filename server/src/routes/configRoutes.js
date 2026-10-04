@@ -19,25 +19,25 @@ router.get('/departments', getDepartments);
 router.get('/categories', getCategories);
 router.get('/summary', getConfigSummary);
 
-// Super Admin management endpoints
+// Administrative management endpoints (Super Admins & Municipal Administrators)
 router.post(
   '/service-areas',
   protect,
-  authorize('super_admin'),
+  authorize('administrator', 'super_admin'),
   createServiceArea
 );
 
 router.post(
   '/departments',
   protect,
-  authorize('super_admin'),
+  authorize('administrator', 'super_admin'),
   createDepartment
 );
 
 router.post(
   '/categories',
   protect,
-  authorize('super_admin'),
+  authorize('administrator', 'super_admin'),
   createCategory
 );
 

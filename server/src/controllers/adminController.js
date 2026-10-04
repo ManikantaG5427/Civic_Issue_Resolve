@@ -24,12 +24,13 @@ export const getReviewQueue = async (req, res, next) => {
 
     const query = {};
 
-    // 1. Service Area Scoping
-    if (serviceArea && serviceArea !== 'all') {
-      query.serviceArea = serviceArea;
-    } else if (req.user.role === 'administrator' && req.user.serviceArea && serviceArea !== 'all' && req.query.serviceArea === undefined) {
-      // Scoped automatically to the administrator's assigned operational zone unless explicitly requested as all
+    // 1. Service Area Scoping & Regional Locking
+    if (req.user.role === 'administrator' && req.user.serviceArea) {
+      // Officers and Municipal Admins are strictly locked to their assigned jurisdiction
       query.serviceArea = req.user.serviceArea;
+    } else if (serviceArea && serviceArea !== 'all') {
+      // Super Admins can filter across any specific service area
+      query.serviceArea = serviceArea;
     }
 
     // 2. Status Filtering

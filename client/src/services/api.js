@@ -115,8 +115,11 @@ export const authAPI = {
  */
 export const configAPI = {
   getCategories: () => apiRequest('/categories'),
+  createCategory: (data) => apiRequest('/categories', { method: 'POST', body: JSON.stringify(data) }),
   getDepartments: () => apiRequest('/departments'),
+  createDepartment: (data) => apiRequest('/departments', { method: 'POST', body: JSON.stringify(data) }),
   getServiceAreas: () => apiRequest('/service-areas'),
+  createServiceArea: (data) => apiRequest('/service-areas', { method: 'POST', body: JSON.stringify(data) }),
   getConfigSummary: () => apiRequest('/config/summary'),
 };
 

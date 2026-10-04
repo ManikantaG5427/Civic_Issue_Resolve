@@ -20,6 +20,7 @@ const userSchema = new mongoose.Schema(
         /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
         'Please provide a valid email address',
       ],
+      index: true,
     },
     password: {
       type: String,
@@ -31,35 +32,54 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: '',
+      match: [
+        /^$|^[+]?[0-9\s\-()]{7,20}$/,
+        'Please provide a valid phone number',
+      ],
     },
     role: {
       type: String,
       enum: ['citizen', 'field_worker', 'administrator', 'super_admin'],
       default: 'citizen',
+      index: true,
     },
     serviceArea: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ServiceArea',
       default: null,
+      index: true,
     },
     department: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Department',
       default: null,
+      index: true,
     },
     isActive: {
       type: Boolean,
       default: true,
+      index: true,
     },
     approvalStatus: {
       type: String,
       enum: ['approved', 'pending', 'rejected'],
       default: 'approved',
+      index: true,
     },
     requestedRole: {
       type: String,
       enum: ['citizen', 'field_worker', 'administrator', 'super_admin'],
       default: 'citizen',
+    },
+    avatar: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    notificationPreferences: {
+      emailAlerts: { type: Boolean, default: true },
+      inAppAlerts: { type: Boolean, default: true },
+      smsAlerts: { type: Boolean, default: false },
     },
     refreshToken: {
       type: String,
@@ -68,6 +88,11 @@ const userSchema = new mongoose.Schema(
     lastLogin: {
       type: Date,
       default: null,
+    },
+    lastLoginIp: {
+      type: String,
+      trim: true,
+      default: '',
     },
     failedLoginAttempts: {
       type: Number,
@@ -100,8 +125,30 @@ const userSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform: (doc, ret) => {
+        delete ret.password;
+        delete ret.refreshToken;
+        delete ret.passwordResetToken;
+        delete ret.passwordResetExpires;
+        delete ret.emailVerificationCode;
+        delete ret.emailVerificationExpires;
+        delete ret.__v;
+        return ret;
+      },
+    },
+    toObject: {
+      virtuals: true,
+    },
   }
 );
+
+// Enterprise compound indexes for high-throughput lookup & filtering
+userSchema.index({ role: 1, approvalStatus: 1, isActive: 1 });
+userSchema.index({ department: 1, role: 1 });
+userSchema.index({ serviceArea: 1, role: 1 });
+userSchema.index({ createdAt: -1 });
 
 // Encrypt password using bcrypt before saving
 userSchema.pre('save', async function (next) {

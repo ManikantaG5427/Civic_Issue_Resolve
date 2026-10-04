@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Issue from '../models/Issue.js';
 import Department from '../models/Department.js';
 import User from '../models/User.js';
+import { successResponse } from '../utils/apiResponse.js';
 
 /**
  * @desc    Get comprehensive municipal analytics & operational intelligence metrics
@@ -164,14 +165,14 @@ export const getAdminAnalytics = async (req, res) => {
     // 7. Field Worker Leaderboard
     const workers = await User.find({ role: 'field_worker', isActive: true }).select('name email');
     const workerLeaderboard = await Promise.all(
-       workers.map(async (worker) => {
-         const workerTasks = await Issue.find({
-           ...filter,
-           $or: [
-             { assignedWorker: worker._id },
-             { 'assignedWorkers.worker': worker._id },
-           ],
-         }).select('status feedback');
+      workers.map(async (worker) => {
+        const workerTasks = await Issue.find({
+          ...filter,
+          $or: [
+            { assignedWorker: worker._id },
+            { 'assignedWorkers.worker': worker._id },
+          ],
+        }).select('status feedback');
 
         const assigned = workerTasks.length;
         const completed = workerTasks.filter((t) =>
@@ -201,8 +202,7 @@ export const getAdminAnalytics = async (req, res) => {
 
     workerLeaderboard.sort((a, b) => b.totalCompleted - a.totalCompleted);
 
-    res.status(200).json({
-      success: true,
+    const payload = {
       timeRange,
       kpis: {
         totalReported,
@@ -227,7 +227,9 @@ export const getAdminAnalytics = async (req, res) => {
       categoriesBreakdown,
       departmentPerformance,
       workerLeaderboard: workerLeaderboard.slice(0, 10),
-    });
+    };
+
+    return successResponse(res, 'Municipal analytics retrieved successfully', payload);
   } catch (err) {
     console.error('[Admin Analytics Error]', err);
     res.status(500).json({

@@ -59,10 +59,16 @@ export function exportToCSV(data, filename = 'export', columns = null) {
  * @param {Object} options Time range and service area label
  */
 export function exportCivicAnalysisCSV(analytics, options = {}) {
-  if (!analytics || !analytics.kpis) {
+  const payload = analytics?.data?.kpis ? analytics.data : (analytics?.kpis ? analytics : null);
+  if (!payload || !payload.kpis) {
     alert('No civic analytics data available to export.');
     return;
   }
+
+  const kpis = payload.kpis || {};
+  const departmentPerformance = payload.departmentPerformance || [];
+  const categoriesBreakdown = payload.categoriesBreakdown || [];
+  const workerLeaderboard = payload.workerLeaderboard || [];
 
   const escapeCSV = (val) => {
     if (val === null || val === undefined) return '""';
@@ -85,22 +91,22 @@ export function exportCivicAnalysisCSV(analytics, options = {}) {
   // 2. Executive KPI Overview
   addRow('=== EXECUTIVE CIVIC PERFORMANCE METRICS ===');
   addRow('Metric Name', 'Evaluated Value', 'Standard Benchmark / Target');
-  addRow('Total Civic Reports Filed', analytics.kpis.totalReported || 0, '100% Inflow Tracked');
-  addRow('Total Resolved Complaints', analytics.kpis.totalResolved || 0, 'SLA Resolution Goal');
-  addRow('Actionable Pending Triage Queue', analytics.kpis.pendingTriage || 0, '< 12h Verification SLA');
-  addRow('Active In-Progress Field Works', analytics.kpis.inProgress || 0, 'Active Crew Operations');
-  addRow('Overall Resolution Velocity (%)', `${analytics.kpis.resolutionRate || 0}%`, 'Target: > 85%');
-  addRow('Average Resolution Duration (Hours)', `${analytics.kpis.avgResolutionTimeHours || 0} hrs`, 'Target: < 48 hrs');
-  addRow('SLA Compliance Rate (%)', `${analytics.kpis.slaComplianceRate || 0}%`, 'Target: > 90%');
-  addRow('Critical SLA Breaches / Escalated', analytics.kpis.escalatedCount || 0, 'Zero Escalation Target');
-  addRow('Citizen Satisfaction Index', `${analytics.kpis.citizenSatisfactionScore || 5.0} / 5.0 ⭐`, 'Target: > 4.5 Stars');
+  addRow('Total Civic Reports Filed', kpis.totalReported || 0, '100% Inflow Tracked');
+  addRow('Total Resolved Complaints', kpis.totalResolved || 0, 'SLA Resolution Goal');
+  addRow('Actionable Pending Triage Queue', kpis.pendingTriage || 0, '< 12h Verification SLA');
+  addRow('Active In-Progress Field Works', kpis.inProgress || 0, 'Active Crew Operations');
+  addRow('Overall Resolution Velocity (%)', `${kpis.resolutionRate || 0}%`, 'Target: > 85%');
+  addRow('Average Resolution Duration (Hours)', `${kpis.avgResolutionTimeHours || 0} hrs`, 'Target: < 48 hrs');
+  addRow('SLA Compliance Rate (%)', `${kpis.slaComplianceRate || 0}%`, 'Target: > 90%');
+  addRow('Critical SLA Breaches / Escalated', kpis.escalatedCount || 0, 'Zero Escalation Target');
+  addRow('Citizen Satisfaction Index', `${kpis.citizenSatisfactionScore || 5.0} / 5.0 ⭐`, 'Target: > 4.5 Stars');
   addEmpty();
 
   // 3. Department Performance Breakdown
   addRow('=== MUNICIPAL DEPARTMENT PERFORMANCE & RESOLUTION RATES ===');
   addRow('Department Name', 'Dept Code', 'Total Assigned Tasks', 'Completed Repairs', 'SLA Escalations', 'Resolution Rate (%)');
-  if (Array.isArray(analytics.departmentPerformance) && analytics.departmentPerformance.length > 0) {
-    analytics.departmentPerformance.forEach((dept) => {
+  if (Array.isArray(departmentPerformance) && departmentPerformance.length > 0) {
+    departmentPerformance.forEach((dept) => {
       addRow(
         dept.name,
         dept.code || 'N/A',
@@ -118,8 +124,8 @@ export function exportCivicAnalysisCSV(analytics, options = {}) {
   // 4. Civic Complaint Categories Distribution
   addRow('=== CIVIC DEFECT CATEGORY BREAKDOWN ===');
   addRow('Complaint Category', 'Category Code', 'Incident Count', 'Percentage of Total Municipal Load (%)');
-  if (Array.isArray(analytics.categoriesBreakdown) && analytics.categoriesBreakdown.length > 0) {
-    analytics.categoriesBreakdown.forEach((cat) => {
+  if (Array.isArray(categoriesBreakdown) && categoriesBreakdown.length > 0) {
+    categoriesBreakdown.forEach((cat) => {
       addRow(
         cat.name,
         cat.code || 'N/A',
@@ -135,8 +141,8 @@ export function exportCivicAnalysisCSV(analytics, options = {}) {
   // 5. Field Worker Leaderboard
   addRow('=== FIELD WORKER OPERATIONAL LEADERBOARD ===');
   addRow('Worker Full Name', 'Official Contact', 'Assigned Work Orders', 'Verified Completed', 'Completion Rate (%)', 'Citizen Rating');
-  if (Array.isArray(analytics.workerLeaderboard) && analytics.workerLeaderboard.length > 0) {
-    analytics.workerLeaderboard.forEach((w) => {
+  if (Array.isArray(workerLeaderboard) && workerLeaderboard.length > 0) {
+    workerLeaderboard.forEach((w) => {
       addRow(
         w.name,
         w.email,
