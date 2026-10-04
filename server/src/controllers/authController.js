@@ -620,3 +620,41 @@ export const getMe = async (req, res) => {
     200
   );
 };
+
+/**
+ * Update user profile (Name, Phone)
+ * PATCH /api/auth/profile
+ */
+export const updateProfile = async (req, res, next) => {
+  try {
+    const { name, phone } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    if (name && typeof name === 'string' && name.trim().length >= 2) {
+      user.name = name.trim();
+    }
+
+    if (phone !== undefined) {
+      user.phone = phone ? phone.trim() : '';
+    }
+
+    await user.save({ validateBeforeSave: false });
+
+    const updatedUser = await User.findById(user._id)
+      .populate('serviceArea', 'name code city state pincodes centerLocation')
+      .populate('department', 'name code icon');
+
+    return successResponse(
+      res,
+      'Profile updated successfully',
+      { user: sanitizeUser(updatedUser) },
+      200
+    );
+  } catch (error) {
+    next(error);
+  }
+};

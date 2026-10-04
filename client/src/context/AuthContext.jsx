@@ -100,6 +100,22 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateProfile = async (profileData) => {
+    setError(null);
+    try {
+      const response = await authAPI.updateProfile(profileData);
+      if (response.data?.user) {
+        setUser(response.data.user);
+        localStorage.setItem('civic_user', JSON.stringify(response.data.user));
+        return { success: true, user: response.data.user, message: response.message };
+      }
+      return { success: true, message: response.message };
+    } catch (err) {
+      setError(err.message || 'Profile update failed');
+      return { success: false, error: err.message };
+    }
+  };
+
   const logout = async () => {
     try {
       await authAPI.logout();
@@ -121,6 +137,7 @@ export function AuthProvider({ children }) {
         login,
         register,
         verifyEmail,
+        updateProfile,
         logout,
         setUser,
       }}

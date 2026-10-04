@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { adminAPI, configAPI, issueAPI } from '../services/api';
+import { exportToCSV, exportToJSON } from '../utils/exportUtils';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import Input from '../components/ui/Input';
 import PageHeader from '../components/common/PageHeader';
 import {
   User,
@@ -24,10 +27,174 @@ import {
   MapPin,
   FilePlus2,
   BarChart3,
+  Edit3,
+  Download,
+  Users,
+  UserCheck,
+  UserX,
+  Building,
+  Navigation,
+  Globe,
+  FileSpreadsheet,
+  X,
 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
+
+  // Super Admin Staff Approvals State
+  const [pendingStaff, setPendingStaff] = useState([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [staffSuccessMsg, setStaffSuccessMsg] = useState(null);
+  const [serviceAreas, setServiceAreas] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [selectedStaffArea, setSelectedStaffArea] = useState({});
+  const [selectedStaffDept, setSelectedStaffDept] = useState({});
+
+  // Edit Profile State
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [editName, setEditName] = useState(user?.name || '');
+  const [editPhone, setEditPhone] = useState(user?.phone || '');
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileSuccessMsg, setProfileSuccessMsg] = useState(null);
+  const [profileErrorMsg, setProfileErrorMsg] = useState(null);
+
+  // Export Data State
+  const [exportLoading, setExportLoading] = useState(false);
+
+  // Load Metadata & Pending Approvals
+  const fetchSuperAdminData = useCallback(async () => {
+    if (user?.role !== 'super_admin') return;
+    setStaffLoading(true);
+    try {
+      const [staffRes, saRes, deptRes] = await Promise.all([
+        adminAPI.getPendingApprovals(),
+        configAPI.getServiceAreas(),
+        configAPI.getDepartments(),
+      ]);
+      if (staffRes.data) setPendingStaff(staffRes.data);
+      if (saRes.data) setServiceAreas(saRes.data);
+      if (deptRes.data) setDepartments(deptRes.data);
+    } catch (err) {
+      console.error('Failed to load super admin data:', err);
+    } finally {
+      setStaffLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.role === 'super_admin') {
+      fetchSuperAdminData();
+    }
+  }, [user, fetchSuperAdminData]);
+
+  // Sync profile edit inputs with user context
+  useEffect(() => {
+    if (user) {
+      setEditName(user.name || '');
+      setEditPhone(user.phone || '');
+    }
+  }, [user]);
+
+  // Handle Staff Approval by Super Admin
+  const handleApproveStaff = async (staffId, requestedRole) => {
+    try {
+      const areaId = selectedStaffArea[staffId];
+      const deptId = selectedStaffDept[staffId];
+      const res = await adminAPI.approveUserRole(staffId, {
+        role: requestedRole,
+        serviceArea: areaId || undefined,
+        department: deptId || undefined,
+      });
+      setStaffSuccessMsg(res.message || 'Staff approved successfully!');
+      setTimeout(() => setStaffSuccessMsg(null), 5000);
+      fetchSuperAdminData();
+    } catch (err) {
+      alert(err.message || 'Failed to approve staff role.');
+    }
+  };
+
+  // Handle Staff Rejection by Super Admin
+  const handleRejectStaff = async (staffId) => {
+    try {
+      const res = await adminAPI.rejectUserRole(staffId);
+      setStaffSuccessMsg(res.message || 'Staff request rejected.');
+      setTimeout(() => setStaffSuccessMsg(null), 5000);
+      fetchSuperAdminData();
+    } catch (err) {
+      alert(err.message || 'Failed to reject staff request.');
+    }
+  };
+
+  // Handle Profile Update Submission
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    setProfileErrorMsg(null);
+    setProfileSuccessMsg(null);
+    setProfileLoading(true);
+
+    const result = await updateProfile({ name: editName, phone: editPhone });
+    setProfileLoading(false);
+
+    if (result.success) {
+      setProfileSuccessMsg('Profile updated successfully!');
+      setTimeout(() => {
+        setIsEditProfileOpen(false);
+        setProfileSuccessMsg(null);
+      }, 1500);
+    } else {
+      setProfileErrorMsg(result.error || 'Failed to update profile.');
+    }
+  };
+
+  // Handle CSV Export of Civic Issues
+  const handleExportIssuesCSV = async () => {
+    setExportLoading(true);
+    try {
+      const response = await issueAPI.getIssues({ limit: 500 });
+      const issues = response.data?.issues || response.data || [];
+      if (issues.length === 0) {
+        alert('No issues available to export.');
+        return;
+      }
+
+      const columns = [
+        { key: 'issueNumber', label: 'Issue ID' },
+        { key: 'title', label: 'Title' },
+        { key: 'status', label: 'Status' },
+        { key: 'priority', label: 'Priority' },
+        { key: 'category.name', label: 'Category' },
+        { key: 'department.name', label: 'Department' },
+        { key: 'serviceArea.name', label: 'Service Area / Village' },
+        { key: 'location.address', label: 'Location Address' },
+        { key: 'reporter.name', label: 'Reported By' },
+        { key: 'createdAt', label: 'Reported Date' },
+      ];
+
+      exportToCSV(issues, 'civic_issues_master_records', columns);
+    } catch (err) {
+      alert('Failed to export data: ' + err.message);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  // Handle CSV Export of Staff Approvals
+  const handleExportStaffCSV = () => {
+    if (pendingStaff.length === 0) {
+      alert('No pending staff records to export.');
+      return;
+    }
+    const columns = [
+      { key: 'name', label: 'Full Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'requestedRole', label: 'Requested Role' },
+      { key: 'approvalStatus', label: 'Approval Status' },
+      { key: 'createdAt', label: 'Registered Date' },
+    ];
+    exportToCSV(pendingStaff, 'pending_staff_applications', columns);
+  };
 
   const getRoleBadge = (role) => {
     switch (role) {
@@ -39,13 +206,13 @@ export default function DashboardPage() {
         };
       case 'administrator':
         return {
-          label: 'Administrator',
+          label: 'Government Officer',
           color: 'bg-brand-50 text-brand-700 border-brand-200',
           icon: ShieldCheck,
         };
       case 'field_worker':
         return {
-          label: 'Field Worker',
+          label: 'Field Worker Lead',
           color: 'bg-amber-50 text-amber-800 border-amber-200',
           icon: HardHat,
         };
@@ -59,14 +226,13 @@ export default function DashboardPage() {
   };
 
   const roleMeta = getRoleBadge(user?.role);
-  const RoleIcon = roleMeta.icon;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-12">
       {/* Page Header */}
       <PageHeader
         title={`Welcome, ${user?.name || 'User'}`}
-        description="Role-Based Access Control and operational modules for your verified identity."
+        description="Role-Based Access Control, operational jurisdiction, and management tools for your verified identity."
         badge={
           <span
             className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border ${roleMeta.color}`}
@@ -75,15 +241,200 @@ export default function DashboardPage() {
           </span>
         }
         action={
-          user?.role === 'citizen' || user?.role === 'super_admin' ? (
-            <Link to="/report-issue">
-              <Button icon={FilePlus2}>Report New Issue</Button>
-            </Link>
-          ) : null
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Button
+              variant="outline"
+              size="md"
+              icon={Edit3}
+              onClick={() => setIsEditProfileOpen(true)}
+            >
+              Edit Profile
+            </Button>
+
+            <Button
+              variant="secondary"
+              size="md"
+              icon={Download}
+              onClick={handleExportIssuesCSV}
+              loading={exportLoading}
+            >
+              Export CSV Data
+            </Button>
+
+            {(user?.role === 'citizen' || user?.role === 'super_admin') && (
+              <Link to="/report-issue">
+                <Button icon={FilePlus2}>Report New Issue</Button>
+              </Link>
+            )}
+          </div>
         }
       />
 
-      {/* Staff Role Request Status Banner (For Pending or Rejected Approvals) */}
+      {/* SUPER ADMIN: PENDING STAFF & OFFICER APPROVALS WIDGET */}
+      {user?.role === 'super_admin' && (
+        <Card elevated className="p-6 sm:p-7 border-2 border-purple-300 bg-gradient-to-br from-purple-50/70 via-white to-brand-50/40 space-y-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-purple-200">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 rounded-2xl bg-purple-100 text-purple-800 border border-purple-300 shadow-sm">
+                <Users className="w-6 h-6 text-purple-700" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-extrabold text-slate-900 font-heading">
+                    Super Admin: Staff & Officer Approval Requests
+                  </h3>
+                  {pendingStaff.length > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-400 text-slate-950 animate-pulse shadow-sm">
+                      {pendingStaff.length} PENDING
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-600">
+                  Review applicant details, assign municipal village/jurisdiction & department, and approve staff roles.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                icon={FileSpreadsheet}
+                onClick={handleExportStaffCSV}
+                disabled={pendingStaff.length === 0}
+              >
+                Export List
+              </Button>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={RefreshCw}
+                onClick={fetchSuperAdminData}
+                loading={staffLoading}
+              >
+                Refresh
+              </Button>
+            </div>
+          </div>
+
+          {staffSuccessMsg && (
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-semibold flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-emerald-600" />
+              <span>{staffSuccessMsg}</span>
+            </div>
+          )}
+
+          {pendingStaff.length === 0 ? (
+            <div className="py-6 text-center text-xs text-slate-500 space-y-1">
+              <CheckCircle className="w-8 h-8 text-emerald-600 mx-auto" />
+              <p className="font-bold text-slate-800 text-sm">All Staff Requests Reviewed</p>
+              <p>No government officers or field workers are currently waiting for role authorization.</p>
+            </div>
+          ) : (
+            <div className="space-y-3.5">
+              {pendingStaff.map((staff) => (
+                <div
+                  key={staff._id}
+                  className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 hover:border-purple-300 shadow-sm transition flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4"
+                >
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900">{staff.name}</span>
+                      <span className="text-[11px] font-mono uppercase font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                        Requested: {staff.requestedRole === 'administrator' ? '🏛️ Govt Officer' : '👷 Field Worker'}
+                      </span>
+                      <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
+                        ✓ Email OTP Verified
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+                      <span className="font-mono">✉️ {staff.email}</span>
+                      {staff.phone && <span className="font-mono">📞 {staff.phone}</span>}
+                      <span className="text-slate-400">
+                        Registered: {new Date(staff.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+                    {/* Village / Service Area Selection */}
+                    <div className="flex-1 sm:w-44">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        Assign Village / Zone
+                      </label>
+                      <select
+                        value={selectedStaffArea[staff._id] || staff.serviceArea?._id || ''}
+                        onChange={(e) =>
+                          setSelectedStaffArea({
+                            ...selectedStaffArea,
+                            [staff._id]: e.target.value,
+                          })
+                        }
+                        className="w-full text-xs py-2 px-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-800 outline-none focus:border-purple-600"
+                      >
+                        <option value="">Select Zone / Village...</option>
+                        {serviceAreas.map((sa) => (
+                          <option key={sa._id} value={sa._id}>
+                            {sa.name} ({sa.city || sa.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Department Selection */}
+                    <div className="flex-1 sm:w-44">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        Assign Department
+                      </label>
+                      <select
+                        value={selectedStaffDept[staff._id] || staff.department?._id || ''}
+                        onChange={(e) =>
+                          setSelectedStaffDept({
+                            ...selectedStaffDept,
+                            [staff._id]: e.target.value,
+                          })
+                        }
+                        className="w-full text-xs py-2 px-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-800 outline-none focus:border-purple-600"
+                      >
+                        <option value="">Select Department...</option>
+                        {departments.map((d) => (
+                          <option key={d._id} value={d._id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Quick Approve / Reject Actions */}
+                    <div className="flex items-center gap-2 pt-3 sm:pt-0">
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        icon={UserCheck}
+                        onClick={() => handleApproveStaff(staff._id, staff.requestedRole)}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        icon={UserX}
+                        onClick={() => handleRejectStaff(staff._id)}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* USER ROLE REQUEST STATUS BANNER (For Pending or Rejected Approvals) */}
       {user?.approvalStatus === 'pending' && (
         <Card elevated className="p-6 bg-gradient-to-r from-amber-50/90 via-amber-50/50 to-orange-50/60 border-2 border-amber-300 shadow-sm">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -130,6 +481,70 @@ export default function DashboardPage() {
               <p className="font-bold">Role Upgrade Request Not Approved</p>
               <p className="text-red-800 text-xs leading-relaxed">
                 Your request for the <strong>{user.requestedRole || 'Officer'}</strong> role was reviewed by the Super Administrator. You maintain full access as a verified Citizen to submit municipal issues and track community resolutions.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* ADMIN & WORKER OPERATIONAL JURISDICTION / RANGE CARD */}
+      {(user?.role === 'administrator' || user?.role === 'field_worker' || user?.role === 'super_admin') && (
+        <Card elevated className="p-6 bg-gradient-to-br from-brand-50/60 via-white to-slate-50 border border-brand-200">
+          <div className="flex items-center space-x-3 pb-4 border-b border-slate-200">
+            <div className="p-2.5 rounded-2xl bg-brand-700 text-white shadow-sm">
+              <MapPin className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900 font-heading">
+                Operational Jurisdiction & Coverage Range
+              </h3>
+              <p className="text-xs text-slate-500">
+                Assigned municipal zone, operational coordinates, and department oversight
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                Assigned Service Area / Village
+              </span>
+              <div className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                <Globe className="w-4 h-4 text-brand-700" />
+                <span>{user?.serviceArea?.name || 'All Municipal Zones (Super Admin)'}</span>
+              </div>
+              <p className="text-xs text-slate-500">
+                {user?.serviceArea?.city ? `${user.serviceArea.city}, ${user.serviceArea.state || 'India'}` : 'Global Jurisdiction'}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                Assigned Department
+              </span>
+              <div className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                <Building className="w-4 h-4 text-brand-700" />
+                <span>{user?.department?.name || 'All Municipal Departments'}</span>
+              </div>
+              <p className="text-xs text-slate-500">
+                {user?.department?.code ? `Dept Code: ${user.department.code}` : 'Cross-Departmental Oversight'}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                Geographic Coordinates / Range
+              </span>
+              <div className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                <Navigation className="w-4 h-4 text-brand-700" />
+                <span>
+                  {user?.serviceArea?.centerLocation?.coordinates
+                    ? `${user.serviceArea.centerLocation.coordinates[1].toFixed(4)}° N, ${user.serviceArea.centerLocation.coordinates[0].toFixed(4)}° E`
+                    : '17.4849° N, 78.3967° E'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Radial Coverage: 15 km Radius Enforced
               </p>
             </div>
           </div>
@@ -324,11 +739,20 @@ export default function DashboardPage() {
       {/* Profile & Security State Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="p-6">
-          <div className="flex items-center space-x-3 pb-3 border-b border-slate-200 mb-4">
-            <div className="p-2 rounded-xl bg-brand-50 text-brand-700 border border-brand-200">
-              <User className="w-4 h-4" />
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 rounded-xl bg-brand-50 text-brand-700 border border-brand-200">
+                <User className="w-4 h-4" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900 font-heading">Profile & Identity</h3>
             </div>
-            <h3 className="text-base font-bold text-slate-900 font-heading">Profile & Identity</h3>
+            <button
+              onClick={() => setIsEditProfileOpen(true)}
+              className="text-xs font-bold text-brand-700 hover:text-brand-900 inline-flex items-center gap-1 transition"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Edit</span>
+            </button>
           </div>
 
           <div className="space-y-3 text-sm">
@@ -340,6 +764,11 @@ export default function DashboardPage() {
             <div className="flex justify-between py-1.5 border-b border-slate-100">
               <span className="text-slate-500 font-medium">Email Address</span>
               <span className="text-slate-900 font-bold">{user?.email}</span>
+            </div>
+
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <span className="text-slate-500 font-medium">Contact Phone</span>
+              <span className="text-slate-900 font-bold">{user?.phone || 'Not provided'}</span>
             </div>
 
             <div className="flex justify-between py-1.5 border-b border-slate-100">
@@ -363,7 +792,7 @@ export default function DashboardPage() {
             <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
               <ShieldCheck className="w-4 h-4" />
             </div>
-            <h3 className="text-base font-bold text-slate-900 font-heading">Security & Token State</h3>
+            <h3 className="text-base font-bold text-slate-900 font-heading">Security & Platform Sync</h3>
           </div>
 
           <div className="space-y-3 text-sm">
@@ -373,6 +802,11 @@ export default function DashboardPage() {
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 Active Verified
               </span>
+            </div>
+
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <span className="text-slate-500 font-medium">Email Verification</span>
+              <span className="text-emerald-700 font-bold">✓ 6-Digit OTP Verified</span>
             </div>
 
             <div className="flex justify-between py-1.5 border-b border-slate-100">
@@ -387,6 +821,96 @@ export default function DashboardPage() {
           </div>
         </Card>
       </div>
+
+      {/* EDIT PROFILE MODAL */}
+      {isEditProfileOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <Card elevated className="max-w-md w-full p-6 sm:p-7 space-y-5 bg-white">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 rounded-xl bg-brand-50 text-brand-700 border border-brand-200">
+                  <Edit3 className="w-4 h-4" />
+                </div>
+                <h3 className="text-base font-extrabold text-slate-900 font-heading">
+                  Edit Profile Details
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsEditProfileOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {profileErrorMsg && (
+              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-semibold">
+                {profileErrorMsg}
+              </div>
+            )}
+
+            {profileSuccessMsg && (
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <span>{profileSuccessMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleProfileSubmit} className="space-y-4">
+              <Input
+                label="Full Name *"
+                type="text"
+                required
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Enter your full name"
+                icon={User}
+              />
+
+              <Input
+                label="Phone Number"
+                type="tel"
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                placeholder="e.g. +91 9876543210"
+                icon={Phone}
+              />
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">
+                  Registered Email (Immutable)
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value={user?.email || ''}
+                  className="w-full text-xs py-2.5 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 cursor-not-allowed font-mono"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  onClick={() => setIsEditProfileOpen(false)}
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  loading={profileLoading}
+                >
+                  Save Profile
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

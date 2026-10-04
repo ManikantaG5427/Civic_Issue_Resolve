@@ -36,7 +36,9 @@ export const protect = async (req, res, next) => {
     }
 
     // Check if user still exists
-    const currentUser = await User.findById(decoded.id);
+    const currentUser = await User.findById(decoded.id)
+      .populate('serviceArea', 'name code city state pincodes centerLocation')
+      .populate('department', 'name code icon');
     if (!currentUser) {
       return next(
         new AppError('The user belonging to this token no longer exists.', 401)

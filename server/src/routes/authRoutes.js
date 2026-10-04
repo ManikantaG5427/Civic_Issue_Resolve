@@ -9,6 +9,7 @@ import {
   resetPassword,
   verifyEmail,
   resendVerificationCode,
+  updateProfile,
 } from '../controllers/authController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import {
@@ -28,6 +29,7 @@ router.post('/reset-password/:token', passwordResetLimiter, resetPassword);
 router.post('/refresh', refreshToken);
 router.post('/logout', protect, logout);
 router.get('/me', protect, getMe);
+router.patch('/profile', protect, updateProfile);
 
 export default router;
 

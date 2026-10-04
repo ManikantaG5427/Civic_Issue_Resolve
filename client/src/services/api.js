@@ -106,6 +106,7 @@ export const authAPI = {
   resetPassword: (token, data) => apiRequest(`/auth/reset-password/${token}`, { method: 'POST', body: JSON.stringify(data) }),
   logout: () => apiRequest('/auth/logout', { method: 'POST' }),
   getMe: () => apiRequest('/auth/me'),
+  updateProfile: (data) => apiRequest('/auth/profile', { method: 'PATCH', body: JSON.stringify(data) }),
   refresh: (refreshToken) => apiRequest('/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
 };
 
