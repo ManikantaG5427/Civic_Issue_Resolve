@@ -378,16 +378,3 @@ export const uploadAPI = {
     return data;
   },
 };
-
-/**
- * Safely format upload image URL for frontend rendering
- */
-export const getImageUrl = (path) => {
-  if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
-    return path;
-  }
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  const base = API_BASE_URL.replace(/\/api$/, '');
-  return `${base}${cleanPath}`;
-};
