@@ -2220,7 +2220,7 @@ export default function IssueDetailPage() {
                         key={url || i}
                         className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-300"
                       >
-                        <img src={url} alt="Progress thumbnail" className="w-full h-full object-cover" />
+                        <img src={getImageUrl(url)} alt="Progress thumbnail" className="w-full h-full object-cover" />
                       </div>
                     ))}
                   </div>
@@ -2343,7 +2343,7 @@ export default function IssueDetailPage() {
                         key={url || i}
                         className="relative w-14 h-14 rounded-xl overflow-hidden border border-green-300 ring-2 ring-green-100"
                       >
-                        <img src={url} alt="Resolution proof" className="w-full h-full object-cover" />
+                        <img src={getImageUrl(url)} alt="Resolution proof" className="w-full h-full object-cover" />
                       </div>
                     ))}
                   </div>

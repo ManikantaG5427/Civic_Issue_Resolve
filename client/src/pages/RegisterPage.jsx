@@ -206,72 +206,90 @@ export default function RegisterPage() {
                 </div>
               )}
 
-              {/* Google Sign In / Registration */}
-              <div className="mb-5 space-y-4">
+              {/* ROLE SELECTION */}
+              <div className="mb-5">
+                <label className="mb-2 block text-sm font-semibold text-slate-800">
+                  1. Select Your Role *
+                </label>
+                <div className="space-y-2.5">
+                  {roles.map((r) => {
+                    const Icon = r.icon;
+                    const isSelected = role === r.id;
+                    return (
+                      <div
+                        key={r.id}
+                        onClick={() => setRole(r.id)}
+                        className={`p-3.5 rounded-2xl border transition cursor-pointer flex items-start gap-3.5 ${
+                          isSelected
+                            ? 'border-brand-600 bg-brand-50/60 ring-2 ring-brand-600/20'
+                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                        }`}
+                      >
+                        <div
+                          className={`p-2 rounded-xl shrink-0 mt-0.5 ${
+                            isSelected ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-slate-900">{r.title}</span>
+                            <span
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                isSelected
+                                  ? 'bg-brand-200 text-brand-900 font-bold'
+                                  : 'bg-slate-100 text-slate-600'
+                              }`}
+                            >
+                              {r.badge}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                            {r.description}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Google Sign In / Registration with Chosen Role */}
+              <div className="mb-6 space-y-4">
                 <GoogleSignInButton
-                  label="Sign Up / Register with Google"
+                  label={
+                    role === 'citizen'
+                      ? 'Sign up with Google (Instant Access)'
+                      : role === 'administrator'
+                      ? 'Apply for Admin Access with Google'
+                      : 'Apply as Field Worker with Google'
+                  }
                   role={role}
-                  redirectPath={role === 'administrator' || role === 'field_worker' ? '/dashboard' : '/dashboard'}
+                  onSuccess={(result) => {
+                    const u = result.user;
+                    if (u?.role === 'super_admin') {
+                      navigate('/dashboard', { replace: true });
+                      return;
+                    }
+                    if (u?.approvalStatus === 'pending' || role === 'administrator' || role === 'field_worker') {
+                      setStep('pending_approval');
+                    } else {
+                      navigate('/dashboard', { replace: true });
+                    }
+                  }}
                   onError={(err) => setFormError(err)}
                 />
 
                 <div className="relative flex items-center justify-center">
                   <div className="border-t border-slate-200 w-full" />
                   <span className="bg-white px-3 text-[11px] font-semibold tracking-wider uppercase text-slate-400 absolute">
-                    Or register with email
+                    Or create account with email & password
                   </span>
                 </div>
               </div>
 
               <form onSubmit={handleRegisterSubmit} className="space-y-4">
-                {/* ROLE SELECTION */}
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-800">
-                    Select Your Role *
-                  </label>
-                  <div className="space-y-2.5">
-                    {roles.map((r) => {
-                      const Icon = r.icon;
-                      const isSelected = role === r.id;
-                      return (
-                        <div
-                          key={r.id}
-                          onClick={() => setRole(r.id)}
-                          className={`p-3.5 rounded-2xl border transition cursor-pointer flex items-start gap-3.5 ${
-                            isSelected
-                              ? 'border-brand-600 bg-brand-50/60 ring-2 ring-brand-600/20'
-                              : 'border-slate-200 hover:border-slate-300 bg-white'
-                          }`}
-                        >
-                          <div
-                            className={`p-2 rounded-xl shrink-0 mt-0.5 ${
-                              isSelected ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            <Icon className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-bold text-slate-900">{r.title}</span>
-                              <span
-                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                  isSelected
-                                    ? 'bg-brand-200 text-brand-900 font-bold'
-                                    : 'bg-slate-100 text-slate-600'
-                                }`}
-                              >
-                                {r.badge}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                              {r.description}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
 
                 <Input
                   label="Full Name *"

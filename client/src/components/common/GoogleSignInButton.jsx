@@ -7,6 +7,7 @@ export default function GoogleSignInButton({
   label = 'Sign in with Google',
   redirectPath = '/dashboard',
   role = 'citizen',
+  onSuccess,
   onError,
 }) {
   const { googleLogin } = useAuth();
@@ -100,7 +101,11 @@ export default function GoogleSignInButton({
       });
 
       if (result.success) {
-        navigate(redirectPath, { replace: true });
+        if (onSuccess) {
+          onSuccess(result);
+        } else {
+          navigate(redirectPath, { replace: true });
+        }
       } else {
         const msg = result.error || 'Google authentication failed';
         setErrorMsg(msg);
@@ -133,7 +138,11 @@ export default function GoogleSignInButton({
       });
 
       if (result.success) {
-        navigate(redirectPath, { replace: true });
+        if (onSuccess) {
+          onSuccess(result);
+        } else {
+          navigate(redirectPath, { replace: true });
+        }
       } else {
         const msg = result.error || 'Google login failed';
         setErrorMsg(msg);

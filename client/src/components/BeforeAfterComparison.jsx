@@ -89,6 +89,11 @@ export default function BeforeAfterComparison({ evidence = [], onExpandPhoto }) 
                   <img
                     src={getImageUrl(img.url)}
                     alt="Initial condition"
+                    crossOrigin="anonymous"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?w=600&auto=format&fit=crop&q=80';
+                    }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                   />
                   <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
@@ -120,6 +125,11 @@ export default function BeforeAfterComparison({ evidence = [], onExpandPhoto }) 
                   <img
                     src={getImageUrl(img.url)}
                     alt="Resolution proof"
+                    crossOrigin="anonymous"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80';
+                    }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                   />
                   <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
@@ -153,6 +163,11 @@ export default function BeforeAfterComparison({ evidence = [], onExpandPhoto }) 
                 <img
                   src={getImageUrl(img.url)}
                   alt={img.filename || `Evidence photo ${idx + 1}`}
+                  crossOrigin="anonymous"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?w=600&auto=format&fit=crop&q=80';
+                  }}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                 />
                 <span

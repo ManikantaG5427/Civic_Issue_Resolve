@@ -18,6 +18,23 @@ export const clearStoredTokens = () => {
 };
 
 /**
+ * Helper to resolve relative uploads/cloud image paths to fully qualified accessible URLs
+ */
+export function getImageUrl(path) {
+  if (!path) return '';
+  if (typeof path !== 'string') return '';
+  // If already absolute (Cloudinary CDN, data URL, blob, http/https), return directly
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:') || path.startsWith('blob:')) {
+    return path;
+  }
+  // Extract backend base origin from VITE_API_BASE_URL (removing /api)
+  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+  const serverOrigin = apiBase.replace(/\/api\/?$/, '');
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${serverOrigin}${cleanPath}`;
+}
+
+/**
  * Utility wrapper for standard API fetch requests with token injection and auto-refresh
  */
 export async function apiRequest(endpoint, options = {}) {
