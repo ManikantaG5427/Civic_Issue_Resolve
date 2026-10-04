@@ -1,5 +1,5 @@
 // CivicResolve Service Worker for offline asset caching
-const CACHE_NAME = 'civicresolve-v2';
+const CACHE_NAME = 'civicresolve-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -32,8 +32,18 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests and skip API calls
-  if (event.request.method !== 'GET' || event.request.url.includes('/api/')) {
+  // Only handle GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // Ignore non-http/https schemes (e.g. chrome-extension://, moz-extension://, file://)
+  if (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://')) {
+    return;
+  }
+
+  // Skip API endpoints, backend routes, and socket.io connections
+  if (event.request.url.includes('/api/') || event.request.url.includes('socket.io')) {
     return;
   }
 
@@ -45,7 +55,6 @@ self.addEventListener('fetch', (event) => {
           if (networkResponse && networkResponse.status === 200) {
             return networkResponse;
           }
-          // If server returned 404 on deep link, fallback to cached /index.html shell
           return caches.match('/index.html').then((cachedIndex) => cachedIndex || networkResponse);
         })
         .catch(() => {
@@ -55,14 +64,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-First for dynamic asset chunks (js/css) to avoid stale chunk errors
+  // Network-First for dynamic asset chunks (js/css)
   if (event.request.url.includes('/assets/')) {
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+            caches.open(CACHE_NAME).then((cache) => {
+              try {
+                cache.put(event.request, responseToCache);
+              } catch {
+                // Ignore unsupported schemes or quota errors
+              }
+            });
           }
           return networkResponse;
         })
@@ -82,7 +97,11 @@ self.addEventListener('fetch', (event) => {
           if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
+              try {
+                cache.put(event.request, responseToCache);
+              } catch {
+                // Ignore unsupported schemes or quota errors
+              }
             });
           }
           return networkResponse;
@@ -95,4 +114,5 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
 

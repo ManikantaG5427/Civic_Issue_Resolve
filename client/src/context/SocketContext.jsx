@@ -31,11 +31,16 @@ export const SocketProvider = ({ children }) => {
       auth: {
         token: token || '',
       },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
+      upgrade: true,
+      rememberUpgrade: true,
       autoConnect: true,
-      reconnectionAttempts: 3,
-      reconnectionDelay: 5000,
-      timeout: 10000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
+      timeout: 20000,
+      withCredentials: false,
     });
 
     socketRef.current = socket;
