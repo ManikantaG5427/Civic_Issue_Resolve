@@ -18,6 +18,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { adminAPI, configAPI } from '../services/api';
+import { exportCivicAnalysisCSV } from '../utils/exportUtils';
 
 export default function AdminAnalyticsPage() {
   const [analytics, setAnalytics] = useState(null);
@@ -63,49 +64,12 @@ export default function AdminAnalyticsPage() {
 
   const handleExportCSV = () => {
     if (!analytics) return;
-
-    const rows = [
-      ['CivicResolve Municipal Analytics Export'],
-      ['Generated At', new Date().toISOString()],
-      ['Time Range', selectedTimeRange],
-      ['Service Area', selectedServiceArea],
-      [],
-      ['KPI Overview'],
-      ['Total Reported Issues', analytics.kpis?.totalReported || 0],
-      ['Total Resolved Issues', analytics.kpis?.totalResolved || 0],
-      ['Resolution Rate (%)', `${analytics.kpis?.resolutionRate || 0}%`],
-      ['Avg Resolution Time (Hours)', analytics.kpis?.avgResolutionTimeHours || 0],
-      ['SLA Compliance Rate (%)', `${analytics.kpis?.slaComplianceRate || 0}%`],
-      ['Escalated Breaches', analytics.kpis?.escalatedCount || 0],
-      ['Citizen Satisfaction (1-5)', analytics.kpis?.citizenSatisfactionScore || 5.0],
-      [],
-      ['Department Performance'],
-      ['Department', 'Total Assigned', 'Total Resolved', 'Escalated', 'Completion Rate (%)'],
-      ...(analytics.departmentPerformance || []).map((d) => [
-        d.name,
-        d.totalAssigned,
-        d.totalResolved,
-        d.escalatedCount,
-        `${d.completionRate}%`,
-      ]),
-      [],
-      ['Category Breakdown'],
-      ['Category', 'Issue Count', 'Percentage (%)'],
-      ...(analytics.categoriesBreakdown || []).map((c) => [c.name, c.count, `${c.percentage}%`]),
-    ];
-
-    const csvContent =
-      'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute(
-      'download',
-      `CivicResolve_Analytics_${selectedTimeRange}_${new Date().toISOString().slice(0, 10)}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const saObj = serviceAreas.find((s) => s._id === selectedServiceArea);
+    const serviceAreaLabel = saObj ? saObj.name : 'All Municipal Zones';
+    exportCivicAnalysisCSV(analytics, {
+      serviceArea: serviceAreaLabel,
+      timeRange: selectedTimeRange === '7d' ? 'Last 7 Days' : (selectedTimeRange === '90d' ? 'Last 90 Days' : 'Last 30 Days'),
+    });
   };
 
   return (
