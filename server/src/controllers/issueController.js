@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Issue from '../models/Issue.js';
 import IssueCategory from '../models/IssueCategory.js';
 import ServiceArea from '../models/ServiceArea.js';
+import Department from '../models/Department.js';
 import { generateIssueNumber } from '../utils/issueNumberGenerator.js';
 import { successResponse } from '../utils/apiResponse.js';
 import { AppError } from '../utils/appError.js';
@@ -180,6 +181,34 @@ export const createIssue = async (req, res, next) => {
       },
     ];
 
+    // Automatically extract department from category; if missing, resolve via category keyword classification
+    let assignedDepartmentId = category.defaultDepartment || null;
+    if (!assignedDepartmentId) {
+      const catKeywords = `${category.name} ${category.code || ''} ${title || ''}`.toLowerCase();
+      let fallbackDept = null;
+      if (catKeywords.includes('road') || catKeywords.includes('pothole') || catKeywords.includes('bridge') || catKeywords.includes('asphalt')) {
+        fallbackDept = await Department.findOne({ code: 'DPW-RDS', isActive: true });
+      } else if (catKeywords.includes('street') || catKeywords.includes('light') || catKeywords.includes('lamp') || catKeywords.includes('elec') || catKeywords.includes('wire')) {
+        fallbackDept = await Department.findOne({ code: 'ELE-LGT', isActive: true });
+      } else if (catKeywords.includes('garb') || catKeywords.includes('waste') || catKeywords.includes('sanit') || catKeywords.includes('trash') || catKeywords.includes('bin')) {
+        fallbackDept = await Department.findOne({ code: 'SAN-WST', isActive: true });
+      } else if (catKeywords.includes('water') || catKeywords.includes('leak') || catKeywords.includes('drain') || catKeywords.includes('pipe') || catKeywords.includes('sewag')) {
+        fallbackDept = await Department.findOne({ code: 'WTR-DRN', isActive: true });
+      } else if (catKeywords.includes('park') || catKeywords.includes('tree') || catKeywords.includes('garden')) {
+        fallbackDept = await Department.findOne({ code: 'PRK-FAC', isActive: true });
+      } else if (catKeywords.includes('safe') || catKeywords.includes('hazard') || catKeywords.includes('encroach')) {
+        fallbackDept = await Department.findOne({ code: 'SAF-INF', isActive: true });
+      }
+
+      if (!fallbackDept) {
+        fallbackDept = await Department.findOne({ isActive: true });
+      }
+
+      if (fallbackDept) {
+        assignedDepartmentId = fallbackDept._id;
+      }
+    }
+
     // 6. Create Issue Record with Evidence & Administrative Location Breakdown
     const newIssue = new Issue({
       issueNumber,
@@ -187,7 +216,7 @@ export const createIssue = async (req, res, next) => {
       description: description.trim(),
       category: category._id,
       serviceArea: serviceArea._id,
-      department: category.defaultDepartment || null,
+      department: assignedDepartmentId,
       reporter: req.user?._id || null,
       guestReporter: {
         name: req.body.guestName?.trim() || (req.user ? req.user.name : 'Citizen'),

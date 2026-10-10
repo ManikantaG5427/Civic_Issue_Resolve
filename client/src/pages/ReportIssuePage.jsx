@@ -723,12 +723,20 @@ export default function ReportIssuePage() {
                 </select>
 
                 {selectedCategory && (
-                  <div className="mt-2 flex items-center justify-between text-xs text-charcoal-600">
-                    <span className="flex items-center gap-1 font-medium">
-                      <Clock className="w-3.5 h-3.5 text-forest-700" />
-                      Target SLA: {selectedCategory.estimatedSlaHours}h
-                    </span>
-                    <PriorityBadge priority={selectedCategory.defaultPriority} size="sm" />
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center justify-between text-xs text-charcoal-600">
+                      <span className="flex items-center gap-1 font-medium">
+                        <Clock className="w-3.5 h-3.5 text-forest-700" />
+                        Target SLA: {selectedCategory.estimatedSlaHours}h
+                      </span>
+                      <PriorityBadge priority={selectedCategory.defaultPriority} size="sm" />
+                    </div>
+                    {selectedCategory.defaultDepartment && (
+                      <div className="text-[11px] text-forest-800 font-medium flex items-center gap-1.5 pt-0.5">
+                        <Building className="w-3 h-3 text-forest-700 shrink-0" />
+                        <span>Auto-routed Department: <strong className="font-semibold text-forest-900">{selectedCategory.defaultDepartment.name || selectedCategory.defaultDepartment}</strong></span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
