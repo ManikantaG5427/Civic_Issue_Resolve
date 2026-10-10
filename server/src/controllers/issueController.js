@@ -693,29 +693,6 @@ export const reopenIssue = async (req, res, next) => {
     next(error);
   }
 };
-      .populate('department', 'name code')
-      .populate('reporter', 'name email phone')
-      .populate('assignedWorker', 'name email phone department')
-      .populate('timeline.performedBy', 'name role');
-
-    notifySuperAdmin({
-      eventType: 'security_alert',
-      title: `Issue Reopened: ${issue.issueNumber}`,
-      message: `${req.user.name} reopened "${issue.title}". Reason: ${reopenReason.trim()}`,
-      actor: req.user,
-      metadata: {
-        'Issue ID': issue.issueNumber,
-        'Reopen Reason': reopenReason.trim(),
-      },
-      linkUrl: `/issues/${issue.issueNumber}`,
-      req,
-    });
-
-    return successResponse(res, 'Issue reopened and redispatched for municipal field action', populated, 200);
-  } catch (error) {
-    next(error);
-  }
-};
 
 /**
  * Citizen or Admin withdraws / cancels an issue
