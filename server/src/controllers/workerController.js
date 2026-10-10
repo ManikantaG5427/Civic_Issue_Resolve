@@ -31,7 +31,11 @@ export const getAssignedTasks = async (req, res, next) => {
 
     // Status filtering
     if (status === 'active') {
-      conditions.push({ status: { $in: ['assigned', 'in_progress'] } });
+      conditions.push({ status: { $in: ['assigned', 'in_progress', 'rework_required'] } });
+    } else if (status === 'rework') {
+      conditions.push({ status: 'rework_required' });
+    } else if (status === 'completed') {
+      conditions.push({ status: { $in: ['work_completed', 'resolved_verification_pending', 'closed'] } });
     } else if (status && status !== 'all') {
       if (status.includes(',')) {
         conditions.push({ status: { $in: status.split(',').map((s) => s.trim()) } });
@@ -77,6 +81,8 @@ export const getAssignedTasks = async (req, res, next) => {
       tasks,
       assignedCount,
       inProgressCount,
+      reworkCount,
+      workCompletedCount,
       resolvedCount,
       urgentCount,
       overdueCount,
@@ -92,15 +98,17 @@ export const getAssignedTasks = async (req, res, next) => {
         .limit(limitNum),
       Issue.countDocuments({ ...workerScope, status: 'assigned' }),
       Issue.countDocuments({ ...workerScope, status: 'in_progress' }),
-      Issue.countDocuments({ ...workerScope, status: 'resolved_verification_pending' }),
+      Issue.countDocuments({ ...workerScope, status: 'rework_required' }),
+      Issue.countDocuments({ ...workerScope, status: 'work_completed' }),
+      Issue.countDocuments({ ...workerScope, status: { $in: ['resolved_verification_pending', 'closed'] } }),
       Issue.countDocuments({
         ...workerScope,
         priority: { $in: ['urgent', 'critical'] },
-        status: { $in: ['assigned', 'in_progress'] },
+        status: { $in: ['assigned', 'in_progress', 'rework_required'] },
       }),
       Issue.countDocuments({
         ...workerScope,
-        status: { $in: ['assigned', 'in_progress'] },
+        status: { $in: ['assigned', 'in_progress', 'rework_required'] },
         slaDeadline: { $lt: now },
       }),
     ]);
@@ -109,6 +117,8 @@ export const getAssignedTasks = async (req, res, next) => {
       metrics: {
         assigned: assignedCount,
         inProgress: inProgressCount,
+        reworkRequired: reworkCount,
+        workCompleted: workCompletedCount,
         resolvedVerificationPending: resolvedCount,
         urgent: urgentCount,
         overdue: overdueCount,
@@ -161,7 +171,7 @@ export const startWork = async (req, res, next) => {
     }
 
     // Validate valid state transition
-    const allowableStatuses = ['assigned', 'reopened', 'in_progress'];
+    const allowableStatuses = ['assigned', 'reopened', 'rework_required', 'in_progress'];
     if (!allowableStatuses.includes(issue.status)) {
       return res.status(400).json({
         success: false,
@@ -251,16 +261,16 @@ export const addProgressUpdate = async (req, res, next) => {
       });
     }
 
-    // Allow progress updates on assigned, in_progress, or reopened
-    if (!['assigned', 'in_progress', 'reopened'].includes(issue.status)) {
+    // Allow progress updates on assigned, in_progress, reopened, or rework_required
+    if (!['assigned', 'in_progress', 'reopened', 'rework_required'].includes(issue.status)) {
       return res.status(400).json({
         success: false,
         message: `Cannot add progress update to issue with status: '${issue.status}'`,
       });
     }
 
-    // Auto-advance to in_progress if still assigned
-    if (issue.status === 'assigned') {
+    // Auto-advance to in_progress if still assigned or rework_required
+    if (['assigned', 'rework_required'].includes(issue.status)) {
       issue.status = 'in_progress';
     }
 
@@ -380,16 +390,18 @@ export const resolveTask = async (req, res, next) => {
       });
     }
 
-    const allowableStatuses = ['in_progress', 'assigned', 'reopened'];
+    const allowableStatuses = ['in_progress', 'assigned', 'reopened', 'rework_required', 'work_completed'];
     if (!allowableStatuses.includes(issue.status)) {
       return res.status(400).json({
         success: false,
-        message: `Cannot resolve issue with status: '${issue.status}'`,
+        message: `Cannot submit completion on issue with status: '${issue.status}'`,
       });
     }
 
     const previousStatus = issue.status;
-    issue.status = 'resolved_verification_pending';
+    issue.status = 'work_completed';
+    issue.verificationStatus = 'pending';
+    issue.citizenResponseStatus = 'not_requested';
 
     // Attach resolution proof photos
     resolutionPhotos.forEach((photo) => {
@@ -420,20 +432,21 @@ export const resolveTask = async (req, res, next) => {
     }
 
     issue.timeline.push({
-      status: 'resolved_verification_pending',
-      action: 'Resolved by Field Personnel',
+      status: 'work_completed',
+      action: 'Work Completed by Field Personnel',
       performedBy: req.user._id,
-      note: fullNote,
+      note: `${fullNote}\n[Queued for independent quality inspection & evidence review]`,
       visibility: 'public',
       timestamp: new Date(),
     });
 
     issue.auditLogs.push({
-      action: 'WORK_RESOLVED',
+      action: 'WORK_COMPLETED_EVIDENCE_SUBMITTED',
       performedBy: req.user._id,
-      previousState: { status: previousStatus },
+      previousState: { status: previousStatus, verificationStatus: issue.verificationStatus },
       newState: {
-        status: 'resolved_verification_pending',
+        status: 'work_completed',
+        verificationStatus: 'pending',
         summary: resolutionSummary.trim(),
         photosCount: resolutionPhotos.length,
         repairCost: repairCost || null,
@@ -452,9 +465,13 @@ export const resolveTask = async (req, res, next) => {
       .populate('reporter', 'name email phone')
       .populate('timeline.performedBy', 'name role department');
 
-    return successResponse(res, 'Task resolved with photo proof and submitted for citizen verification', {
+    return successResponse(res, 'Work completion proof submitted successfully. Case is queued for independent evidence inspection.', {
       issue: populatedIssue,
     });
+  } catch (error) {
+    next(error);
+  }
+};
   } catch (error) {
     next(error);
   }

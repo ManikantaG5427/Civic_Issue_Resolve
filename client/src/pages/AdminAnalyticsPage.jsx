@@ -194,7 +194,7 @@ export default function AdminAnalyticsPage() {
             {/* Resolution Rate */}
             <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-2 relative overflow-hidden group hover:border-slate-300 transition shadow-soft">
               <div className="flex items-center justify-between text-xs text-green-700 font-medium">
-                <span>Resolution Rate</span>
+                <span>Resolution Velocity</span>
                 <div className="p-1.5 rounded-lg bg-green-50 text-green-700">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
@@ -203,30 +203,30 @@ export default function AdminAnalyticsPage() {
                 {analytics?.kpis?.resolutionRate || 0}%
               </div>
               <span className="text-xs text-green-800 block font-medium">
-                {analytics?.kpis?.totalResolved || 0} total tickets resolved
+                {analytics?.kpis?.totalResolved || 0} repairs completed
               </span>
             </div>
 
-            {/* SLA Compliance */}
+            {/* Independent Inspection Pass Rate */}
             <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-2 relative overflow-hidden group hover:border-slate-300 transition shadow-soft">
               <div className="flex items-center justify-between text-xs text-brand-700 font-medium">
-                <span>SLA Target Compliance</span>
+                <span>Inspection Pass Rate</span>
                 <div className="p-1.5 rounded-lg bg-brand-50 text-brand-700">
-                  <Clock className="w-4 h-4" />
+                  <ShieldCheck className="w-4 h-4" />
                 </div>
               </div>
               <div className="text-2xl sm:text-3xl font-bold text-brand-700 tracking-tight font-heading">
-                {analytics?.kpis?.slaComplianceRate || 100}%
+                {analytics?.kpis?.independentVerificationPassRate || 100}%
               </div>
               <span className="text-xs text-brand-800 block font-medium">
-                Avg resolution: {analytics?.kpis?.avgResolutionTimeHours || 0}h
+                {analytics?.kpis?.evidenceReviewPending || 0} pending independent review
               </span>
             </div>
 
-            {/* Citizen Satisfaction */}
+            {/* Citizen Satisfaction & Dispute Rate */}
             <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-2 relative overflow-hidden group hover:border-slate-300 transition shadow-soft">
               <div className="flex items-center justify-between text-xs text-amber-800 font-medium">
-                <span>Citizen Satisfaction</span>
+                <span>Citizen Trust Index</span>
                 <div className="p-1.5 rounded-lg bg-amber-50 text-amber-700">
                   <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
                 </div>
@@ -236,8 +236,134 @@ export default function AdminAnalyticsPage() {
                 <span className="text-xs text-slate-500 font-normal">/ 5.0</span>
               </div>
               <span className="text-xs text-amber-800 block font-medium">
-                {analytics?.kpis?.escalatedCount || 0} escalated breaches
+                {analytics?.kpis?.citizenConfirmationRate || 0}% confirmed by citizens
               </span>
+            </div>
+          </div>
+
+          {/* Verification & Closure Integrity Governance Panel */}
+          <div className="p-6 rounded-2xl bg-slate-900 text-white shadow-soft space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-brand-600/30 text-brand-400 border border-brand-500/30">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold tracking-tight font-heading flex items-center gap-2">
+                    Verification Integrity & Contestable Closure Governance
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Audit Compliant
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Separating worker self-reporting, independent inspector review, citizen sign-off, and dispute re-open loops.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-slate-400">Recurrence Defects:</span>
+                <span className={`px-2.5 py-1 rounded-lg font-bold ${
+                  (analytics?.kpis?.recurrenceCount || 0) > 0
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                }`}>
+                  {analytics?.kpis?.recurrenceCount || 0} repeat signals
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Evidence Completeness */}
+              <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-300 font-medium">
+                  <span>Photographic Evidence Rate</span>
+                  <span className="text-emerald-400 font-bold">{analytics?.kpis?.evidenceCompletenessRate || 0}%</span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-slate-700 overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                    style={{ width: `${analytics?.kpis?.evidenceCompletenessRate || 0}%` }}
+                  ></div>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Work completed items with verifiable after-photos submitted.
+                </p>
+              </div>
+
+              {/* Citizen Dispute Rate */}
+              <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-300 font-medium">
+                  <span>Citizen Dispute / Reopen Rate</span>
+                  <span className="text-amber-400 font-bold">{analytics?.kpis?.citizenDisputeRate || 0}%</span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-slate-700 overflow-hidden">
+                  <div
+                    className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                    style={{ width: `${analytics?.kpis?.citizenDisputeRate || 0}%` }}
+                  ></div>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Cases contested by citizens triggering rework or re-inspection.
+                </p>
+              </div>
+
+              {/* Verified No-Response Rate */}
+              <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-300 font-medium">
+                  <span>Verified No-Response Closures</span>
+                  <span className="text-sky-400 font-bold">{analytics?.kpis?.noResponseClosureRate || 0}%</span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-slate-700 overflow-hidden">
+                  <div
+                    className="h-full bg-sky-500 rounded-full transition-all duration-500"
+                    style={{ width: `${analytics?.kpis?.noResponseClosureRate || 0}%` }}
+                  ></div>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Closed procedurally after policy window without citizen dispute.
+                </p>
+              </div>
+            </div>
+
+            {/* Closure Basis Breakdown Pillars */}
+            <div className="space-y-2 pt-2 border-t border-slate-800/80">
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Auditable Closure Basis Breakdown
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/40">
+                  <span className="text-xs text-emerald-400 block font-medium">Citizen Confirmed</span>
+                  <span className="text-lg font-bold text-white font-heading">
+                    {analytics?.closureBasisBreakdown?.citizen_confirmed || 0}
+                  </span>
+                  <span className="text-xs text-emerald-400/80 block mt-0.5">Direct Citizen Sign-off</span>
+                </div>
+
+                <div className="p-3 rounded-lg bg-sky-950/40 border border-sky-800/40">
+                  <span className="text-xs text-sky-400 block font-medium">Verified (No Response)</span>
+                  <span className="text-lg font-bold text-white font-heading">
+                    {analytics?.closureBasisBreakdown?.reviewer_verified_no_response || 0}
+                  </span>
+                  <span className="text-xs text-sky-400/80 block mt-0.5">Policy Window Expired</span>
+                </div>
+
+                <div className="p-3 rounded-lg bg-slate-800/60 border border-slate-700/60">
+                  <span className="text-xs text-slate-300 block font-medium">Administrative Overrule</span>
+                  <span className="text-lg font-bold text-white font-heading">
+                    {analytics?.closureBasisBreakdown?.administrative_closure || 0}
+                  </span>
+                  <span className="text-xs text-slate-400 block mt-0.5">Dept Lead Closed</span>
+                </div>
+
+                <div className="p-3 rounded-lg bg-slate-800/60 border border-slate-700/60">
+                  <span className="text-xs text-slate-300 block font-medium">Duplicate / Merged</span>
+                  <span className="text-lg font-bold text-white font-heading">
+                    {analytics?.closureBasisBreakdown?.administrative_duplicate || 0}
+                  </span>
+                  <span className="text-xs text-slate-400 block mt-0.5">Cluster Consolidated</span>
+                </div>
+              </div>
             </div>
           </div>
 

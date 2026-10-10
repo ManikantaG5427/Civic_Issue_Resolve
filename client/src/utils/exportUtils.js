@@ -95,11 +95,29 @@ export function exportCivicAnalysisCSV(analytics, options = {}) {
   addRow('Total Resolved Complaints', kpis.totalResolved || 0, 'SLA Resolution Goal');
   addRow('Actionable Pending Triage Queue', kpis.pendingTriage || 0, '< 12h Verification SLA');
   addRow('Active In-Progress Field Works', kpis.inProgress || 0, 'Active Crew Operations');
+  addRow('Pending Independent Evidence Review', kpis.evidenceReviewPending || 0, '< 24h Review Window');
+  addRow('Evidence Completeness Rate (%)', `${kpis.evidenceCompletenessRate || 0}%`, 'Target: 100% Photographic Proof');
+  addRow('Independent Reviewer Pass Rate (%)', `${kpis.independentVerificationPassRate || 0}%`, 'Target: > 90% First-Pass');
+  addRow('Citizen Confirmed Closure Rate (%)', `${kpis.citizenConfirmationRate || 0}%`, 'Explicit Citizen Sign-off');
+  addRow('Verified No-Response Closure Rate (%)', `${kpis.noResponseClosureRate || 0}%`, 'Policy Window Expiry');
+  addRow('Citizen Dispute / Reopen Rate (%)', `${kpis.citizenDisputeRate || 0}%`, 'Target: < 5% Reopen Rate');
+  addRow('Detected Recurrence / Repeat Hotspots', kpis.recurrenceCount || 0, 'Target: 0 Repeat Failures');
   addRow('Overall Resolution Velocity (%)', `${kpis.resolutionRate || 0}%`, 'Target: > 85%');
   addRow('Average Resolution Duration (Hours)', `${kpis.avgResolutionTimeHours || 0} hrs`, 'Target: < 48 hrs');
   addRow('SLA Compliance Rate (%)', `${kpis.slaComplianceRate || 0}%`, 'Target: > 90%');
   addRow('Critical SLA Breaches / Escalated', kpis.escalatedCount || 0, 'Zero Escalation Target');
   addRow('Citizen Satisfaction Index', `${kpis.citizenSatisfactionScore || 5.0} / 5.0 ⭐`, 'Target: > 4.5 Stars');
+  addEmpty();
+
+  // 3. Closure Integrity & Verification Breakdown
+  addRow('=== CLOSURE INTEGRITY & VERIFICATION BASIS ===');
+  addRow('Closure / Verification Status', 'Count', 'Integrity Classification');
+  const closureBasis = payload.closureBasisBreakdown || {};
+  addRow('Citizen Confirmed Closures', closureBasis.citizen_confirmed || 0, 'Highest Trust (Direct Citizen Sign-off)');
+  addRow('Reviewer Verified (No Response)', closureBasis.reviewer_verified_no_response || 0, 'Procedural Trust (Inspector Approved + Window Expired)');
+  addRow('Administrative Closures', closureBasis.administrative_closure || 0, 'Department Admin Overruled');
+  addRow('Administrative Duplicates', closureBasis.administrative_duplicate || 0, 'Merged / Duplicate Cluster');
+  addRow('Withdrawn by Citizen', closureBasis.withdrawn || 0, 'Citizen Self-Cancelled');
   addEmpty();
 
   // 3. Department Performance Breakdown

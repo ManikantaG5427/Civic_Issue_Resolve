@@ -463,6 +463,7 @@ export const provideRequestedInfo = async (req, res, next) => {
  */
 export const confirmResolution = async (req, res, next) => {
   try {
+    const { id } = req.params;
     const { rating, feedback, comment } = req.body;
     const feedbackComment = (comment || feedback || '').trim();
 
@@ -492,7 +493,7 @@ export const confirmResolution = async (req, res, next) => {
       });
     }
 
-    if (issue.status !== 'resolved_verification_pending' && issue.status !== 'closed') {
+    if (issue.status !== 'resolved_verification_pending' && issue.status !== 'closed' && issue.status !== 'work_completed') {
       return res.status(400).json({
         success: false,
         message: `Cannot submit resolution feedback on issue with status: '${issue.status}'`,
@@ -501,6 +502,8 @@ export const confirmResolution = async (req, res, next) => {
 
     const previousStatus = issue.status;
     issue.status = 'closed';
+    issue.citizenResponseStatus = 'confirmed';
+    issue.closureBasis = 'citizen_confirmed';
     issue.feedback = {
       rating: ratingNum,
       comment: feedbackComment,
@@ -508,13 +511,13 @@ export const confirmResolution = async (req, res, next) => {
     };
 
     const ratingStars = '★'.repeat(ratingNum) + '☆'.repeat(5 - ratingNum);
-    const feedbackNote = `Citizen verified resolution (${ratingStars} ${ratingNum}/5).${
-      feedbackComment ? ` Comment: "${feedbackComment}"` : ''
+    const feedbackNote = `Citizen verified & confirmed resolution (${ratingStars} ${ratingNum}/5).${
+      feedbackComment ? ` Feedback: "${feedbackComment}"` : ''
     }`;
 
     issue.timeline.push({
       status: 'closed',
-      action: 'Resolution Confirmed & Ticket Closed',
+      action: 'Citizen Confirmed Resolution & Closed',
       performedBy: req.user._id,
       note: feedbackNote,
       visibility: 'public',
@@ -522,10 +525,10 @@ export const confirmResolution = async (req, res, next) => {
     });
 
     issue.auditLogs.push({
-      action: 'RESOLUTION_CONFIRMED',
+      action: 'RESOLUTION_CONFIRMED_BY_CITIZEN',
       performedBy: req.user._id,
-      previousState: { status: previousStatus },
-      newState: { status: 'closed', rating: ratingNum, comment: feedback?.trim() || '' },
+      previousState: { status: previousStatus, closureBasis: issue.closureBasis },
+      newState: { status: 'closed', citizenResponseStatus: 'confirmed', closureBasis: 'citizen_confirmed', rating: ratingNum, comment: feedbackComment },
       ipAddress: req.ip || req.connection?.remoteAddress,
       timestamp: new Date(),
     });
@@ -538,6 +541,7 @@ export const confirmResolution = async (req, res, next) => {
       .populate('department', 'name code')
       .populate('reporter', 'name email phone')
       .populate('assignedWorker', 'name email phone department')
+      .populate('verificationReview.reviewer', 'name role department')
       .populate('timeline.performedBy', 'name role');
 
     notifySuperAdmin({
@@ -548,7 +552,8 @@ export const confirmResolution = async (req, res, next) => {
       metadata: {
         'Issue ID': issue.issueNumber,
         'Citizen Rating': `${ratingNum} / 5 Stars`,
-        'Citizen Feedback': feedback?.trim() || 'No additional notes',
+        'Citizen Feedback': feedbackComment || 'No additional notes',
+        'Closure Basis': 'Citizen Confirmed',
       },
       linkUrl: `/issues/${issue.issueNumber}`,
       req,
@@ -561,18 +566,19 @@ export const confirmResolution = async (req, res, next) => {
 };
 
 /**
- * Citizen or Admin reopens issue
+ * Citizen or Admin disputes / reopens issue
  * POST /api/issues/:id/reopen
  */
 export const reopenIssue = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { reopenReason, reopenPhotos } = req.body;
+    const { reopenReason, disputeReason, reopenPhotos } = req.body;
+    const finalReason = (reopenReason || disputeReason || '').trim();
 
-    if (!reopenReason || reopenReason.trim().length < 10) {
+    if (!finalReason || finalReason.length < 10) {
       return res.status(400).json({
         success: false,
-        message: 'A mandatory explanation of at least 10 characters is required to reopen an issue',
+        message: 'A mandatory explanation of at least 10 characters is required to dispute or reopen an issue',
       });
     }
 
@@ -585,6 +591,7 @@ export const reopenIssue = async (req, res, next) => {
 
     if (
       req.user.role === 'citizen' &&
+      issue.reporter &&
       issue.reporter.toString() !== req.user._id.toString()
     ) {
       return res.status(403).json({
@@ -593,7 +600,7 @@ export const reopenIssue = async (req, res, next) => {
       });
     }
 
-    const allowableStatuses = ['resolved_verification_pending', 'closed'];
+    const allowableStatuses = ['resolved_verification_pending', 'work_completed', 'closed'];
     if (!allowableStatuses.includes(issue.status)) {
       return res.status(400).json({
         success: false,
@@ -603,7 +610,10 @@ export const reopenIssue = async (req, res, next) => {
 
     const previousStatus = issue.status;
     issue.status = 'reopened';
+    issue.citizenResponseStatus = 'disputed';
+    issue.closureBasis = 'not_closed';
 
+    const disputePhotoObjects = [];
     if (Array.isArray(reopenPhotos) && reopenPhotos.length > 0) {
       reopenPhotos.forEach((photo) => {
         if (typeof photo === 'string') {
@@ -612,6 +622,7 @@ export const reopenIssue = async (req, res, next) => {
             stage: 'reopen',
             uploadedAt: new Date(),
           });
+          disputePhotoObjects.push({ url: photo, uploadedAt: new Date() });
         } else if (photo && photo.url) {
           issue.evidence.push({
             url: photo.url,
@@ -621,24 +632,33 @@ export const reopenIssue = async (req, res, next) => {
             stage: 'reopen',
             uploadedAt: new Date(),
           });
+          disputePhotoObjects.push({ url: photo.url, filename: photo.filename || '', uploadedAt: new Date() });
         }
       });
     }
 
+    issue.citizenDispute = {
+      reason: disputeReason || 'UNRESOLVED_CIVIC_DEFECT',
+      comments: finalReason,
+      disputedAt: new Date(),
+      disputedBy: req.user._id,
+      photos: disputePhotoObjects,
+    };
+
     issue.timeline.push({
       status: 'reopened',
-      action: 'Issue Reopened (Defect / Incomplete Work)',
+      action: 'Resolution Disputed & Reopened by Citizen',
       performedBy: req.user._id,
-      note: `Reopened by citizen: ${reopenReason.trim()}`,
+      note: `Citizen dispute: "${finalReason}"`,
       visibility: 'public',
       timestamp: new Date(),
     });
 
     issue.auditLogs.push({
-      action: 'ISSUE_REOPENED',
+      action: 'ISSUE_DISPUTED_REOPENED',
       performedBy: req.user._id,
-      previousState: { status: previousStatus },
-      newState: { status: 'reopened', reason: reopenReason.trim() },
+      previousState: { status: previousStatus, citizenResponseStatus: issue.citizenResponseStatus },
+      newState: { status: 'reopened', citizenResponseStatus: 'disputed', closureBasis: 'not_closed', reason: finalReason },
       ipAddress: req.ip || req.connection?.remoteAddress,
       timestamp: new Date(),
     });
@@ -648,6 +668,31 @@ export const reopenIssue = async (req, res, next) => {
     const populated = await Issue.findById(issue._id)
       .populate('category', 'name code icon')
       .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code')
+      .populate('reporter', 'name email phone')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('verificationReview.reviewer', 'name role department')
+      .populate('timeline.performedBy', 'name role');
+
+    notifySuperAdmin({
+      eventType: 'security_alert',
+      title: `Citizen Disputed Resolution: ${issue.issueNumber}`,
+      message: `${req.user.name} disputed resolution for "${issue.title}". Reason: ${finalReason}`,
+      actor: req.user,
+      metadata: {
+        'Issue ID': issue.issueNumber,
+        'Dispute Reason': finalReason,
+        'Status': 'Reopened for Municipal Rework',
+      },
+      linkUrl: `/issues/${issue.issueNumber}`,
+      req,
+    });
+
+    return successResponse(res, 'Issue disputed and reopened for municipal corrective action', populated, 200);
+  } catch (error) {
+    next(error);
+  }
+};
       .populate('department', 'name code')
       .populate('reporter', 'name email phone')
       .populate('assignedWorker', 'name email phone department')

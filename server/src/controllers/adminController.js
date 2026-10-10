@@ -37,8 +37,10 @@ export const getReviewQueue = async (req, res, next) => {
     if (status === 'triage') {
       // Actionable administrative triage queue
       query.status = { $in: ['submitted', 'in_review', 'under_review', 'info_requested', 'reopened'] };
+    } else if (status === 'evidence_review' || status === 'inspection') {
+      query.status = { $in: ['work_completed', 'evidence_submitted'] };
     } else if (status === 'active') {
-      query.status = { $in: ['assigned', 'in_progress', 'verified'] };
+      query.status = { $in: ['assigned', 'in_progress', 'rework_required', 'verified'] };
     } else if (status === 'resolved') {
       query.status = { $in: ['resolved_verification_pending', 'closed'] };
     } else if (status && status !== 'all') {
@@ -90,6 +92,7 @@ export const getReviewQueue = async (req, res, next) => {
       total,
       issues,
       pendingTriageCount,
+      evidenceReviewCount,
       urgentCount,
       highCount,
       inProgressCount,
@@ -111,6 +114,10 @@ export const getReviewQueue = async (req, res, next) => {
       }),
       Issue.countDocuments({
         ...baseMetricsQuery,
+        status: { $in: ['work_completed', 'evidence_submitted'] },
+      }),
+      Issue.countDocuments({
+        ...baseMetricsQuery,
         priority: 'urgent',
         status: { $nin: ['closed', 'rejected', 'withdrawn'] },
       }),
@@ -121,7 +128,7 @@ export const getReviewQueue = async (req, res, next) => {
       }),
       Issue.countDocuments({
         ...baseMetricsQuery,
-        status: { $in: ['assigned', 'in_progress', 'verified'] },
+        status: { $in: ['assigned', 'in_progress', 'rework_required', 'verified'] },
       }),
       Issue.countDocuments({
         ...baseMetricsQuery,
@@ -132,6 +139,7 @@ export const getReviewQueue = async (req, res, next) => {
     return successResponse(res, 'Administrator review queue retrieved successfully', {
       metrics: {
         pendingTriage: pendingTriageCount,
+        evidenceReviewPending: evidenceReviewCount,
         urgent: urgentCount,
         high: highCount,
         inProgress: inProgressCount,
@@ -932,3 +940,215 @@ export const rejectUserRole = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Independent Reviewer: Review evidence against category checklist
+ * POST /api/admin/issues/:id/review-evidence
+ */
+export const reviewEvidence = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { outcome, reasonCode, reviewerNote, checklist } = req.body;
+
+    const allowableOutcomes = ['approved', 'rework_required', 'more_evidence_required', 'site_check_required'];
+    if (!outcome || !allowableOutcomes.includes(outcome)) {
+      return res.status(400).json({
+        success: false,
+        message: `A valid review outcome is required: ${allowableOutcomes.join(', ')}`,
+      });
+    }
+
+    if (!reviewerNote || reviewerNote.trim().length < 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'A detailed reviewer note explaining the evaluation decision is required (at least 5 characters)',
+      });
+    }
+
+    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Civic issue not found' });
+    }
+
+    // RBAC Invariant: Worker who completed the repair cannot approve their own resolution evidence
+    const isAssignedWorker =
+      issue.assignedWorker?.toString() === req.user._id.toString() ||
+      (Array.isArray(issue.assignedWorkers) &&
+        issue.assignedWorkers.some(
+          (w) => (w.worker?._id || w.worker)?.toString() === req.user._id.toString()
+        ));
+
+    if (isAssignedWorker && req.user.role !== 'super_admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Conflict of Interest: Assigned field workers cannot perform independent quality verification on their own completed work',
+      });
+    }
+
+    const previousStatus = issue.status;
+    const previousVerificationStatus = issue.verificationStatus;
+
+    issue.verificationReview = {
+      reviewer: req.user._id,
+      outcome,
+      reasonCode: reasonCode || outcome.toUpperCase(),
+      reviewerNote: reviewerNote.trim(),
+      checklist: Array.isArray(checklist) ? checklist : [],
+      reviewedAt: new Date(),
+    };
+
+    let actionLabel = '';
+    let timelineMessage = '';
+
+    if (outcome === 'approved') {
+      issue.status = 'resolved_verification_pending';
+      issue.verificationStatus = 'approved';
+      issue.citizenResponseStatus = 'pending';
+      actionLabel = 'Evidence Inspected & Approved';
+      timelineMessage = `Independent Inspector approved resolution evidence (${reasonCode || 'Verified Compliant'}). Case sent for citizen confirmation. Note: ${reviewerNote.trim()}`;
+
+      if (issue.reporter) {
+        sendNotification({
+          recipient: issue.reporter,
+          title: 'Work Completed & Verified - Your Confirmation Needed',
+          message: `The reported civic issue "${issue.title}" has been repaired and verified by municipal quality inspectors. Please review before/after photos and confirm closure.`,
+          type: 'verification_pending',
+          linkUrl: `/issues/${issue.issueNumber}`,
+        });
+      }
+    } else if (outcome === 'rework_required') {
+      issue.status = 'rework_required';
+      issue.verificationStatus = 'rejected';
+      issue.citizenResponseStatus = 'not_requested';
+      actionLabel = 'Rework Required (Evidence Rejected)';
+      timelineMessage = `Reviewer rejected evidence: ${reasonCode || 'Rework Needed'}. Returned to assigned crew. Note: ${reviewerNote.trim()}`;
+
+      if (issue.assignedWorker) {
+        sendNotification({
+          recipient: issue.assignedWorker,
+          title: 'Rework Required on Civic Task',
+          message: `Inspection failed for "${issue.title}". Reason: ${reviewerNote.trim()}. Please review checklist and execute corrective operations.`,
+          type: 'rework_assigned',
+          linkUrl: `/issues/${issue.issueNumber}`,
+        });
+      }
+    } else if (outcome === 'more_evidence_required') {
+      issue.verificationStatus = 'more_evidence_required';
+      actionLabel = 'Additional Evidence Requested';
+      timelineMessage = `Reviewer requested additional evidence/clarification: ${reviewerNote.trim()}`;
+    } else if (outcome === 'site_check_required') {
+      issue.verificationStatus = 'site_check_required';
+      actionLabel = 'Physical Site Inspection Scheduled';
+      timelineMessage = `Remote evidence inconclusive. Physical on-site inspection scheduled: ${reviewerNote.trim()}`;
+    }
+
+    issue.timeline.push({
+      status: issue.status,
+      action: actionLabel,
+      performedBy: req.user._id,
+      note: timelineMessage,
+      visibility: 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: `EVIDENCE_REVIEW_${outcome.toUpperCase()}`,
+      performedBy: req.user._id,
+      previousState: { status: previousStatus, verificationStatus: previousVerificationStatus },
+      newState: {
+        status: issue.status,
+        verificationStatus: issue.verificationStatus,
+        outcome,
+        reasonCode,
+        reviewerNote: reviewerNote.trim(),
+      },
+      ipAddress: req.ip || req.connection?.remoteAddress,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    const populated = await Issue.findById(issue._id)
+      .populate('category', 'name code icon defaultPriority estimatedSlaHours')
+      .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code defaultSlaHours')
+      .populate('reporter', 'name email phone')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('verificationReview.reviewer', 'name role department')
+      .populate('timeline.performedBy', 'name role');
+
+    return successResponse(res, `Evidence review decision recorded: ${outcome}`, populated, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin: Close ticket administratively after citizen feedback timeout (No-Response)
+ * POST /api/admin/issues/:id/close-no-response
+ */
+export const closeNoResponse = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason = 'Citizen feedback window elapsed with no response after verified repair' } = req.body;
+
+    const query = id.startsWith('CIVIC-') ? { issueNumber: id } : { _id: id };
+    const issue = await Issue.findOne(query);
+
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Civic issue not found' });
+    }
+
+    if (issue.status !== 'resolved_verification_pending') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot close with no-response on issue with status: '${issue.status}'. Must be in verified pending confirmation.`,
+      });
+    }
+
+    const previousStatus = issue.status;
+    issue.status = 'closed';
+    issue.citizenResponseStatus = 'no_response';
+    issue.closureBasis = 'reviewer_verified_no_response';
+
+    issue.timeline.push({
+      status: 'closed',
+      action: 'Closed (Reviewer Verified, Citizen No Response)',
+      performedBy: req.user._id,
+      note: `Closed under stated policy: Verified by inspector; citizen response window expired. Note: ${reason.trim()}`,
+      visibility: 'public',
+      timestamp: new Date(),
+    });
+
+    issue.auditLogs.push({
+      action: 'CLOSED_NO_RESPONSE',
+      performedBy: req.user._id,
+      previousState: { status: previousStatus, closureBasis: issue.closureBasis },
+      newState: {
+        status: 'closed',
+        citizenResponseStatus: 'no_response',
+        closureBasis: 'reviewer_verified_no_response',
+        reason: reason.trim(),
+      },
+      ipAddress: req.ip || req.connection?.remoteAddress,
+      timestamp: new Date(),
+    });
+
+    await issue.save();
+
+    const populated = await Issue.findById(issue._id)
+      .populate('category', 'name code icon')
+      .populate('serviceArea', 'name code city state')
+      .populate('department', 'name code')
+      .populate('reporter', 'name email phone')
+      .populate('assignedWorker', 'name email phone department')
+      .populate('timeline.performedBy', 'name role');
+
+    return successResponse(res, 'Issue closed as Reviewer Verified (No Citizen Response)', populated, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+

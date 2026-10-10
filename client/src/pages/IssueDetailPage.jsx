@@ -32,6 +32,7 @@ import {
   UserPlus,
   UserMinus,
   Camera,
+  FileCheck,
 } from 'lucide-react';
 import { extractExifGpsData } from '../utils/exifReader';
 import { issueAPI, adminAPI, configAPI, workerAPI, uploadAPI, getImageUrl } from '../services/api';
@@ -41,8 +42,10 @@ import Timeline from '../components/Timeline';
 import MapPreview from '../components/MapPreview';
 import BeforeAfterComparison from '../components/BeforeAfterComparison';
 import CommentSection from '../components/CommentSection';
-import StatusBadge from '../components/common/StatusBadge';
+import StatusBadge, { VerificationBadge, ClosureBasisBadge } from '../components/common/StatusBadge';
 import PriorityBadge from '../components/common/PriorityBadge';
+import EvidenceReviewModal from '../components/EvidenceReviewModal';
+import CitizenResolutionModal from '../components/CitizenResolutionModal';
 
 const REJECTION_CATEGORIES = [
   { value: 'jurisdiction', label: 'Out of Municipal Jurisdiction' },
@@ -125,6 +128,10 @@ export default function IssueDetailPage() {
   const [newWorkerId, setNewWorkerId] = useState('');
   const [newWorkerRole, setNewWorkerRole] = useState('Field Specialist');
   const [newWorkerNote, setNewWorkerNote] = useState('');
+
+  // Independent Evidence Verification & Citizen Resolution Modals
+  const [showEvidenceReviewModal, setShowEvidenceReviewModal] = useState(false);
+  const [citizenResolutionModalMode, setCitizenResolutionModalMode] = useState(null); // 'confirm' | 'dispute'
 
   const loadIssue = useCallback(async () => {
     setLoading(true);
@@ -559,6 +566,42 @@ export default function IssueDetailPage() {
     }
   };
 
+  // 13B. Independent Evidence Verification Submit
+  const handleEvidenceReviewSubmit = async (reviewData) => {
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await adminAPI.reviewEvidence(issue.issueNumber || issue._id, reviewData);
+      if (res.data) {
+        setIssue(res.data);
+        setActionSuccess(`Evidence review decision recorded: ${reviewData.outcome.replace('_', ' ').toUpperCase()}`);
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to submit evidence review');
+      throw err;
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 13C. Administrative Closure with No Citizen Response
+  const handleCloseNoResponseSubmit = async () => {
+    if (!window.confirm('Are you sure you want to close this ticket administratively as "Reviewer Verified, No Citizen Response"?')) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await adminAPI.closeNoResponse(issue.issueNumber || issue._id);
+      if (res.data) {
+        setIssue(res.data);
+        setActionSuccess('Ticket closed administratively (Reviewer Verified, No Citizen Response)');
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to close ticket');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // 14. Multi-Worker Management Handlers
   const handleAddWorkerSubmit = async (e) => {
     e.preventDefault();
@@ -898,11 +941,13 @@ export default function IssueDetailPage() {
       {/* Hero Header Card */}
       <div className="p-6 sm:p-8 rounded-2xl bg-white border border-slate-200 shadow-soft space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <span className="font-mono text-xs font-bold text-brand-700 bg-brand-50 px-2.5 py-1 rounded-lg border border-brand-200">
               {issue.issueNumber}
             </span>
             <StatusBadge status={issue.status} />
+            <VerificationBadge status={issue.verificationStatus} />
+            <ClosureBasisBadge basis={issue.closureBasis} />
             <PriorityBadge priority={issue.priority || 'medium'} />
           </div>
 
@@ -961,7 +1006,7 @@ export default function IssueDetailPage() {
                   Field Worker Operations & Live Execution
                 </h2>
                 <p className="text-xs text-amber-800">
-                  Update on-site repair progress, log equipment/materials used, or begin execution.
+                  Update on-site repair progress, log equipment/materials used, or execute operations.
                 </p>
               </div>
             </div>
@@ -971,8 +1016,22 @@ export default function IssueDetailPage() {
             </div>
           </div>
 
+          {issue.status === 'rework_required' && (
+            <div className="rounded-xl bg-amber-100/90 border border-amber-300 p-3.5 text-xs text-amber-950 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-amber-900">
+                <RotateCcw className="w-4 h-4" />
+                <span>Inspection Feedback: Corrective Rework Required</span>
+              </div>
+              {issue.verificationReview?.reviewerNote && (
+                <p className="text-amber-900 bg-white/80 p-2.5 rounded-lg border border-amber-200">
+                  <strong>Inspector Reason:</strong> {issue.verificationReview.reviewerNote}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-3 pt-1">
-            {issue.status === 'assigned' && (
+            {['assigned', 'rework_required'].includes(issue.status) && (
               <button
                 onClick={() => {
                   setWorkerModal('start_work');
@@ -981,7 +1040,7 @@ export default function IssueDetailPage() {
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm transition"
               >
                 <Play className="w-4 h-4 fill-current" />
-                <span>Start Work on Site</span>
+                <span>{issue.status === 'rework_required' ? 'Resume Corrective Work' : 'Start Work on Site'}</span>
               </button>
             )}
 
@@ -1033,7 +1092,7 @@ export default function IssueDetailPage() {
                   Administrator Triage & Dispatch Control
                 </h2>
                 <p className="text-xs text-slate-600">
-                  Assign field workers, set SLA deadlines, verify validity, or reject with reason.
+                  Assign field workers, set SLA deadlines, verify validity, inspect evidence, or reject with reason.
                 </p>
               </div>
             </div>
@@ -1044,6 +1103,29 @@ export default function IssueDetailPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-1">
+            {['work_completed', 'evidence_submitted', 'rework_required', 'resolved_verification_pending'].includes(issue.status) && (
+              <button
+                onClick={() => {
+                  setShowEvidenceReviewModal(true);
+                  setActionError(null);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold shadow-md shadow-blue-700/20 transition"
+              >
+                <FileCheck className="w-4 h-4" />
+                <span>Review Evidence & Inspect Fix</span>
+              </button>
+            )}
+
+            {issue.status === 'resolved_verification_pending' && (
+              <button
+                onClick={handleCloseNoResponseSubmit}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Close (No Citizen Response)</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 setTriageModal('assign');
@@ -1139,24 +1221,26 @@ export default function IssueDetailPage() {
       )}
 
       {/* Citizen Resolution Verification & Closure Banner */}
-      {issue.status === 'resolved_verification_pending' && (isReporter || isAdmin) && (
-        <div className="p-6 rounded-2xl bg-green-50 border border-green-200 shadow-soft space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-green-200">
+      {(issue.status === 'resolved_verification_pending' || issue.status === 'work_completed') && (isReporter || isAdmin) && (
+        <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 shadow-soft space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-emerald-200">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-green-100 text-green-800 border border-green-300 shadow-sm">
-                <CheckCircle2 className="w-6 h-6 text-green-700" />
+              <div className="p-2.5 rounded-2xl bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm">
+                <CheckCircle2 className="w-6 h-6 text-emerald-700" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-green-950 flex items-center gap-2 font-heading">
+                <h3 className="text-base font-bold text-emerald-950 flex items-center gap-2 font-heading">
                   Action Required: Verify Municipal Field Repair
                 </h3>
-                <p className="text-xs text-green-800">
-                  The municipal field worker has submitted photographic proof of completion. Please review the before/after photos below and confirm closure.
+                <p className="text-xs text-emerald-800">
+                  {issue.verificationStatus === 'approved'
+                    ? 'Municipal quality inspectors have inspected and verified this repair. Please confirm closure or dispute if incomplete.'
+                    : 'The field crew has submitted completion evidence. Please review before/after photos and confirm closure.'}
                 </p>
               </div>
             </div>
 
-            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-green-100 text-green-800 border border-green-300">
+            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
               Pending Your Confirmation
             </span>
           </div>
@@ -1164,24 +1248,24 @@ export default function IssueDetailPage() {
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <button
               onClick={() => {
-                setCitizenModal('rating');
+                setCitizenResolutionModalMode('confirm');
                 setActionError(null);
               }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-green-700 hover:bg-green-800 text-white font-semibold text-xs shadow-sm transition"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-sm transition"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>Confirm Resolution & Rate Service</span>
+              <span>Looks Fixed (Confirm & Rate)</span>
             </button>
 
             <button
               onClick={() => {
-                setCitizenModal('reopen');
+                setCitizenResolutionModalMode('dispute');
                 setActionError(null);
               }}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-red-50 text-red-700 font-semibold text-xs border border-red-300 shadow-sm transition"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-rose-50 text-rose-700 font-semibold text-xs border border-rose-300 shadow-sm transition"
             >
               <RotateCcw className="w-4 h-4" />
-              <span>Reopen Ticket (Work Incomplete)</span>
+              <span>Still Not Fixed (Dispute Resolution)</span>
             </button>
           </div>
         </div>
@@ -3045,6 +3129,38 @@ export default function IssueDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Independent Quality Inspector Evidence Review Modal */}
+      {showEvidenceReviewModal && (
+        <EvidenceReviewModal
+          issue={issue}
+          onClose={() => setShowEvidenceReviewModal(false)}
+          onSubmitReview={handleEvidenceReviewSubmit}
+        />
+      )}
+
+      {/* Citizen Resolution Verification & Contestable Dispute Modal */}
+      {citizenResolutionModalMode && (
+        <CitizenResolutionModal
+          issue={issue}
+          mode={citizenResolutionModalMode}
+          onClose={() => setCitizenResolutionModalMode(null)}
+          onConfirm={async (data) => {
+            const res = await issueAPI.confirmResolution(issue.issueNumber || issue._id, data);
+            if (res.data) {
+              setIssue(res.data);
+              setActionSuccess('Resolution confirmed! Thank you for validating this civic service.');
+            }
+          }}
+          onDispute={async (data) => {
+            const res = await issueAPI.reopenIssue(issue.issueNumber || issue._id, data);
+            if (res.data) {
+              setIssue(res.data);
+              setActionSuccess('Dispute submitted. Issue has been reopened for corrective municipal action.');
+            }
+          }}
+        />
       )}
     </div>
   );

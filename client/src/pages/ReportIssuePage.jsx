@@ -29,9 +29,11 @@ import {
 } from 'lucide-react';
 import { extractExifGpsData } from '../utils/exifReader';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function ReportIssuePage() {
   const { user, isAuthenticated } = useAuth();
+  const { t } = useLanguage();
 
   // Form State
   const [categories, setCategories] = useState([]);
@@ -61,9 +63,11 @@ export default function ReportIssuePage() {
   const [previewUrls, setPreviewUrls] = useState([]);
   const fileInputRef = useRef(null);
 
-  // Geospatial Duplicate Detection State
+  // Geospatial Duplicate & Recurrence Detection State
   const [nearbyDuplicates, setNearbyDuplicates] = useState([]);
+  const [recurrenceAlerts, setRecurrenceAlerts] = useState([]);
   const [dismissedDuplicates, setDismissedDuplicates] = useState(false);
+  const [dismissedRecurrence, setDismissedRecurrence] = useState(false);
   const [upvotedIssues, setUpvotedIssues] = useState({});
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -109,10 +113,11 @@ export default function ReportIssuePage() {
     loadConfig();
   }, []);
 
-  // Duplicate detection query
+  // Duplicate & Recurrence detection query
   useEffect(() => {
     if (!latitude || !longitude) return;
     setDismissedDuplicates(false);
+    setDismissedRecurrence(false);
     const timer = setTimeout(async () => {
       try {
         const res = await issueAPI.getNearbyDuplicates({
@@ -123,6 +128,9 @@ export default function ReportIssuePage() {
         });
         if (res.data?.duplicates) {
           setNearbyDuplicates(res.data.duplicates);
+        }
+        if (res.data?.recurrenceAlerts) {
+          setRecurrenceAlerts(res.data.recurrenceAlerts);
         }
       } catch {
         // Non-blocking
@@ -509,8 +517,8 @@ export default function ReportIssuePage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <PageHeader
-        title="Report a Civic Issue"
-        description="Pinpoint your location anywhere in India with live GPS or search, attach photo evidence, and submit complaint."
+        title={t('report_title')}
+        description={t('report_subtitle')}
       />
 
       <div className="clay-card p-6 sm:p-8">
@@ -539,6 +547,61 @@ export default function ReportIssuePage() {
 
         {!loadingConfig && (
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Life-Safety Emergency & Pilot Notice */}
+            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-amber-950 flex items-start gap-3 text-xs shadow-xs">
+              <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-amber-900 block">{t('emergency_title')}:</span>
+                <span className="text-amber-800 leading-relaxed">
+                  {t('emergency_disclaimer')}
+                </span>
+              </div>
+            </div>
+
+            {/* Recurrence Detection Alert Card */}
+            {recurrenceAlerts.length > 0 && !dismissedRecurrence && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-indigo-50/90 border border-indigo-200 text-left space-y-3 shadow-xs">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-indigo-100 text-indigo-800 border border-indigo-200 shadow-inner">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-indigo-950 flex items-center gap-2">
+                        <span>{t('recurrence_detected')}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-900">
+                          {recurrenceAlerts.length} past fix(es) in area
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-indigo-800 mt-0.5">
+                        {t('recurrence_desc')}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDismissedRecurrence(true)}
+                    className="text-xs text-slate-500 hover:text-slate-800 p-1 rounded-lg hover:bg-indigo-100 transition"
+                    title="Dismiss"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {recurrenceAlerts.map((rec) => (
+                    <div key={rec._id} className="p-2.5 rounded-xl bg-white border border-indigo-100 text-xs text-slate-700 flex items-center justify-between gap-2">
+                      <div className="truncate">
+                        <span className="font-mono font-bold text-indigo-700 mr-2">{rec.issueNumber}</span>
+                        <span className="font-medium text-slate-800">{rec.title}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 shrink-0">Closed {rec.daysSinceClosure}d ago (~{rec.distanceMeters}m)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Duplicate Detection Alert Card */}
             {nearbyDuplicates.length > 0 && !dismissedDuplicates && (
               <div className="p-5 rounded-3xl bg-amber-50/90 border border-amber-300 text-left space-y-4 shadow-soft">

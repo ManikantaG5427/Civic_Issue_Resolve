@@ -19,7 +19,7 @@ import { loadGoogleMaps } from '../services/googleMapsLoader';
 import { searchLocations, resolveLocationDetails } from '../services/mapSearchEngine';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import StatusBadge from '../components/common/StatusBadge';
+import StatusBadge, { VerificationBadge, ClosureBasisBadge } from '../components/common/StatusBadge';
 
 // Quick Jump Cities / Regions
 const REGION_PRESETS = [
@@ -596,11 +596,21 @@ export default function PublicCivicMapPage() {
         {activeIssue && (
           <div className="clay-card absolute bottom-4 left-4 right-4 sm:right-auto sm:top-4 sm:bottom-auto sm:w-96 p-5 z-20 space-y-3.5 bg-white/95 backdrop-blur-md border border-sand-300 shadow-clay-lg">
             <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold text-forest-800 bg-sage-100 px-2.5 py-0.5 rounded-full border border-sage-300">
-                  {activeIssue.issueNumber}
-                </span>
-                <StatusBadge status={activeIssue.status} size="sm" />
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-xs font-bold text-forest-800 bg-sage-100 px-2.5 py-0.5 rounded-full border border-sage-300">
+                    {activeIssue.issueNumber}
+                  </span>
+                  <StatusBadge status={activeIssue.status} size="sm" />
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {activeIssue.verificationStatus && activeIssue.verificationStatus !== 'not_submitted' && (
+                    <VerificationBadge status={activeIssue.verificationStatus} size="sm" />
+                  )}
+                  {activeIssue.closureBasis && activeIssue.closureBasis !== 'not_closed' && (
+                    <ClosureBasisBadge basis={activeIssue.closureBasis} size="sm" />
+                  )}
+                </div>
               </div>
 
               <button
@@ -611,16 +621,38 @@ export default function PublicCivicMapPage() {
               </button>
             </div>
 
-            {/* Photo Thumbnail if available */}
-            {activeIssue.evidence?.length > 0 && (
-              <div className="rounded-2xl overflow-hidden aspect-video bg-sand-100 border border-sand-300 shadow-inner">
-                <img
-                  src={getImageUrl(activeIssue.evidence[0].url)}
-                  alt={activeIssue.title}
-                  className="w-full h-full object-cover"
-                />
+            {/* Photo Thumbnail / Before & After Preview */}
+            {activeIssue.evidence?.length > 0 || activeIssue.resolutionProof?.afterPhotos?.length > 0 ? (
+              <div className="space-y-1.5">
+                <div className="grid grid-cols-2 gap-2">
+                  {activeIssue.evidence?.length > 0 ? (
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Before</span>
+                      <div className="rounded-xl overflow-hidden aspect-video bg-sand-100 border border-sand-300 shadow-inner">
+                        <img
+                          src={getImageUrl(activeIssue.evidence[0].url)}
+                          alt="Before Repair"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {activeIssue.resolutionProof?.afterPhotos?.length > 0 ? (
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">After (Fixed)</span>
+                      <div className="rounded-xl overflow-hidden aspect-video bg-emerald-50 border border-emerald-300 shadow-inner">
+                        <img
+                          src={getImageUrl(activeIssue.resolutionProof.afterPhotos[0].url)}
+                          alt="After Repair"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               </div>
-            )}
+            ) : null}
 
             <div>
               <h3 className="text-base font-bold text-charcoal-900 font-heading leading-snug">

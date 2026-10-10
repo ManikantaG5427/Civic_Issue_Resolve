@@ -26,10 +26,11 @@ import PriorityBadge from '../components/common/PriorityBadge';
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active Operational Tasks (Assigned + In Progress)' },
+  { value: 'rework', label: '⚠️ Rework Required (Quality Inspection Returned)' },
   { value: 'all', label: 'All Tasks' },
   { value: 'assigned', label: 'New Assigned Tasks' },
   { value: 'in_progress', label: 'In Progress (Active Repairs)' },
-  { value: 'resolved_verification_pending', label: 'Verification Pending' },
+  { value: 'completed', label: 'Completed (In Review / Verified)' },
   { value: 'closed', label: 'Closed' },
 ];
 
@@ -181,7 +182,7 @@ export default function WorkerDashboardPage() {
       </div>
 
       {/* KPI Workload Metrics Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         <button
           onClick={() => {
             setStatusFilter('assigned');
@@ -210,16 +211,36 @@ export default function WorkerDashboardPage() {
           }}
           className={`p-4 rounded-2xl border text-left transition ${
             statusFilter === 'in_progress'
-              ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-100'
+              ? 'bg-cyan-50 border-cyan-300 ring-2 ring-cyan-100'
               : 'bg-white border-slate-200 hover:border-slate-300 shadow-soft'
           }`}
         >
-          <div className="flex items-center justify-between text-xs text-amber-800 font-bold uppercase tracking-wider font-heading">
+          <div className="flex items-center justify-between text-xs text-cyan-800 font-bold uppercase tracking-wider font-heading">
             <span>In Progress</span>
-            <Wrench className="w-4 h-4 text-amber-700" />
+            <Wrench className="w-4 h-4 text-cyan-700" />
           </div>
           <div className="text-2xl font-bold text-slate-900 mt-1 font-heading">{metrics.inProgress}</div>
           <span className="text-xs text-slate-500">Active On Site</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setStatusFilter('rework');
+            setPriorityFilter('all');
+            setPage(1);
+          }}
+          className={`p-4 rounded-2xl border text-left transition ${
+            statusFilter === 'rework'
+              ? 'bg-amber-100 border-amber-400 ring-2 ring-amber-200'
+              : 'bg-amber-50/60 border-amber-200 hover:border-amber-300 shadow-soft'
+          }`}
+        >
+          <div className="flex items-center justify-between text-xs text-amber-900 font-bold uppercase tracking-wider font-heading">
+            <span>Rework Req</span>
+            <AlertTriangle className="w-4 h-4 text-amber-700" />
+          </div>
+          <div className="text-2xl font-bold text-amber-950 mt-1 font-heading">{metrics.reworkRequired || 0}</div>
+          <span className="text-xs text-amber-800">Inspection Failed</span>
         </button>
 
         <button
@@ -261,12 +282,12 @@ export default function WorkerDashboardPage() {
 
         <button
           onClick={() => {
-            setStatusFilter('resolved_verification_pending');
+            setStatusFilter('completed');
             setPriorityFilter('all');
             setPage(1);
           }}
-          className={`p-4 rounded-2xl border text-left col-span-2 sm:col-span-1 transition ${
-            statusFilter === 'resolved_verification_pending'
+          className={`p-4 rounded-2xl border text-left transition ${
+            statusFilter === 'completed'
               ? 'bg-green-50 border-green-300 ring-2 ring-green-100'
               : 'bg-white border-slate-200 hover:border-slate-300 shadow-soft'
           }`}
@@ -276,9 +297,9 @@ export default function WorkerDashboardPage() {
             <CheckCircle2 className="w-4 h-4 text-green-600" />
           </div>
           <div className="text-2xl font-bold text-slate-900 mt-1 font-heading">
-            {metrics.resolvedVerificationPending}
+            {(metrics.workCompleted || 0) + (metrics.resolvedVerificationPending || 0)}
           </div>
-          <span className="text-xs text-slate-500">Verification Pending</span>
+          <span className="text-xs text-slate-500">In Review / Verified</span>
         </button>
       </div>
 

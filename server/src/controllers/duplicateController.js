@@ -23,7 +23,7 @@ export const getNearbyDuplicates = async (req, res) => {
     }
 
     const query = {
-      status: { $nin: ['closed', 'rejected'] },
+      status: { $nin: ['closed', 'rejected', 'withdrawn'] },
       'location.coordinates': {
         $nearSphere: {
           $geometry: {
@@ -35,41 +35,81 @@ export const getNearbyDuplicates = async (req, res) => {
       },
     };
 
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    const recurrenceQuery = {
+      status: 'closed',
+      updatedAt: { $gte: ninetyDaysAgo },
+      'location.coordinates': {
+        $nearSphere: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [lng, lat],
+          },
+          $maxDistance: Math.max(distanceMeters, 200),
+        },
+      },
+    };
+
     if (category && mongoose.Types.ObjectId.isValid(category)) {
       query.category = category;
+      recurrenceQuery.category = category;
     }
 
-    const nearbyIssues = await Issue.find(query)
-      .populate('category', 'name icon code')
-      .populate('serviceArea', 'name code')
-      .select('issueNumber title description category status priority location evidence upvotes followers createdAt')
-      .limit(10);
+    const [nearbyIssues, pastClosedIssues] = await Promise.all([
+      Issue.find(query)
+        .populate('category', 'name icon code')
+        .populate('serviceArea', 'name code')
+        .select('issueNumber title description category status priority location evidence upvotes followers createdAt')
+        .limit(10),
+      Issue.find(recurrenceQuery)
+        .populate('category', 'name icon code')
+        .populate('serviceArea', 'name code')
+        .select('issueNumber title category status closureBasis verificationStatus location feedback updatedAt createdAt')
+        .limit(5),
+    ]);
+
+    const calculateDistance = (targetLat, targetLng) => {
+      const R = 6371e3;
+      const phi1 = (lat * Math.PI) / 180;
+      const phi2 = (targetLat * Math.PI) / 180;
+      const deltaPhi = ((targetLat - lat) * Math.PI) / 180;
+      const deltaLambda = ((targetLng - lng) * Math.PI) / 180;
+      const a =
+        Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+        Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return Math.round(R * c);
+    };
 
     // Calculate approximate distance in meters for each issue
     const duplicatesWithDistance = nearbyIssues.map((issue) => {
       const issueObj = issue.toObject();
       const [issueLng, issueLat] = issue.location?.coordinates || [lng, lat];
-
-      // Haversine formula approximation
-      const R = 6371e3; // metres
-      const phi1 = (lat * Math.PI) / 180;
-      const phi2 = (issueLat * Math.PI) / 180;
-      const deltaPhi = ((issueLat - lat) * Math.PI) / 180;
-      const deltaLambda = ((issueLng - lng) * Math.PI) / 180;
-
-      const a =
-        Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-        Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const distance = Math.round(R * c);
+      const distance = calculateDistance(issueLat, issueLng);
 
       return {
         ...issueObj,
         distanceMeters: distance,
         upvoteCount: issueObj.upvotes?.length || 0,
         followerCount: issueObj.followers?.length || 0,
-        hasUpvoted: issueObj.upvotes?.some((u) => u.toString() === req.user._id.toString()) || false,
-        hasFollowed: issueObj.followers?.some((f) => f.toString() === req.user._id.toString()) || false,
+        hasUpvoted: req.user?._id ? issueObj.upvotes?.some((u) => u.toString() === req.user._id.toString()) : false,
+        hasFollowed: req.user?._id ? issueObj.followers?.some((f) => f.toString() === req.user._id.toString()) : false,
+      };
+    });
+
+    const recurrenceAlerts = pastClosedIssues.map((pastIssue) => {
+      const issueObj = pastIssue.toObject();
+      const [issueLng, issueLat] = pastIssue.location?.coordinates || [lng, lat];
+      const distance = calculateDistance(issueLat, issueLng);
+      const daysAgo = Math.round((new Date() - new Date(pastIssue.updatedAt)) / (1000 * 60 * 60 * 24));
+
+      return {
+        ...issueObj,
+        distanceMeters: distance,
+        daysSinceClosure: daysAgo,
+        explanation: `A previous ${pastIssue.category?.name || 'civic'} issue (${pastIssue.issueNumber}) was closed ${daysAgo} days ago within ${distance}m under "${pastIssue.closureBasis?.replace(/_/g, ' ') || 'Resolved'}". This report may be a recurring infrastructure defect.`,
       };
     });
 
@@ -78,6 +118,7 @@ export const getNearbyDuplicates = async (req, res) => {
       count: duplicatesWithDistance.length,
       radiusMeters: distanceMeters,
       duplicates: duplicatesWithDistance,
+      recurrenceAlerts,
     });
   } catch (err) {
     console.error('[Nearby Duplicates Error]', err);

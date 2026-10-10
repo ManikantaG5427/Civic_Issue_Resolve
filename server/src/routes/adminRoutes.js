@@ -9,6 +9,8 @@ import {
   addWorkerToRoster,
   removeWorkerFromRoster,
   submitPhaseProof,
+  reviewEvidence,
+  closeNoResponse,
 } from '../controllers/adminController.js';
 import { triggerSlaCheck, getOverdueIssues } from '../controllers/slaController.js';
 import { getAdminAnalytics } from '../controllers/analyticsController.js';
@@ -53,6 +55,12 @@ router.post('/issues/:id/assign', assignIssue);
 // Multi-Worker Dispatch Management
 router.post('/issues/:id/workers', addWorkerToRoster);
 router.delete('/issues/:id/workers/:workerId', removeWorkerFromRoster);
+
+// Independent Reviewer Evidence Inspection & Verification (Evidence-Gated Workflow)
+router.post('/issues/:id/review-evidence', reviewEvidence);
+
+// Administrative Closure with No-Response
+router.post('/issues/:id/close-no-response', closeNoResponse);
 
 // 3-Phase Work Execution Proof
 router.post('/issues/:id/phase-proof', submitPhaseProof);

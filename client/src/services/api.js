@@ -242,6 +242,10 @@ export const adminAPI = {
     apiRequest(`/admin/issues/${id}/workers/${workerId}`, { method: 'DELETE' }),
   submitPhaseProof: (id, data) =>
     apiRequest(`/admin/issues/${id}/phase-proof`, { method: 'POST', body: JSON.stringify(data) }),
+  reviewEvidence: (id, data) =>
+    apiRequest(`/admin/issues/${id}/review-evidence`, { method: 'POST', body: JSON.stringify(data) }),
+  closeNoResponse: (id, data = {}) =>
+    apiRequest(`/admin/issues/${id}/close-no-response`, { method: 'POST', body: JSON.stringify(data) }),
   triggerSlaCheck: () =>
     apiRequest('/admin/sla/check-escalations', { method: 'POST' }),
   getOverdueIssues: () => apiRequest('/admin/sla/overdue'),

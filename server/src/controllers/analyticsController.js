@@ -46,7 +46,9 @@ export const getAdminAnalytics = async (req, res) => {
       verified: 0,
       assigned: 0,
       in_progress: 0,
+      work_completed: 0,
       resolved_verification_pending: 0,
+      rework_required: 0,
       closed: 0,
       rejected: 0,
       reopened: 0,
@@ -61,10 +63,93 @@ export const getAdminAnalytics = async (req, res) => {
       totalReported += item.count;
     });
 
-    const totalResolved = (statusCounts.resolved_verification_pending || 0) + (statusCounts.closed || 0);
+    const totalResolved =
+      (statusCounts.work_completed || 0) +
+      (statusCounts.resolved_verification_pending || 0) +
+      (statusCounts.closed || 0);
     const resolutionRate = totalReported > 0 ? Math.round((totalResolved / totalReported) * 100) : 0;
 
-    // 4. SLA & Escalation Metrics
+    // 4. Verification & Closure Integrity Metrics
+    const closureBasisAgg = await Issue.aggregate([
+      { $match: filter },
+      { $group: { _id: '$closureBasis', count: { $sum: 1 } } },
+    ]);
+
+    const closureBasis = {
+      citizen_confirmed: 0,
+      reviewer_verified_no_response: 0,
+      administrative_closure: 0,
+      administrative_duplicate: 0,
+      withdrawn: 0,
+      not_closed: 0,
+    };
+
+    closureBasisAgg.forEach((item) => {
+      if (item._id && closureBasis[item._id] !== undefined) {
+        closureBasis[item._id] = item.count;
+      }
+    });
+
+    const totalClosed = (statusCounts.closed || 0);
+    const citizenConfirmedCount = closureBasis.citizen_confirmed;
+    const noResponseClosureCount = closureBasis.reviewer_verified_no_response;
+    const citizenConfirmationRate =
+      totalClosed > 0 ? Math.round((citizenConfirmedCount / totalClosed) * 100) : 0;
+    const noResponseClosureRate =
+      totalClosed > 0 ? Math.round((noResponseClosureCount / totalClosed) * 100) : 0;
+
+    // Independent reviewer inspection metrics
+    const verificationStatusAgg = await Issue.aggregate([
+      { $match: filter },
+      { $group: { _id: '$verificationStatus', count: { $sum: 1 } } },
+    ]);
+
+    const verificationCounts = {
+      not_submitted: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      more_evidence_required: 0,
+      site_check_required: 0,
+    };
+
+    verificationStatusAgg.forEach((item) => {
+      if (item._id && verificationCounts[item._id] !== undefined) {
+        verificationCounts[item._id] = item.count;
+      }
+    });
+
+    const totalReviewed =
+      verificationCounts.approved +
+      verificationCounts.rejected +
+      verificationCounts.more_evidence_required +
+      verificationCounts.site_check_required;
+    const independentVerificationPassRate =
+      totalReviewed > 0 ? Math.round((verificationCounts.approved / totalReviewed) * 100) : 100;
+
+    // Citizen Dispute & Rework metrics
+    const disputedCount = await Issue.countDocuments({
+      ...filter,
+      $or: [
+        { citizenResponseStatus: 'disputed' },
+        { status: 'reopened' },
+        { status: 'rework_required' },
+      ],
+    });
+    const citizenDisputeRate =
+      totalResolved > 0 ? Math.round((disputedCount / totalResolved) * 100) : 0;
+
+    // Recurrence count
+    const recurrenceCount = await Issue.countDocuments({
+      ...filter,
+      $or: [
+        { duplicateType: 'recurrence' },
+        { isPotentialRecurrence: true },
+        { 'tags': 'recurrence' },
+      ],
+    });
+
+    // 5. SLA & Escalation Metrics
     const escalatedCount = await Issue.countDocuments({
       ...filter,
       isEscalated: true,
@@ -73,13 +158,14 @@ export const getAdminAnalytics = async (req, res) => {
     // Calculate Average Resolution Time (in hours) and SLA Compliance for closed/resolved issues
     const resolvedIssues = await Issue.find({
       ...filter,
-      status: { $in: ['resolved_verification_pending', 'closed'] },
-    }).select('createdAt updatedAt slaDeadline assignedAt isEscalated feedback');
+      status: { $in: ['work_completed', 'resolved_verification_pending', 'closed'] },
+    }).select('createdAt updatedAt slaDeadline assignedAt isEscalated feedback resolutionProof');
 
     let totalResolutionHours = 0;
     let slaCompliantCount = 0;
     let totalRatings = 0;
     let sumRatings = 0;
+    let withProofCount = 0;
 
     resolvedIssues.forEach((issue) => {
       const startTime = issue.assignedAt || issue.createdAt;
@@ -97,15 +183,21 @@ export const getAdminAnalytics = async (req, res) => {
         sumRatings += issue.feedback.rating;
         totalRatings++;
       }
+
+      if (issue.resolutionProof?.afterPhotos && issue.resolutionProof.afterPhotos.length > 0) {
+        withProofCount++;
+      }
     });
 
+    const evidenceCompletenessRate =
+      resolvedIssues.length > 0 ? Math.round((withProofCount / resolvedIssues.length) * 100) : 0;
     const avgResolutionTimeHours =
       resolvedIssues.length > 0 ? (totalResolutionHours / resolvedIssues.length).toFixed(1) : '0.0';
     const slaComplianceRate =
       resolvedIssues.length > 0 ? Math.round((slaCompliantCount / resolvedIssues.length) * 100) : 100;
     const avgCitizenRating = totalRatings > 0 ? (sumRatings / totalRatings).toFixed(1) : '5.0';
 
-    // 5. Category Breakdown Aggregation
+    // 6. Category Breakdown Aggregation
     const categoryAgg = await Issue.aggregate([
       { $match: filter },
       { $group: { _id: '$category', count: { $sum: 1 } } },
@@ -135,7 +227,7 @@ export const getAdminAnalytics = async (req, res) => {
       percentage: totalReported > 0 ? Math.round((c.count / totalReported) * 100) : 0,
     }));
 
-    // 6. Department Performance Breakdown
+    // 7. Department Performance Breakdown
     const departments = await Department.find({ isActive: true }).select('name code');
     const departmentPerformance = await Promise.all(
       departments.map(async (dept) => {
@@ -143,7 +235,7 @@ export const getAdminAnalytics = async (req, res) => {
         const assigned = await Issue.countDocuments(deptFilter);
         const resolved = await Issue.countDocuments({
           ...deptFilter,
-          status: { $in: ['resolved_verification_pending', 'closed'] },
+          status: { $in: ['work_completed', 'resolved_verification_pending', 'closed'] },
         });
         const escalated = await Issue.countDocuments({
           ...deptFilter,
@@ -162,7 +254,7 @@ export const getAdminAnalytics = async (req, res) => {
       })
     );
 
-    // 7. Field Worker Leaderboard
+    // 8. Field Worker Leaderboard
     const workers = await User.find({ role: 'field_worker', isActive: true }).select('name email');
     const workerLeaderboard = await Promise.all(
       workers.map(async (worker) => {
@@ -176,7 +268,7 @@ export const getAdminAnalytics = async (req, res) => {
 
         const assigned = workerTasks.length;
         const completed = workerTasks.filter((t) =>
-          ['resolved_verification_pending', 'closed'].includes(t.status)
+          ['work_completed', 'resolved_verification_pending', 'closed'].includes(t.status)
         ).length;
 
         let ratingSum = 0;
@@ -216,14 +308,26 @@ export const getAdminAnalytics = async (req, res) => {
         inProgress:
           (statusCounts.in_progress || 0) +
           (statusCounts.assigned || 0) +
-          (statusCounts.verified || 0),
+          (statusCounts.verified || 0) +
+          (statusCounts.rework_required || 0),
+        evidenceReviewPending:
+          (statusCounts.work_completed || 0) +
+          (verificationCounts.pending || 0),
         resolutionRate,
+        evidenceCompletenessRate,
+        independentVerificationPassRate,
+        citizenConfirmationRate,
+        noResponseClosureRate,
+        citizenDisputeRate,
+        recurrenceCount,
         avgResolutionTimeHours: parseFloat(avgResolutionTimeHours),
         slaComplianceRate,
         escalatedCount,
         citizenSatisfactionScore: parseFloat(avgCitizenRating),
       },
       statusDistribution: statusCounts,
+      closureBasisBreakdown: closureBasis,
+      verificationDistribution: verificationCounts,
       categoriesBreakdown,
       departmentPerformance,
       workerLeaderboard: workerLeaderboard.slice(0, 10),

@@ -183,12 +183,33 @@ const issueSchema = new mongoose.Schema(
         'rejected',
         'assigned',
         'in_progress',
+        'work_completed',
+        'evidence_submitted',
+        'rework_required',
         'resolved_verification_pending',
         'closed',
         'reopened',
         'withdrawn',
       ],
       default: 'submitted',
+      index: true,
+    },
+    verificationStatus: {
+      type: String,
+      enum: ['not_submitted', 'pending', 'approved', 'rejected', 'more_evidence_required', 'site_check_required'],
+      default: 'not_submitted',
+      index: true,
+    },
+    citizenResponseStatus: {
+      type: String,
+      enum: ['not_requested', 'pending', 'confirmed', 'disputed', 'no_response', 'undeliverable'],
+      default: 'not_requested',
+      index: true,
+    },
+    closureBasis: {
+      type: String,
+      enum: ['not_closed', 'citizen_confirmed', 'reviewer_verified_no_response', 'administrative_duplicate', 'administrative_closure', 'withdrawn'],
+      default: 'not_closed',
       index: true,
     },
     priority: {
@@ -352,6 +373,67 @@ const issueSchema = new mongoose.Schema(
         type: Date,
         default: null,
       },
+    },
+    verificationReview: {
+      reviewer: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null,
+      },
+      outcome: {
+        type: String,
+        enum: ['approved', 'rejected', 'rework_required', 'more_evidence_required', 'site_check_required', null],
+        default: null,
+      },
+      reasonCode: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      reviewerNote: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      checklist: [
+        {
+          item: { type: String, required: true },
+          checked: { type: Boolean, default: false },
+          notes: { type: String, default: '' },
+        },
+      ],
+      reviewedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+    citizenDispute: {
+      reason: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      comments: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      disputedAt: {
+        type: Date,
+        default: null,
+      },
+      disputedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null,
+      },
+      photos: [
+        {
+          url: { type: String, required: true },
+          filename: { type: String, default: '' },
+          uploadedAt: { type: Date, default: Date.now },
+        },
+      ],
     },
     comments: [commentSchema],
     followers: [

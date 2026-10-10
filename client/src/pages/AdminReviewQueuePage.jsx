@@ -34,12 +34,15 @@ import EmptyState from '../components/feedback/EmptyState';
 
 const STATUS_OPTIONS = [
   { value: 'triage', label: 'Actionable Triage (Pending Review)' },
+  { value: 'evidence_review', label: '🔍 Evidence Inspection Queue (Work Completed)' },
   { value: 'all', label: 'All Statuses' },
   { value: 'submitted', label: 'Submitted (New)' },
   { value: 'under_review', label: 'Under Review' },
   { value: 'assigned', label: 'Worker Assigned' },
   { value: 'in_progress', label: 'In Progress' },
-  { value: 'resolved_verification_pending', label: 'Verification Pending' },
+  { value: 'work_completed', label: 'Work Completed (Pending Inspection)' },
+  { value: 'rework_required', label: 'Rework Required' },
+  { value: 'resolved_verification_pending', label: 'Awaiting Citizen Confirmation' },
   { value: 'closed', label: 'Closed' },
   { value: 'withdrawn', label: 'Withdrawn' },
   { value: 'rejected', label: 'Rejected' },
@@ -550,7 +553,7 @@ export default function AdminReviewQueuePage() {
       {/* CIVIC ISSUES QUEUE TAB CONTENT */}
       {(activeTab === 'issues' || user?.role !== 'super_admin') && (
         <>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
         <Card className="p-4 sm:p-5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -562,6 +565,19 @@ export default function AdminReviewQueuePage() {
             {metrics.pendingTriage || 0}
           </div>
           <div className="text-xs text-brand-700 font-semibold mt-1">Requires review</div>
+        </Card>
+
+        <Card className="p-4 sm:p-5 border-l-4 border-l-blue-600">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-blue-900">
+              Inspection Queue
+            </span>
+            <ShieldCheck className="w-4 h-4 text-blue-600" />
+          </div>
+          <div className="text-2xl sm:text-3xl font-extrabold text-blue-900 font-heading mt-1">
+            {metrics.evidenceReviewPending || 0}
+          </div>
+          <div className="text-xs text-blue-700 font-semibold mt-1">Work complete proof</div>
         </Card>
 
         <Card className="p-4 sm:p-5">

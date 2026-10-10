@@ -17,14 +17,18 @@ import {
   Menu,
   X,
   Pin,
+  Languages,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import NotificationPopover from './NotificationPopover';
 
 export default function HoverableSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuth();
+
+  const { language, toggleLanguage } = useLanguage();
 
   const [isPinned, setIsPinned] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -108,6 +112,17 @@ export default function HoverableSidebar() {
         </Link>
 
         <div className="flex items-center gap-2">
+          {/* Language Toggle */}
+          <button
+            type="button"
+            onClick={toggleLanguage}
+            className="px-2.5 py-1 rounded-lg bg-[#F5F5F7] border border-[#E5E5E7] text-xs font-semibold text-slate-700 flex items-center gap-1 hover:bg-[#E8E8ED] transition"
+            title="Switch Language (English / తెలుగు)"
+          >
+            <Languages className="w-3.5 h-3.5 text-brand-700" />
+            <span>{language === 'en' ? 'తెలుగు' : 'English'}</span>
+          </button>
+
           {isAuthenticated && <NotificationPopover />}
           <button
             type="button"
@@ -258,8 +273,28 @@ export default function HoverableSidebar() {
           ))}
         </div>
 
-        {/* Bottom User Profile & Auth Section */}
+        {/* Bottom User Profile, Language & Auth Section */}
         <div className="p-3 border-t border-[#E5E5E7] bg-[#FAFAFC] space-y-2">
+          {/* Language Switcher Pill */}
+          <button
+            type="button"
+            onClick={toggleLanguage}
+            className={`w-full p-2 rounded-lg bg-[#FFFFFF] hover:bg-[#F5F5F7] text-slate-700 text-xs font-semibold border border-[#E5E5E7] transition flex items-center gap-2 ${
+              isExpanded ? 'justify-between px-3' : 'justify-center px-0'
+            }`}
+            title="Switch Language (English / తెలుగు)"
+          >
+            <div className="flex items-center gap-2">
+              <Languages className="w-3.5 h-3.5 text-brand-700" />
+              {isExpanded && <span>{language === 'en' ? 'తెలుగు (Telugu)' : 'English'}</span>}
+            </div>
+            {isExpanded && (
+              <span className="text-[10px] uppercase font-bold text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded border border-brand-200">
+                {language.toUpperCase()}
+              </span>
+            )}
+          </button>
+
           {isAuthenticated ? (
             <div className="space-y-2">
               {isExpanded ? (
